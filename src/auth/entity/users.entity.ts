@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Materials } from 'src/meterials/entity/materials.entity';
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 
 @Entity()
 export class Users {
@@ -10,4 +11,8 @@ export class Users {
 
   @Column({ type: 'text', name: 'password' })
   password: string;
+
+  // one to many meterial
+  @OneToMany(() => Materials, (meterials) => meterials.user)
+  meterials: Materials[];
 }

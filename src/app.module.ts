@@ -7,6 +7,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Users } from './auth/entity/users.entity';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
+import { MeterialsService } from './meterials/materials.service';
+import { MeterialsModule } from './meterials/materials.module';
+import { MeterialItemsService } from './meterial-items/meterial-items.service';
+import { Materials } from './meterials/entity/materials.entity';
+import { MeterialItems } from './meterial-items/entity/meterial-item.entity';
+import { MaterialsController } from './meterials/materials.controller';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -19,12 +25,13 @@ import { ConfigModule } from '@nestjs/config';
       username: 'postgres',
       password: 'hgminh523',
       database: 'postgres',
-      entities: [Users],
+      entities: [Users, Materials, MeterialItems],
       synchronize: true,
     }),
     AuthModule,
+    MeterialsModule,
   ],
-  controllers: [AppController, AuthController],
-  providers: [AppService, AuthService],
+  controllers: [AppController, AuthController, MaterialsController],
+  providers: [AppService, AuthService, MeterialsService, MeterialItemsService],
 })
 export class AppModule {}

@@ -47,7 +47,7 @@ export class AuthService {
       if (!isPasswordMatching) {
         throw new UnauthorizedException();
       }
-      const token = await this.createToken(user.id);
+      const token = await this.createToken(user);
       return {
         token: token,
       };
@@ -64,9 +64,9 @@ export class AuthService {
     }
   }
 
-  async createToken(userId: number) {
+  async createToken(user: Users) {
     return this.jwtService.sign({
-      userId,
+      user,
     });
   }
 }

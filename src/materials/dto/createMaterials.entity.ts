@@ -5,6 +5,9 @@ export class CreateOrUpdateMaterialDto {
   @IsInt()
   id?: number;
 
+  @IsInt()
+  materialId: number;
+  
   @IsString()
   name: string;
 

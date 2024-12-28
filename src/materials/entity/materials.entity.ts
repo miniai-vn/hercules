@@ -1,7 +1,7 @@
 // defind meterials entity
 
 import { Users } from 'src/auth/entity/users.entity';
-import { MeterialItems } from 'src/meterial-items/entity/meterial-item.entity';
+import { MaterialItems } from 'src/material-items/entity/material-item.entity';
 import {
   Column,
   Entity,
@@ -47,8 +47,8 @@ export class Materials {
   })
   updateAt: Date;
 
-  @OneToMany(() => MeterialItems, (meterialItems) => meterialItems.meterial)
-  meterialItems: MeterialItems[];
+  @OneToMany(() => MaterialItems, (meterialItems) => meterialItems.material)
+  materialItems: MaterialItems[];
 
   // many to one user
   @ManyToOne(() => Users, (user) => user.meterials)

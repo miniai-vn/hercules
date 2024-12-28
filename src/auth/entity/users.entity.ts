@@ -1,4 +1,4 @@
-import { Materials } from 'src/meterials/entity/materials.entity';
+import { Materials } from 'src/materials/entity/materials.entity';
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 
 @Entity()

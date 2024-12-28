@@ -23,7 +23,7 @@ export class MeterialsService {
   }
 
   async findAll({ userId }: { userId: number }) {
-    return this.materialsRepository.find({ where: { user: { id: userId } } });
+    return this.materialsRepository.find();
   }
 
   async findOne(id: number) {

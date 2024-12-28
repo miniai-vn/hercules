@@ -7,16 +7,26 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Users } from './auth/entity/users.entity';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
-import { MeterialsService } from './meterials/materials.service';
-import { MeterialsModule } from './meterials/materials.module';
-import { MeterialItemsService } from './meterial-items/meterial-items.service';
-import { Materials } from './meterials/entity/materials.entity';
-import { MeterialItems } from './meterial-items/entity/meterial-item.entity';
-import { MaterialsController } from './meterials/materials.controller';
+import { Materials } from './materials/entity/materials.entity';
+import { MaterialItems } from './material-items/entity/material-item.entity';
+import { MeterialsModule } from './materials/materials.module';
+import { MaterialsController } from './materials/materials.controller';
+import { MeterialsService } from './materials/materials.service';
+import { MaterialItemsController } from './material-items/material-items.controller';
+import { MaterialItemsService } from './material-items/material-items.service';
+import { MaterialItemsModule } from './material-items/material-items.module';
+import { VectorServiceModule } from './vector-service/vector-service.module';
+import { DataExtractionModule } from './data-extraction/data-extraction.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads', // Optional, default is root
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -25,13 +35,21 @@ import { MaterialsController } from './meterials/materials.controller';
       username: 'postgres',
       password: 'hgminh523',
       database: 'postgres',
-      entities: [Users, Materials, MeterialItems],
+      entities: [Users, Materials, MaterialItems],
       synchronize: true,
     }),
     AuthModule,
     MeterialsModule,
+    MaterialItemsModule,
+    VectorServiceModule,
+    DataExtractionModule,
   ],
-  controllers: [AppController, AuthController, MaterialsController],
-  providers: [AppService, AuthService, MeterialsService, MeterialItemsService],
+  controllers: [
+    AppController,
+    AuthController,
+    MaterialsController,
+    MaterialItemsController,
+  ],
+  providers: [AppService, AuthService, MeterialsService, MaterialItemsService],
 })
 export class AppModule {}

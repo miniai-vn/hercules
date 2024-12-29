@@ -15,7 +15,7 @@ export class MeterialsService {
   createMeterials(input: CreateOrUpdateMaterialDto) {
     try {
       const meterials = this.materialsRepository.create(input);
-
+      console.log(meterials);
       return this.materialsRepository.save(meterials);
     } catch (error) {
       throw new Error(error);

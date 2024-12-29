@@ -5,7 +5,6 @@ import { AuthController } from './auth.controller';
 import { Users } from './entity/users.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-console.log(process.env.SECRET_KEY)
 @Module({
   imports: [
     ConfigModule.forRoot({

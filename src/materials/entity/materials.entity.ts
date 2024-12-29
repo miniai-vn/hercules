@@ -21,7 +21,7 @@ export class Materials {
 
   @Column({
     type: 'text',
-    nullable: false,
+    nullable: true,
   })
   description: string;
 
@@ -51,7 +51,7 @@ export class Materials {
   materialItems: MaterialItems[];
 
   // many to one user
-  @ManyToOne(() => Users, (user) => user.meterials)
-  @JoinColumn({ name: 'user_id' })
-  user: Users;
+  // @ManyToOne(() => Users, (user) => user.meterials)
+  // @JoinColumn({ name: 'user_id' })
+  // user: Users;
 }

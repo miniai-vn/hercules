@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
 import { CreateOrUpdateMaterialItemDto } from './dto/createOrUpdateMaterialItem.dto';
 import { MaterialItemsService } from './material-items.service';
 @Controller('material-items')
@@ -25,7 +25,6 @@ export class MaterialItemsController {
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, callback) => {
-          console.log(req.body);
           const uniqueSuffix =
             Date.now() + '-' + Math.round(Math.random() * 1e9);
           const ext = extname(file.originalname);
@@ -35,9 +34,14 @@ export class MaterialItemsController {
     }),
   )
   uploadFile(@UploadedFile() file: Express.Multer.File) {
-    console.log('File uploaded:', file);
-    return { message: 'File uploaded successfully', file };
+    return {
+      message: 'File uploaded successfully',
+      data: {
+        file: join(__dirname, '../../', 'uploads', file.filename),
+      },
+    };
   }
+
   @Get()
   @HttpCode(HttpStatus.OK)
   getAll() {

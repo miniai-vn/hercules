@@ -1,5 +1,3 @@
-// defind meterials entity with one to many relation with meterial items entity
-
 import { Materials } from 'src/materials/entity/materials.entity';
 import {
   Column,
@@ -72,7 +70,9 @@ export class MaterialItems {
   })
   materialId: number;
 
-  @ManyToOne(() => Materials, (matarial) => matarial.materialItems)
+  @ManyToOne(() => Materials, (matarial) => matarial.materialItems, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'material_id' })
   material: Materials;
 }

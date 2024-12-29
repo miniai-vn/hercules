@@ -13,7 +13,6 @@ export class MaterialItemsService {
     private readonly vectorService: VectorServiceService,
   ) {}
   async createMaterialItem(input: CreateOrUpdateMaterialItemDto) {
-    console.log('input', input);
     const materialItem = this.materialItemsRepository.create({
       ...input,
       isSync: false,

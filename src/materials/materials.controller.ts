@@ -28,7 +28,13 @@ export class MaterialsController {
     @Body() input: CreateOrUpdateMaterialDto,
   ) {
     const user = request['user'];
-    return await this.meterialsService.createMeterials({ ...input, user });
+    return {
+      message: 'Success',
+      data: await this.meterialsService.createMeterials({
+        ...input,
+        user,
+      }),
+    };
   }
 
   // api get all meterials
@@ -36,7 +42,10 @@ export class MaterialsController {
   @HttpCode(HttpStatus.OK)
   @Get('/')
   async getAllMeterials(@Body() user: any) {
-    return await this.meterialsService.findAll({ userId: user.id });
+    return {
+      message: 'Success',
+      data: await this.meterialsService.findAll(user),
+    };
   }
 
   // api get meterial by id

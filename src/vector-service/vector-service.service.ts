@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ChromaClient } from 'chromadb';
 import { DataExtractionService } from 'src/data-extraction/data-extraction.service';
 import { MaterialItems } from 'src/material-items/entity/material-item.entity';
+import { delayMiliseconds } from 'src/utils';
 
 @Injectable()
 export class VectorServiceService {
@@ -11,8 +12,22 @@ export class VectorServiceService {
     this.choromaClient = new ChromaClient();
   }
 
-  query(collectionName: string, query: any) {
-    return this.collection.query(collectionName, query);
+  async query(collectionName: string, query: any) {
+    try {
+      const collection = await this.choromaClient.getOrCreateCollection({
+        name: 'material',
+      });
+      const results = await collection.query({
+        queryTexts: query, // Chroma will embed this for you
+        nResults: 1, // how many results to return
+      });
+      // const documents = results.map((result) => result.document);
+      return results.documents;
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Error while querying data from vector db',
+      });
+    }
   }
 
   async insertDocument(collectionName: string, document: string[]) {
@@ -20,26 +35,82 @@ export class VectorServiceService {
   }
 
   async syncDataToVectoDb(data: MaterialItems) {
-    const { material, text, file, url } = data;
-    const collection = await this.choromaClient.getOrCreateCollection({
-      name: 'material',
-    });
-    // await this.choromaClient.deleteCollection(collection);
+    try {
+      const { material, text, file, url } = data;
+      const collection = await this.choromaClient.getOrCreateCollection({
+        name: 'material',
+      });
+      // await this.choromaClient.deleteCollection(collection);
+      let chunkText: string[];
+      let ids: string[];
+      if (text) {
+        const chunkText = text
+          .replace(/\n/g, '')
+          .split('.')
+          .filter((item) => item.length > 0);
+        // random id with 10 digits for each chunk
+        ids = chunkText.map(
+          () => 'id' + Math.floor(1000000000 + Math.random() * 9000000000),
+        );
+        for (let i = 0; i < chunkText.length; i += 10) {
+          const partialText = chunkText.slice(i, i + 10);
+          const ids = partialText.map(
+            () => 'id' + Math.floor(1000000000 + Math.random() * 9000000000),
+          );
 
-    if (text) {
-      const chunkText = text
-        .replace(/\n/g, '')
-        .split('.')
-        .filter((item) => item.length > 0);
-      console.log('chunkText', chunkText);
+          await collection.upsert({
+            documents: partialText,
+            ids: ids,
+          });
+
+          delayMiliseconds(Math.floor(Math.random() * 1000));
+        }
+      }
+
+      if (file) {
+        chunkText = await this.dataExtractorService.syncDataFromPdf(file);
+        ids = chunkText.map(
+          () => 'id' + Math.floor(1000000000 + Math.random() * 9000000000),
+        );
+        for (let i = 0; i < chunkText.length; i += 10) {
+          const partialText = chunkText.slice(i, i + 10);
+          const ids = partialText.map(
+            () => 'id' + Math.floor(1000000000 + Math.random() * 9000000000),
+          );
+
+          await collection.upsert({
+            documents: partialText,
+            ids: ids,
+          });
+
+          delayMiliseconds(Math.floor(Math.random() * 1000));
+        }
+      }
+
+      if (url) {
+        chunkText = await this.dataExtractorService.syncDataFromUrl(url);
+        ids = chunkText.map(
+          () => 'id' + Math.floor(1000000000 + Math.random() * 9000000000),
+        );
+        for (let i = 0; i < chunkText.length; i += 10) {
+          const partialText = chunkText.slice(i, i + 10);
+          const ids = partialText.map(
+            () => 'id' + Math.floor(1000000000 + Math.random() * 9000000000),
+          );
+
+          await collection.upsert({
+            documents: partialText,
+            ids: ids,
+          });
+
+          delayMiliseconds(Math.floor(Math.random() * 1000));
+        }
+      }
+      return true;
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Error while syncing data to vector db',
+      });
     }
-
-    if (file) {
-      const fileChunks = await this.dataExtractorService.readPdfToText(text);
-    }
-
-    // if (url) {
-    //   const urlChunks = await this.dataExtractorService.readUrlToText(url);
-    // }
   }
 }

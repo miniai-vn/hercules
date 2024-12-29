@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
-import cheerio from 'cheerio';
-// import * as pdfjsLib from 'pdfjs-dist';
+import * as fs from 'fs';
+import * as pdfParse from 'pdf-parse';
+import * as cheerio from 'cheerio';
 @Injectable()
 export class DataExtractionService {
   private chunkString(text: string) {
@@ -12,41 +13,24 @@ export class DataExtractionService {
     return check;
   }
 
-  private replaceAllHtmlTags(text: string) {
-    return text.replace(/<[^>]*>/g, '');
+  async syncDataFromPdf(filePath: string): Promise<string[]> {
+    const dataBuffer = fs.readFileSync(filePath);
+    const pdfData = await pdfParse(dataBuffer);
+    const concatenatedText = pdfData.text.replace(/\s+/g, ' ').trim();
+    const chunks = this.chunkString(concatenatedText);
+    return chunks;
   }
 
-  async readPdfToText(pdfPath: string): Promise<string[]> {
-    // const loadingTask = pdfjsLib.getDocument(pdfPath);
-    // const pdf = await loadingTask.promise;
-
-    // const numPages = pdf.numPages;
-
-    // const page = await pdf.getPage(1);
-    // const textContent = await page.getTextContent();
-    // const textItems = textContent.items.map((item) => item.str).join(' ');
-
-    // return this.chunkString(textItems);
-    return [];
-  }
-
-  async crawlDataFromUrl(url: string) {
+  async syncDataFromUrl(url: string) {
     try {
-      // Fetch the HTML of the page
-      const response = await axios.get(url);
-      const $ = cheerio.load(response.data);
+      const { data } = await axios.get(url);
+      const $ = cheerio.load(data);
 
-      const allElements = [];
-      $('*').each((index, element) => {
-        allElements.push($(element).prop('outerHTML'));
-      });
+      const textContent = $('body').text().replace(/\s+/g, ' ').trim();
 
-      const allElementsText = allElements.join(' ');
-      const text = this.replaceAllHtmlTags(allElementsText);
-      const chunks = this.chunkString(text);
+      const chunks = this.chunkString(textContent);
       return chunks;
     } catch (error) {
-      console.error('Error fetching the page:', error);
     }
   }
 }

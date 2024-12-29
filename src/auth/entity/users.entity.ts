@@ -13,6 +13,6 @@ export class Users {
   password: string;
 
   // one to many meterial
-  @OneToMany(() => Materials, (meterials) => meterials.user)
-  meterials: Materials[];
+  // @OneToMany(() => Materials, (meterials) => meterials.user)
+  // meterials: Materials[];
 }

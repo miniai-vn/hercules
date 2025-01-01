@@ -17,11 +17,18 @@ export class VectorServiceService {
       const collection = await this.choromaClient.getOrCreateCollection({
         name: 'material',
       });
+      const chunkQuery = await this.dataExtractorService.recursiveCharaterSplit(
+        {
+          text: query,
+          chunkSize: 100,
+          chunkOverlap: 10,
+        },
+      );
       const results = await collection.query({
-        queryTexts: query, // Chroma will embed this for you
-        nResults: 1, // how many results to return
+        queryTexts: chunkQuery,
+        nResults: 2,
       });
-      // const documents = results.map((result) => result.document);
+
       return results.documents;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -40,6 +47,7 @@ export class VectorServiceService {
       const collection = await this.choromaClient.getOrCreateCollection({
         name: 'material',
       });
+
       // await this.choromaClient.deleteCollection(collection);
       let chunkText: string[];
       let ids: string[];

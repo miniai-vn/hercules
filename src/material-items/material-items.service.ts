@@ -72,7 +72,7 @@ export class MaterialItemsService {
     }
 
     materialItem.isSync = true;
-    this.vectorService.syncDataToVectoDb(materialItem);
+    await this.vectorService.syncDataToVectoDb(materialItem);
     return await this.materialItemsRepository.save(materialItem);
   }
 }

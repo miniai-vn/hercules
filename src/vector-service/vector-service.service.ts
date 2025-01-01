@@ -1,6 +1,7 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ChromaClient } from 'chromadb';
 import { DataExtractionService } from 'src/data-extraction/data-extraction.service';
+import { LlmServiceService } from 'src/llm-service/llm-service.service';
 import { MaterialItems } from 'src/material-items/entity/material-item.entity';
 import { delayMiliseconds } from 'src/utils';
 
@@ -8,11 +9,14 @@ import { delayMiliseconds } from 'src/utils';
 export class VectorServiceService {
   choromaClient: ChromaClient;
   collection: any;
-  constructor(private readonly dataExtractorService: DataExtractionService) {
+  constructor(
+    private readonly llmServiceService: LlmServiceService,
+    private readonly dataExtractorService: DataExtractionService,
+  ) {
     this.choromaClient = new ChromaClient();
   }
 
-  async query(collectionName: string, query: any) {
+  async query(query: any) {
     try {
       const collection = await this.choromaClient.getOrCreateCollection({
         name: 'material',
@@ -37,18 +41,14 @@ export class VectorServiceService {
     }
   }
 
-  async insertDocument(collectionName: string, document: string[]) {
-    await this.collection.add(collectionName, document);
-  }
-
   async syncDataToVectoDb(data: MaterialItems) {
     try {
       const { material, text, file, url } = data;
       const collection = await this.choromaClient.getOrCreateCollection({
         name: 'material',
       });
-
       // await this.choromaClient.deleteCollection(collection);
+      this.llmServiceService.generateTools();
       let chunkText: string[];
       let ids: string[];
       if (text) {

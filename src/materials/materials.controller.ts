@@ -44,7 +44,7 @@ export class MaterialsController {
   async getAllMeterials(@Body() user: any) {
     return {
       message: 'Success',
-      data: await this.meterialsService.findAll(user),
+      data: await this.meterialsService.findAll(),
     };
   }
 

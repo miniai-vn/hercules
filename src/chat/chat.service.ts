@@ -17,26 +17,29 @@ export class ChatService {
 
   async sendChat(input: CreateMessageDto) {
     try {
+      let llmResult: string = '';
       const { content } = input;
       this.saveMessage({
         content: content,
         isBot: false,
       });
-      const queruResult = await this.vectorServiceService.query(
-        'material',
-        content,
-      );
-      const llmResult = await this.llmServiceService.generateText(
-        queruResult.flat()[0],
-      );
+      const { tool } = await this.llmServiceService.callTool(content);
+      if (tool) {
+        const queruResult = await this.vectorServiceService.query(content);
+        console.log('queruResult', queruResult);
+        llmResult = await this.llmServiceService.generateText(
+          queruResult.flat()[0],
+        );
+        console.log('llmResult', llmResult);
+      }
       this.saveMessage({
         content: llmResult,
         isBot: true,
       });
-      return { queruResult, llmResult };
+      return { llmResult };
     } catch (error) {
       throw new InternalServerErrorException({
-        message: 'Error in chat service',
+        message: error.message,
       });
     }
   }

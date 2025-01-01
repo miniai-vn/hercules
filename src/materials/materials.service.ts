@@ -1,9 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Materials } from './entity/materials.entity';
 import { Repository } from 'typeorm';
-import { create } from 'domain';
 import { CreateOrUpdateMaterialDto } from './dto/createMaterials.entity';
+import { Materials } from './entity/materials.entity';
 
 @Injectable()
 export class MeterialsService {
@@ -22,7 +21,7 @@ export class MeterialsService {
     }
   }
 
-  async findAll({ userId }: { userId: number }) {
+  async findAll() {
     return this.materialsRepository.find();
   }
 

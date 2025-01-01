@@ -19,6 +19,7 @@ export class DataExtractionService {
     const splitter = new RecursiveCharacterTextSplitter({
       chunkSize,
       chunkOverlap,
+      separators: ['\n', ' ', '.', ','],
     });
 
     const docOutput = await splitter.splitDocuments([
@@ -40,6 +41,7 @@ export class DataExtractionService {
     });
     return chunks;
   }
+  x;
 
   async syncDataFromUrl(url: string) {
     try {

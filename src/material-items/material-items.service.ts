@@ -21,20 +21,6 @@ export class MaterialItemsService {
     return await this.materialItemsRepository.save(materialItem);
   }
 
-  async updateMaterialItem(
-    id: number,
-    input: CreateOrUpdateMaterialItemDto,
-  ): Promise<MaterialItems> {
-    const materialItem = await this.materialItemsRepository.findOne({
-      where: { id },
-    });
-    if (!materialItem) {
-      throw new Error('Material item not found');
-    }
-    this.materialItemsRepository.merge(materialItem, input);
-    return await this.materialItemsRepository.save(materialItem);
-  }
-
   async deleteMaterialItem(id: number): Promise<boolean> {
     const materialItem = await this.materialItemsRepository.findOne({
       where: { id },
@@ -44,16 +30,6 @@ export class MaterialItemsService {
     }
     await this.materialItemsRepository.delete(id);
     return true;
-  }
-
-  async getMaterialItem(id: number): Promise<MaterialItems> {
-    const materialItem = await this.materialItemsRepository.findOne({
-      where: { id },
-    });
-    if (!materialItem) {
-      throw new Error('Material item not found');
-    }
-    return materialItem;
   }
 
   async getMaterialItems(): Promise<MaterialItems[]> {

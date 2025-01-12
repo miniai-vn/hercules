@@ -9,9 +9,7 @@ import { AuthController } from './auth/auth.controller';
 import { AuthModule } from './auth/auth.module';
 import { AuthService } from './auth/auth.service';
 import { Users } from './auth/entity/users.entity';
-import { ChatModule } from './chat/chat.module';
-import { DataExtractionModule } from './data-extraction/data-extraction.module';
-import { LlmServiceModule } from './llm-service/llm-service.module';
+import { ConversationsModule } from './conversations/conversations.module';
 import { MaterialItems } from './material-items/entity/material-item.entity';
 import { MaterialItemsController } from './material-items/material-items.controller';
 import { MaterialItemsModule } from './material-items/material-items.module';
@@ -20,8 +18,11 @@ import { Materials } from './materials/entity/materials.entity';
 import { MaterialsController } from './materials/materials.controller';
 import { MeterialsModule } from './materials/materials.module';
 import { MeterialsService } from './materials/materials.service';
-import { VectorServiceModule } from './vector-service/vector-service.module';
-import { Messages } from './chat/entity/messages.entity';
+import { MessagesModule } from './messages/messages.module';
+import { SqlAgentModule } from './sql-agent/sql-agent.module';
+import { SqlAgentService } from './sql-agent/sql-agent.service';
+import { Conversation } from './conversations/entities/conversation.entity';
+import { Message } from './messages/entities/messages';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -35,19 +36,18 @@ import { Messages } from './chat/entity/messages.entity';
       type: 'postgres',
       host: 'localhost',
       port: 5432,
-      username: 'postgres',
-      password: 'hgminh523',
-      database: 'postgres',
-      entities: [Users, Materials, MaterialItems, Messages],
+      username: process.env.DATABASE_USER,
+      password: process.env.DATABASE_PASSWORD,
+      database: process.env.DATABASE_NAME,
+      entities: [Users, Materials, MaterialItems, Conversation, Message],
       synchronize: true,
     }),
     AuthModule,
     MeterialsModule,
     MaterialItemsModule,
-    VectorServiceModule,
-    DataExtractionModule,
-    ChatModule,
-    LlmServiceModule,
+    SqlAgentModule,
+    ConversationsModule,
+    MessagesModule,
   ],
   controllers: [
     AppController,
@@ -55,6 +55,12 @@ import { Messages } from './chat/entity/messages.entity';
     MaterialsController,
     MaterialItemsController,
   ],
-  providers: [AppService, AuthService, MeterialsService, MaterialItemsService],
+  providers: [
+    AppService,
+    AuthService,
+    MeterialsService,
+    MaterialItemsService,
+    SqlAgentService,
+  ],
 })
 export class AppModule {}

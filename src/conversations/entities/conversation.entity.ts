@@ -1,10 +1,8 @@
-import { Message } from 'src/messages/entities/messages';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  OneToMany,
+  Entity,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 
 @Entity('conversations')
@@ -17,7 +15,4 @@ export class Conversation {
 
   @CreateDateColumn()
   createdAt: Date;
-
-  @OneToMany(() => Message, (message) => message.conversation)
-  messages: Message[];
 }

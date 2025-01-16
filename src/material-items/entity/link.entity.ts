@@ -1,26 +1,26 @@
-// defind meterials entity
+import { Chunks } from 'src/chunks/entity/chunks';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
-
-@Entity()
-export class Materials {
+@Entity('link_materials')
+export class LinkMaterialItem {
   @PrimaryGeneratedColumn()
   id: number;
-
-  @Column({ type: 'text', nullable: false })
-  name: string;
-
   @Column({
+    name: 'meta_title',
     type: 'text',
     nullable: true,
   })
-  description: string;
+  metaTitle: string;
 
   @Column({
+    name: 'meta_description',
     type: 'text',
-    nullable: false,
+    nullable: true,
   })
-  status: string;
+  metaDescription: string;
+
+  @OneToMany(() => Chunks, (chunks) => chunks.file)
+  chunks: Chunks[];
 
   @Column({
     type: 'date',
@@ -37,9 +37,4 @@ export class Materials {
     name: 'update_at',
   })
   updateAt: Date;
-
-  // many to one user
-  // @ManyToOne(() => Users, (user) => user.meterials)
-  // @JoinColumn({ name: 'user_id' })
-  // user: Users;
 }

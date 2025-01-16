@@ -1,6 +1,5 @@
-import { Materials } from 'src/materials/entity/materials.entity';
-import { Message } from 'src/messages/entities/messages';
-import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import { FileMaterialItem } from 'src/material-items/entity/file.entity';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class Users {
@@ -14,6 +13,9 @@ export class Users {
   password: string;
 
   // one to many messages
-  @OneToMany(() => Message, (message) => message.id)
-  messages: Message[];
+  @OneToMany(
+    () => FileMaterialItem,
+    (fileMaterialItem) => fileMaterialItem.user,
+  )
+  fileMaterialItems: FileMaterialItem[];
 }

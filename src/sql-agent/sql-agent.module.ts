@@ -4,6 +4,7 @@ import { SqlAgentController } from './sql-agent.controller';
 
 @Module({
   providers: [SqlAgentService],
-  controllers: [SqlAgentController]
+  controllers: [SqlAgentController],
+  exports: [SqlAgentService],
 })
 export class SqlAgentModule {}

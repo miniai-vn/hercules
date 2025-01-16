@@ -1,17 +1,15 @@
-import { ChatPromptTemplate } from '@langchain/core/prompts';
+import { SemanticSimilarityExampleSelector } from '@langchain/core/example_selectors';
+import { FewShotPromptTemplate, PromptTemplate } from '@langchain/core/prompts';
 import { Annotation } from '@langchain/langgraph';
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
 import { Injectable } from '@nestjs/common';
-import { pull } from 'langchain/hub';
+import { createSqlQueryChain } from 'langchain/chains/sql_db';
 import { SqlDatabase } from 'langchain/sql_db';
 import { QuerySqlTool } from 'langchain/tools/sql';
+import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import { DataSource } from 'typeorm';
 import { z } from 'zod';
-import { FewShotPromptTemplate, PromptTemplate } from '@langchain/core/prompts';
 import { itemPrompts } from './prompts';
-import { MemoryVectorStore } from 'langchain/vectorstores/memory';
-import { createSqlQueryChain } from 'langchain/chains/sql_db';
-import { SemanticSimilarityExampleSelector } from '@langchain/core/example_selectors';
 @Injectable()
 export class SqlAgentService {
   datasource = new DataSource({
@@ -67,11 +65,12 @@ export class SqlAgentService {
 
               All queries must include a reference to the column "shop_id" to filter or provide context, and the value of "shop_id" should be incorporated into the query.
 
-              Here is the relevant table information: {table_info}
+              Here is the relevant table information:
+              {table_info}
 
               Below are several examples of questions and their corresponding PostgreSQL queries.`,
-      suffix: 'User input: {input}\nShop ID: {shop_id}\nSQL query: ',
-      inputVariables: ['input', 'top_k', 'table_info', 'shop_id'],
+      suffix: `User input: {input}\nShop ID: {shop_id}\nSQL query: `,
+      inputVariables: ['input', 'top_k', 'table_info', 'shop_id'], // Required input variables
     });
     return prompt;
   }
@@ -111,14 +110,20 @@ export class SqlAgentService {
       `Question: ${state.question}\n` +
       `SQL Query: ${state.query}\n` +
       `SQL Result: ${state.result}\n` +
-      'Provide a concise and clear response in Vietnamese.\n';
+      'Provide a concise and clear response in Vietnamese, and include the input list as part of the context for the answer.\n';
     const response = await this.llm.invoke(promptValue);
-    return { answer: response.content };
+    return {
+      answer: response.content as string,
+      result: JSON.parse(state.result),
+    };
   };
   /**
    * get  Query
    */
-  async generateSqlQuery(question: string) {
+  async generateSqlQuery(question: string): Promise<{
+    result: any;
+    answer: string;
+  }> {
     const result = await this.writeQuery({
       question,
     });
@@ -173,8 +178,6 @@ export class SqlAgentService {
 
       const executeQueryTool = new QuerySqlTool(db);
       return { result: await executeQueryTool.invoke(state.query) };
-    } catch (error) {
-      console.log(error);
-    }
+    } catch (error) {}
   };
 }

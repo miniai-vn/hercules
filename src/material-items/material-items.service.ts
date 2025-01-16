@@ -1,51 +1,88 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MaterialItems } from './entity/material-item.entity';
-import { Repository } from 'typeorm';
-import { CreateOrUpdateMaterialItemDto } from './dto/createOrUpdateMaterialItem.dto';
+import axios from 'axios';
+import { join } from 'path';
+import { ChunksService } from 'src/chunks/chunks.service';
+import { Like, Repository } from 'typeorm';
+import { CreateOrUpdateFileDto } from './dto/createOrUpdateFile.dto';
+import { FileMaterialItem } from './entity/file.entity';
+import { link } from 'fs';
 
 @Injectable()
 export class MaterialItemsService {
   constructor(
-    @InjectRepository(MaterialItems)
-    private readonly materialItemsRepository: Repository<MaterialItems>,
+    @InjectRepository(FileMaterialItem)
+    private readonly fileMaterialItemsRepository: Repository<FileMaterialItem>,
+    private readonly chunksService: ChunksService,
   ) {}
-  async createMaterialItem(input: CreateOrUpdateMaterialItemDto) {
-    const materialItem = this.materialItemsRepository.create({
-      ...input,
-      isSync: false,
-      status: 'active',
-    });
-    return await this.materialItemsRepository.save(materialItem);
+
+  /**
+   * Create a new file material item
+   * */
+
+  async createFileMaterial(input: CreateOrUpdateFileDto) {
+    try {
+      const user = input.user;
+      const prepareMaterialItem = await this.fileMaterialItemsRepository.create(
+        {
+          ...input,
+          user,
+          status: 'pending',
+        },
+      );
+      const materialItem =
+        await this.fileMaterialItemsRepository.save(prepareMaterialItem);
+      const path =
+        join(__dirname, '../../', 'uploads') + `\\${materialItem.path}`;
+
+      const chunks = await axios.post(
+        `${process.env.DATA_API_URL}/extraction/file-pdf`,
+        {
+          file_path: path,
+        },
+      );
+      const newChunks = chunks.data.map((chunk) => ({
+        text: chunk,
+        file: materialItem,
+      }));
+
+      await this.chunksService.createManyChunks(newChunks);
+      return materialItem.id;
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Error creating material item',
+      });
+    }
   }
 
   async deleteMaterialItem(id: number): Promise<boolean> {
-    const materialItem = await this.materialItemsRepository.findOne({
+    const materialItem = await this.fileMaterialItemsRepository.findOne({
       where: { id },
     });
     if (!materialItem) {
       throw new Error('Material item not found');
     }
-    await this.materialItemsRepository.delete(id);
+    await this.fileMaterialItemsRepository.delete(id);
     return true;
   }
 
-  async getMaterialItems(): Promise<MaterialItems[]> {
-    return await this.materialItemsRepository.find();
+  async getMaterialItems(type: string): Promise<any[]> {
+    try {
+      if (type === 'file') {
+        return await this.fileMaterialItemsRepository.find({});
+      }
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Error getting material items',
+      });
+    }
   }
 
-  async syncMaterialItem(id: number) {
-    const materialItem = await this.materialItemsRepository.findOne({
-      where: {
-        id,
-      },
-      relations: ['material'],
+  async getChunksByMaterialItemId(id: number) {
+    const link = await this.fileMaterialItemsRepository.findOne({
+      where: { id },
     });
-    if (!materialItem) {
-      throw new Error('Material item not found');
-    }
-
-    materialItem.isSync = true;
-    return await this.materialItemsRepository.save(materialItem);
+    const chunks = await this.chunksService.getChunkByFileMaterialId(link);
+    return chunks || [];
   }
 }

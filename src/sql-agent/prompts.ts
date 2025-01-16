@@ -26,7 +26,7 @@ export const itemPrompts = [
     `,
   },
   {
-    input: 'Đếm tổng số mục trong bảng item.',
+    input: 'Tổng số mục trong bảng item.',
     query: `SELECT COUNT(*) FROM "public"."Item" WHERE "shopId" = '9db28823-60d2-420c-bc10-e8a4ce9f51f4';`,
   },
   {
@@ -38,7 +38,7 @@ export const itemPrompts = [
     query: `SELECT * FROM "public"."Item" WHERE "shopId" = '9db28823-60d2-420c-bc10-e8a4ce9f51f4' ORDER BY price DESC LIMIT 5;`,
   },
   {
-    input: 'Tìm mục đắt nhất trong bảng item.',
+    input: 'Tìm sản phẩm nhất trong bảng item.',
     query: `
       SELECT * 
       FROM "public"."Item" 
@@ -49,5 +49,9 @@ export const itemPrompts = [
   {
     input: 'Tìm các mục có tên bắt đầu bằng chữ "A".',
     query: `SELECT * FROM "public"."Item" WHERE "shopId" = '9db28823-60d2-420c-bc10-e8a4ce9f51f4' AND name ILIKE 'A%';`,
+  },
+  {
+    input: 'Baby three có giá bao nhiêu.',
+    query: `SELECT * FROM "public"."Item" WHERE "shopId" = '9db28823-60d2-420c-bc10-e8a4ce9f51f4' AND name like '%Baby three%';`,
   },
 ];

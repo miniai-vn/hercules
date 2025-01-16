@@ -69,4 +69,10 @@ export class AuthService {
       user,
     });
   }
+
+  async findById(id: number) {
+    return await this.usersRepository.findOne({
+      where: { id },
+    });
+  }
 }

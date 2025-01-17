@@ -20,6 +20,7 @@ export class SqlAgentService {
     password: process.env.DATABASE_PASSWORD,
     database: 'miniai',
   });
+
   llm = new ChatOpenAI({
     model: 'gpt-4o',
     apiKey: process.env.OPENAI_API_KEY,

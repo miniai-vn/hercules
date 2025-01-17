@@ -26,6 +26,7 @@ import { MeterialsModule } from './materials/materials.module';
 import { MeterialsService } from './materials/materials.service';
 import { SqlAgentModule } from './sql-agent/sql-agent.module';
 import { SqlAgentService } from './sql-agent/sql-agent.service';
+import { ToolsModule } from './tools/tools.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -60,6 +61,7 @@ import { SqlAgentService } from './sql-agent/sql-agent.service';
     ConversationsModule,
     ChunksModule,
     ChatModule,
+    ToolsModule,
   ],
   controllers: [
     AppController,

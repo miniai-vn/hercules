@@ -4,9 +4,18 @@ import { Repository } from 'typeorm';
 import { CreateMessageDto } from './dto/createMessages.dto';
 import { Messages } from './entity/message';
 import { SqlAgentService } from 'src/sql-agent/sql-agent.service';
+import { ChatOpenAI } from '@langchain/openai';
+import { toolsDefined } from 'src/tools/tool-model';
 
 @Injectable()
 export class ChatService {
+  llm = new ChatOpenAI({
+    model: 'gpt-4o-mini',
+    temperature: 0,
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  llmWithTools = this.llm.bindTools(toolsDefined);
   constructor(
     @InjectRepository(Messages)
     private readonly messagesRepository: Repository<Messages>,
@@ -26,24 +35,27 @@ export class ChatService {
 
   async chat(content: string) {
     try {
-      await this.createMessage({
-        content,
-        contentType: 'text',
-        senderType: 'user',
-      });
+      const res = await this.llmWithTools.invoke(content);
 
-      const answer = await this.sqlService.generateSqlQuery(content);
+      console.log(res['tool_calls']);
+      // await this.createMessage({
+      //   content,
+      //   contentType: 'text',
+      //   senderType: 'user',
+      // });
 
-      await this.createMessage({
-        content: answer.answer,
-        extraContent: answer.result,
-        contentType: 'text',
-        senderType: 'assitance',
-      });
+      // const answer = await this.sqlService.generateSqlQuery(content);
 
-      const history = await this.findAll();
+      // await this.createMessage({
+      //   content: answer.answer,
+      //   extraContent: answer.result,
+      //   contentType: 'text',
+      //   senderType: 'assitance',
+      // });
 
-      return history;
+      // const history = await this.findAll();
+
+      return [];
     } catch (error) {
       console.log(error);
       throw new InternalServerErrorException({

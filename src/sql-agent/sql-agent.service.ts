@@ -1,6 +1,6 @@
 import { SemanticSimilarityExampleSelector } from '@langchain/core/example_selectors';
 import { FewShotPromptTemplate, PromptTemplate } from '@langchain/core/prompts';
-import { Annotation } from '@langchain/langgraph';
+import { Annotation, StateGraph } from '@langchain/langgraph';
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
 import { Injectable } from '@nestjs/common';
 import { createSqlQueryChain } from 'langchain/chains/sql_db';
@@ -10,6 +10,8 @@ import { MemoryVectorStore } from 'langchain/vectorstores/memory';
 import { DataSource } from 'typeorm';
 import { z } from 'zod';
 import { itemPrompts } from './prompts';
+import { llmChatOpenAi } from 'src/configs/openai';
+import { tool } from '@langchain/core/tools';
 @Injectable()
 export class SqlAgentService {
   datasource = new DataSource({
@@ -20,10 +22,8 @@ export class SqlAgentService {
     password: process.env.DATABASE_PASSWORD,
     database: 'miniai',
   });
-  llm = new ChatOpenAI({
-    model: 'gpt-4o',
-    apiKey: process.env.OPENAI_API_KEY,
-  });
+
+  llm = llmChatOpenAi;
 
   InputStateAnnotation = Annotation.Root({
     question: Annotation<string>,
@@ -39,6 +39,24 @@ export class SqlAgentService {
   constructor() {
     this.getPrompts();
   }
+
+  /*
+   * Get instace graph
+   */
+
+  public getInstance = () => {
+    const graph = new StateGraph(this.StateAnnotation)
+      .addNode('writeQuery', this.writeQuery)
+      .addNode('executeQuery', this.executeQuery)
+      .addNode('generateAnswer', this.generateAnswer)
+      .addEdge('__start__', 'writeQuery')
+      .addEdge('writeQuery', 'executeQuery')
+      .addEdge('executeQuery', 'generateAnswer')
+      .addEdge('generateAnswer', '__end__')
+      .compile();
+    return graph;
+  };
+
   /**
    * get  prompts
    */
@@ -179,5 +197,34 @@ export class SqlAgentService {
       const executeQueryTool = new QuerySqlTool(db);
       return { result: await executeQueryTool.invoke(state.query) };
     } catch (error) {}
+  };
+
+  /*
+   * invoke
+   */
+  invoke = (q: string) => {
+    const graph = this.getInstance();
+    graph.invoke({ question: q });
+  };
+
+  /**
+   * get Tool
+   */
+  getTool = () => {
+    const sqlAgentTool = tool(
+      async (input: { question: string }) => {
+        return this.invoke(input.question);
+      },
+      {
+        name: 'SQLAgentTool',
+        schema: z.object({
+          question: z.string(),
+        }),
+        description:
+          'Công cụ này cho phép người dùng đặt câu hỏi về sản phẩm bằng tiếng Việt và tự động tạo truy vấn SQL tương ứng.',
+      },
+    );
+
+    return sqlAgentTool;
   };
 }

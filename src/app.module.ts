@@ -5,30 +5,17 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthController } from './auth/auth.controller';
-import { AuthModule } from './auth/auth.module';
-import { AuthService } from './auth/auth.service';
-import { Users } from './auth/entity/users.entity';
-import { ChatModule } from './chat/chat.module';
-import { Messages } from './chat/entity/message';
-import { ChunksModule } from './chunks/chunks.module';
-import { Chunks } from './chunks/entity/chunks';
-import { ConversationsModule } from './conversations/conversations.module';
-import { Conversation } from './conversations/entities/conversation.entity';
-import { FileMaterialItem } from './material-items/entity/file.entity';
-import { LinkMaterialItem } from './material-items/entity/link.entity';
-import { MaterialItemsController } from './material-items/material-items.controller';
-import { MaterialItemsModule } from './material-items/material-items.module';
-import { MaterialItemsService } from './material-items/material-items.service';
-import { Materials } from './materials/entity/materials.entity';
-import { MaterialsController } from './materials/materials.controller';
-import { MeterialsModule } from './materials/materials.module';
-import { MeterialsService } from './materials/materials.service';
-import { SqlAgentModule } from './sql-agent/sql-agent.module';
-import { SqlAgentService } from './sql-agent/sql-agent.service';
-import { RagAgentModule } from './rag-agent/rag-agent.module';
+import { MiniappServiceService } from './miniapp-service/miniapp-service.service';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ItemsModule } from './items/items.module';
+import { CategoriesService } from './categories/categories.service';
+import { CategoriesModule } from './categories/categories.module';
+import { ShopService } from './shop/shop.service';
+import { ShopsService } from './shops/shops.service';
+import { ShopsModule } from './shops/shops.module';
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -43,38 +30,14 @@ import { RagAgentModule } from './rag-agent/rag-agent.module';
       username: process.env.DATABASE_USER,
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME,
-      entities: [
-        Users,
-        Materials,
-        Conversation,
-        Messages,
-        Chunks,
-        LinkMaterialItem,
-        FileMaterialItem,
-      ],
+      entities: [],
       synchronize: true,
     }),
-    AuthModule,
-    MeterialsModule,
-    MaterialItemsModule,
-    SqlAgentModule,
-    ConversationsModule,
-    ChunksModule,
-    ChatModule,
-    RagAgentModule,
+    ItemsModule,
+    CategoriesModule,
+    ShopsModule,
   ],
-  controllers: [
-    AppController,
-    AuthController,
-    MaterialsController,
-    MaterialItemsController,
-  ],
-  providers: [
-    AppService,
-    AuthService,
-    MeterialsService,
-    MaterialItemsService,
-    SqlAgentService,
-  ],
+  controllers: [AppController],
+  providers: [AppService, MiniappServiceService, CategoriesService, ShopService, ShopsService],
 })
 export class AppModule {}

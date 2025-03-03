@@ -1,18 +1,20 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { MiniappServiceService } from './miniapp-service/miniapp-service.service';
-import { ScheduleModule } from '@nestjs/schedule';
-import { ItemsModule } from './items/items.module';
-import { CategoriesService } from './categories/categories.service';
 import { CategoriesModule } from './categories/categories.module';
-import { ShopService } from './shop/shop.service';
-import { ShopsService } from './shops/shops.service';
+import { Category } from './categories/entities/category';
+import { Item } from './items/entities/item';
+import { ItemsModule } from './items/items.module';
+import { MiniaiModule } from './miniai/miniai.module';
+import { MiniaiService } from './miniai/miniai.service';
+import { Shop } from './shops/entities/shop';
 import { ShopsModule } from './shops/shops.module';
+
 @Module({
   imports: [
     ScheduleModule.forRoot(),
@@ -30,14 +32,15 @@ import { ShopsModule } from './shops/shops.module';
       username: process.env.DATABASE_USER,
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME,
-      entities: [],
+      entities: [Shop, Item, Category],
       synchronize: true,
     }),
     ItemsModule,
     CategoriesModule,
     ShopsModule,
+    MiniaiModule,
   ],
   controllers: [AppController],
-  providers: [AppService, MiniappServiceService, CategoriesService, ShopService, ShopsService],
+  providers: [AppService, MiniaiService],
 })
 export class AppModule {}

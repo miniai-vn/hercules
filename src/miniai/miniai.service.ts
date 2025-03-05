@@ -23,6 +23,7 @@ export class MiniaiService {
       return;
     }
     try {
+      console.log('Start syncing data from Miniai');
       this.isJobRunning = true;
       const allShop = await this.shopsService.findAll();
       for (const shop of allShop) {

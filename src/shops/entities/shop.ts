@@ -10,24 +10,15 @@ import {
 } from 'typeorm';
 
 @Entity()
-export class Shop {
+export class Shops {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   sId: string;
 
   @Column()
   name: string;
-
-  @Column({ nullable: true })
-  address?: string;
-
-  @Column({ nullable: true })
-  description?: string;
-
-  @Column({ nullable: true })
-  isPublic?: boolean;
 
   @OneToMany(() => Category, (category) => category.shop)
   categories: Category[];

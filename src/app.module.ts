@@ -12,7 +12,7 @@ import { Item } from './items/entities/item';
 import { ItemsModule } from './items/items.module';
 import { MiniaiModule } from './miniai/miniai.module';
 import { MiniaiService } from './miniai/miniai.service';
-import { Shop } from './shops/entities/shop';
+import { Shops } from './shops/entities/shop';
 import { ShopsModule } from './shops/shops.module';
 
 @Module({
@@ -28,11 +28,11 @@ import { ShopsModule } from './shops/shops.module';
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: 'localhost',
-      port: 5432,
+      port: 5431,
       username: process.env.DATABASE_USER,
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME,
-      entities: [Shop, Item, Category],
+      entities: [Shops, Item, Category],
       synchronize: true,
     }),
     ItemsModule,

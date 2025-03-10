@@ -1,0 +1,21 @@
+services:
+  db:
+    container_name: postgres
+    image: postgres
+    environment:
+      - POSTGRES_USER=miniai
+      - POSTGRES_PASSWORD=miniai@123
+      - POSTGRES_DB=postgres
+    volumes:
+      - db:/data/postgres
+    ports:
+      - '5431:5432'
+    networks:
+      - shared_network
+
+networks:
+  shared_network:
+    external: true
+
+volumes:
+  db:

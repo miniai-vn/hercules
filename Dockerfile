@@ -1,4 +1,6 @@
-FROM node:18
+FROM node:23
+
+RUN npm install -g npm
 
 WORKDIR /src
 

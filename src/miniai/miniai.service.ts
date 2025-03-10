@@ -17,7 +17,7 @@ export class MiniaiService {
     this.isJobRunning = false;
   }
 
-  @Cron('* * * * *')
+  @Cron('* * * * * *')
   async handleCron() {
     if (this.isJobRunning) {
       return;

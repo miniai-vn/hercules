@@ -17,7 +17,7 @@ export class MiniaiService {
     this.isJobRunning = false;
   }
 
-  @Cron('* * * * * *')
+  @Cron('* * * * *')
   async handleCron() {
     if (this.isJobRunning) {
       return;
@@ -27,7 +27,7 @@ export class MiniaiService {
       this.isJobRunning = true;
       const allShop = await this.shopsService.findAll();
       for (const shop of allShop) {
-        await this.syncCategoriesFromMiniai({ shop, sShopId: shop.sId });
+        await this.syncCategories({ shop, sShopId: shop.sId });
         await this.syncItemsFromMiniai({ shop, sShopId: shop.sId });
       }
     } catch (error) {
@@ -64,7 +64,7 @@ export class MiniaiService {
     }
   }
 
-  async syncCategoriesFromMiniai({ shop, sShopId }) {
+  async syncCategories({ shop, sShopId }) {
     try {
       const categories = await this.fetchData({
         method: 'POST',
@@ -72,11 +72,8 @@ export class MiniaiService {
         payload: {
           method: 'getCategories',
           shopId: sShopId,
-          startTime: dayjs().startOf('day').toISOString(),
-          endTime: dayjs().endOf('day').toISOString(),
         },
       });
-
       for (const cate of categories.data) {
         const sId = cate.id;
         cate.shop = shop;
@@ -93,28 +90,59 @@ export class MiniaiService {
 
   async syncItemsFromMiniai({ shop, sShopId }) {
     const allCategories = await this.categoriesService.findAll();
-    for (const category of allCategories) {
-      const items = await this.fetchData({
-        method: 'POST',
-        requestUrl: '',
-        payload: {
-          method: 'getItemByCategory',
-          shopId: sShopId,
-          categoryId: category.sId,
-          startTime: dayjs().startOf('day').toISOString(),
-          endTime: dayjs().endOf('day').toISOString(),
-        },
-      });
+    const items = await this.fetchData({
+      method: 'POST',
+      requestUrl: '',
+      payload: {
+        method: 'getItemWithCategory',
+        shopId: sShopId,
+        // startTime: dayjs().startOf('day').toISOString(),
+        // endTime: dayjs().endOf('day').toISOString(),
+      },
+    });
+    for (const item of items.data) {
+      const sId = item.id;
+      const category = allCategories.find(
+        (cate) => cate.id === item.categoryId,
+      );
+      const dataObject = {
+        id: item.id,
+        sId: item.id.toString(),
+        name: item.name,
+        price: item.price,
+        originPrice: item.originPrice || 0,
+        description: item.description,
+        images: item.images || [],
+        image: item.image,
+        category: category,
+        shop: shop,
+        type: item.type || 'default',
+        status: item.status || 'active',
+        createdAt: item.createdAt || new Date(),
+        updatedAt: item.updatedAt || new Date(),
+        skus: item?.skus?.map((sku) => {
+          const newSkus = {
+            sId: sku.id,
+            price: sku.price,
+            shop: shop,
+            item: item,
+            name: sku.name,
+            images: sku.images,
+            originPrice: sku.originPrice || 0,
+            status: sku.status || 'active',
+            isActive: sku.isActive || true,
+            createdAt: sku.createdAt || new Date(),
+            updatedAt: sku.updatedAt || new Date(),
+          };
+          return newSkus;
+        }),
+      };
+      const newItem = await this.itemsService.upsert(sId, dataObject);
 
-      for (const item of items.data) {
-        const sId = item.id;
-        item.shop = shop;
-        item.category = category;
-        delete item.id;
-        delete item.shopId;
-        await this.itemsService.upsert(sId, item);
-        await new Promise((res) => setTimeout(res, 300));
+      if (!newItem) {
+        continue;
       }
+      await new Promise((res) => setTimeout(res, 400));
     }
   }
 }

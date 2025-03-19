@@ -14,6 +14,7 @@ import { MiniaiModule } from './miniai/miniai.module';
 import { MiniaiService } from './miniai/miniai.service';
 import { Shops } from './shops/entities/shop';
 import { ShopsModule } from './shops/shops.module';
+import { Skus } from './items/entities/sku';
 
 @Module({
   imports: [
@@ -32,7 +33,7 @@ import { ShopsModule } from './shops/shops.module';
       username: process.env.DATABASE_USER,
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME,
-      entities: [Shops, Item, Category],
+      entities: [Shops, Item, Category, Skus],
       synchronize: true,
     }),
     ItemsModule,

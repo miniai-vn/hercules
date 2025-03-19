@@ -1,28 +1,21 @@
-import { Category } from 'src/categories/entities/category';
 import { Shops } from 'src/shops/entities/shop';
 import {
-  Entity,
-  ObjectIdColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
+  Entity,
   ManyToOne,
-  OneToMany,
-  Unique,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
-import { Skus } from './sku';
+import { Item } from './item';
 
 @Entity()
-export class Item {
+export class Skus {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ unique: true })
   sId: string;
-
-  @Column()
-  type: string;
 
   @Column()
   name: string;
@@ -39,18 +32,18 @@ export class Item {
   @Column()
   originPrice: number;
 
+  @Column()
+  isActive: boolean;
+
   @ManyToOne(() => Shops, (shop) => shop.items)
   shop: Shops;
-
-  @ManyToOne(() => Category, (category) => category.items, { nullable: true })
-  category?: Category;
 
   @Column({ nullable: true })
   status?: string;
 
-  // one to many relationship with SKU
-  @OneToMany(() => Skus, (sku) => sku.item)
-  skus: Skus[];
+  // many to one relationship with Item
+  @ManyToOne(() => Item, (item) => item.skus)
+  item: Item;
 
   @CreateDateColumn()
   createdAt: Date;

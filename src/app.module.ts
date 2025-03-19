@@ -15,9 +15,19 @@ import { MiniaiService } from './miniai/miniai.service';
 import { Shops } from './shops/entities/shop';
 import { ShopsModule } from './shops/shops.module';
 import { Skus } from './items/entities/sku';
-
+import { BullModule } from '@nestjs/bullmq';
 @Module({
   imports: [
+    BullModule.forRoot({
+      connection: {
+        host: 'redis-10293.c82.us-east-1-2.ec2.cloud.redislabs.com',
+        port: 10293,
+        password: '5mrFkt9Yc244lFqOR7pV4eYUBM7WsBPn',
+      },
+    }),
+    BullModule.registerQueue({
+      name: 'data-sync-queue',
+    }),
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,

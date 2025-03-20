@@ -27,15 +27,12 @@ export class MiniaiService {
   async scheduleSyncJobs() {
     try {
       this.logger.log('Scheduling data sync jobs from Miniai');
-      await this.dataSyncQueue.resume();
-      const shop = await this.shopsService.findOne(2);
-      await this.queueCategorySync(shop);
-      await this.queueItemSync(shop);
+      const shops = await this.shopsService.findAll();
       // Add sync jobs to the queue for each shop
-      // for (const shop of shops) {
-      //   await this.queueCategorySync(shop);
-      //   await this.queueItemSync(shop);
-      // }
+      for (const shop of shops) {
+        await this.queueCategorySync(shop);
+        await this.queueItemSync(shop);
+      }
 
       // this.logger.log(`Scheduled sync jobs for ${shops.length} shops`);
     } catch (error) {

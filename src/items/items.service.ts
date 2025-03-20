@@ -106,7 +106,7 @@ export class ItemsService {
       if (item) {
         this.logger.debug(`Updating existing item: ${item.id}`);
         await this.itemRepository.update(item.id, {
-          category: data.category,
+          category: data.category || null,
           description: data.description,
           images: data.images,
           name: data.name,
@@ -122,7 +122,7 @@ export class ItemsService {
       } else {
         this.logger.debug(`Creating new item for source ID: ${sId}`);
         const newItem = this.itemRepository.create({
-          category: data.category,
+          category: data.category ?? null,
           description: data.description,
           images: data.images,
           name: data.name,

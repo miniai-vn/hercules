@@ -3,6 +3,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import axios from 'axios';
 import { Queue } from 'bullmq';
+import e from 'express';
 import { CategoriesService } from 'src/categories/categories.service';
 import { ItemsService } from 'src/items/items.service';
 import { ShopsService } from 'src/shops/shops.service';
@@ -10,7 +11,6 @@ import { ShopsService } from 'src/shops/shops.service';
 @Injectable()
 export class MiniaiService {
   private readonly logger = new Logger(MiniaiService.name);
-  private isSyncInProgress = false;
   private readonly pageSize = 50; // Configure page size for API requests
   private lastFetchTime: Record<string, Date> = {}; // Track last fetch times by endpoint/method
 
@@ -23,87 +23,118 @@ export class MiniaiService {
   /**
    * Scheduled task to trigger data synchronization
    */
-  @Cron(CronExpression.EVERY_2_HOURS)
+  @Cron(CronExpression.EVERY_6_HOURS)
   async scheduleSyncJobs() {
-    if (this.isSyncInProgress) {
-      this.logger.log('Previous sync still in progress, skipping this run');
-      return;
-    }
     try {
       this.logger.log('Scheduling data sync jobs from Miniai');
-      this.isSyncInProgress = true;
-      const shops = await this.shopsService.findAll();
-
+      await this.dataSyncQueue.resume();
+      const shop = await this.shopsService.findOne(2);
+      await this.queueCategorySync(shop);
+      await this.queueItemSync(shop);
       // Add sync jobs to the queue for each shop
-      for (const shop of shops) {
-        await this.queueCategorySync(shop);
-        await this.queueItemSync(shop);
-      }
+      // for (const shop of shops) {
+      //   await this.queueCategorySync(shop);
+      //   await this.queueItemSync(shop);
+      // }
 
-      this.logger.log(`Scheduled sync jobs for ${shops.length} shops`);
+      // this.logger.log(`Scheduled sync jobs for ${shops.length} shops`);
     } catch (error) {
       this.logger.error(
         `Error scheduling sync jobs: ${error.message}`,
         error.stack,
       );
-    } finally {
-      this.isSyncInProgress = false;
     }
   }
 
   /**
    * Queue a category synchronization job for a shop
+   * Prevents adding a new job if related jobs are already running
    */
   async queueCategorySync(shop) {
-    this.logger.log(
-      `Queueing category sync for shop: ${shop.name} (ID: ${shop.sId})`,
-    );
-    return this.dataSyncQueue.add(
-      'syncCategories',
-      {
-        shop,
-        sShopId: shop.sId,
-      },
-      {
-        priority: 10, // Higher priority (lower number) to run first
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
+    try {
+      this.logger.log(
+        `Checking if category sync for shop: ${shop.name} (ID: ${shop.sId}) is needed`,
+      );
+
+      // No existing jobs, add to queue
+      this.logger.log(
+        `Queueing category sync for shop: ${shop.name} (ID: ${shop.sId})`,
+      );
+      const job = await this.dataSyncQueue.add(
+        'syncCategories',
+        {
+          shop,
+          sShopId: shop.sId,
         },
-      },
-    );
+        {
+          delay: 1000,
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+
+          jobId: `sync-categories-${shop.sId}-${Date.now()}`,
+        },
+      );
+
+      return { success: true, jobId: job.id };
+    } catch (error) {
+      this.logger.error(
+        `Error queueing category sync for shop ${shop.name}: ${error.message}`,
+        error.stack,
+      );
+      return { success: false, error: error.message };
+    }
   }
 
   /**
    * Queue an item synchronization job for a shop
+   * Prevents adding a new job if related jobs are already running
    */
   async queueItemSync(shop) {
-    this.logger.log(
-      `Queueing item sync for shop: ${shop.name} (ID: ${shop.sId})`,
-    );
-    return this.dataSyncQueue.add(
-      'syncItems',
-      {
-        shop,
-        sShopId: shop.sId,
-      },
-      {
-        delay: 60000, // 1 minute delay to run after categories
-        priority: 20, // Lower priority than categories
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
+    try {
+      this.logger.log(
+        `Queueing item sync for shop: ${shop.name} (ID: ${shop.sId})`,
+      );
+
+      const job = await this.dataSyncQueue.add(
+        'syncItems',
+        {
+          shop,
+          sShopId: shop.sId,
         },
-      },
-    );
+        {
+          delay: 30000,
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+          jobId: `sync-items-${shop.sId}-${Date.now()}`,
+        },
+      );
+
+      return { success: true, jobId: job.id };
+    } catch (error) {
+      this.logger.error(
+        `Error queueing item sync for shop ${shop.name}: ${error.message}`,
+        error.stack,
+      );
+      return { success: false, error: error.message };
+    }
   }
 
   /**
    * Make API requests to external services with error handling
+   * Adds time range parameters based on last fetch time
    */
-  private async makeApiRequest({ method, requestUrl = '', payload = {} }) {
+  private async makeApiRequest({
+    method,
+    requestUrl = '',
+    payload = {},
+    forceRefresh = false,
+  }) {
     const { MINIAI_SYNC_URL, MINIAI_TOKEN } = process.env;
     const url = `${MINIAI_SYNC_URL}${requestUrl}`;
     const headers = {
@@ -114,18 +145,54 @@ export class MiniaiService {
     // Create a unique key for this request
     const requestKey = `${method}:${requestUrl}:${JSON.stringify(payload)}`;
 
+    // Get current time
+    const now = new Date();
+    var enhancedPayload = { ...payload };
+
+    // Determine start time based on last fetch time
+    let startTime;
+    if (this.lastFetchTime[requestKey] && !forceRefresh) {
+      // Use last fetch time as start
+      startTime = this.lastFetchTime[requestKey];
+      this.logger.debug(
+        `Using last fetch time as startTime: ${startTime.toISOString()}`,
+      );
+
+      // Only calculate time range and add to payload if we have a startTime
+      const twoHoursLater = new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
+      const formattedStartTime = startTime.toISOString();
+      const formattedEndTime = twoHoursLater.toISOString();
+
+      this.logger.log(
+        `Adding time range to request: ${formattedStartTime} to ${formattedEndTime}`,
+      );
+
+      // Add time parameters only when we have a valid startTime
+      enhancedPayload = {
+        ...payload,
+        startTime: formattedStartTime,
+        endTime: formattedEndTime,
+      };
+    } else {
+      // For initial sync or force refresh, don't add time parameters
+      this.logger.debug(
+        'No last fetch time available, skipping time range parameters',
+      );
+    }
+
     try {
       let response;
-      const now = new Date();
-
       this.logger.debug(`Making ${method} request to ${url}`);
 
       if (method === 'GET') {
-        response = await axios.get(url, { headers, params: payload });
+        response = await axios.get(url, { headers, params: enhancedPayload });
       } else if (method === 'POST') {
-        response = await axios.post(url, payload, { headers });
+        response = await axios.post(url, enhancedPayload, { headers });
       } else if (method === 'DELETE') {
-        response = await axios.delete(url, { headers, params: payload });
+        response = await axios.delete(url, {
+          headers,
+          params: enhancedPayload,
+        });
       } else {
         return { error: 'Method not supported!' };
       }
@@ -133,7 +200,7 @@ export class MiniaiService {
       // Store last fetch time
       this.lastFetchTime[requestKey] = now;
 
-      // Add last fetch time information to the response
+      // Add time range and fetch information to the response
       return {
         data: response.data.data,
         fetchTime: now,
@@ -294,7 +361,6 @@ export class MiniaiService {
           this.logger.log(`No more items to fetch for shop ${shop.name}`);
           continue;
         }
-
         // Process items in smaller batches to avoid memory issues
         const batchSize = 20;
         for (let i = 0; i < items.length; i += batchSize) {

@@ -9,26 +9,26 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-@Entity()
-export class Shops {
-  @PrimaryGeneratedColumn()
-  id: number;
+@Entity('shops')
+export class Shop {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column({ unique: true, nullable: true })
-  sId: string;
-
-  @Column()
+  @Column({ type: 'varchar', length: 255 })
   name: string;
+
+  @Column({ type: 'varchar', name: 'zalo_id', length: 255, nullable: true })
+  zaloId?: string;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp', nullable: true })
+  createdAt: Date | null;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp', nullable: true })
+  updatedAt: Date | null;
 
   @OneToMany(() => Category, (category) => category.shop)
   categories: Category[];
 
   @OneToMany(() => Item, (item) => item.shop)
   items: Item[];
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 }

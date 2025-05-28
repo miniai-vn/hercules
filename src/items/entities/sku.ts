@@ -1,4 +1,4 @@
-import { Shops } from 'src/shops/entities/shop';
+import { Shop } from 'src/shops/entities/shop';
 import {
   Column,
   CreateDateColumn,
@@ -35,8 +35,8 @@ export class Skus {
   @Column()
   isActive: boolean;
 
-  @ManyToOne(() => Shops, (shop) => shop.items)
-  shop: Shops;
+  @ManyToOne(() => Shop, (shop) => shop.items)
+  shop: Shop;
 
   @Column({ nullable: true })
   status?: string;

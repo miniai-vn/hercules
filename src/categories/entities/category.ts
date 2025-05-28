@@ -1,25 +1,20 @@
 import { Item } from 'src/items/entities/item';
-import { Shops } from 'src/shops/entities/shop';
+import { Shop } from 'src/shops/entities/shop';
 import {
-  Entity,
-  ObjectIdColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
   DeleteDateColumn,
+  Entity,
   ManyToOne,
   OneToMany,
-  Unique,
-  PrimaryGeneratedColumn,
+  PrimaryColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
-@Entity()
+@Entity('categories')
 export class Category {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @Column({ unique: true })
-  sId: string;
+  @PrimaryColumn({ type: 'varchar' })
+  id: string;
 
   @Column()
   type: string;
@@ -33,20 +28,11 @@ export class Category {
   @Column('simple-array', { default: [] })
   images: string[];
 
-  @Column({ nullable: true, unique: true })
-  sCategoryId?: string;
-
-  @Column({ nullable: true })
-  storeId?: string;
-
-  @ManyToOne(() => Shops, (shop) => shop.categories)
-  shop: Shops;
+  @ManyToOne(() => Shop, (shop) => shop.categories)
+  shop: Shop;
 
   @OneToMany(() => Item, (item) => item.category)
   items: Item[];
-
-  @Column({ nullable: true })
-  platform?: string;
 
   @Column({ nullable: true })
   status?: string;

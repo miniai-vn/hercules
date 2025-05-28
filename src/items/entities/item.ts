@@ -1,5 +1,5 @@
 import { Category } from 'src/categories/entities/category';
-import { Shops } from 'src/shops/entities/shop';
+import { Shop } from 'src/shops/entities/shop';
 import {
   Entity,
   ObjectIdColumn,
@@ -39,8 +39,8 @@ export class Item {
   @Column()
   originPrice: number;
 
-  @ManyToOne(() => Shops, (shop) => shop.items)
-  shop: Shops;
+  @ManyToOne(() => Shop, (shop) => shop.items)
+  shop: Shop;
 
   @ManyToOne(() => Category, (category) => category.items, { nullable: true })
   category?: Category;

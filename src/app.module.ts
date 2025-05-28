@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -9,13 +10,12 @@ import { AppService } from './app.service';
 import { CategoriesModule } from './categories/categories.module';
 import { Category } from './categories/entities/category';
 import { Item } from './items/entities/item';
+import { Skus } from './items/entities/sku';
 import { ItemsModule } from './items/items.module';
 import { MiniaiModule } from './miniai/miniai.module';
 import { MiniaiService } from './miniai/miniai.service';
-import { Shops } from './shops/entities/shop';
+import { Shop } from './shops/entities/shop';
 import { ShopsModule } from './shops/shops.module';
-import { Skus } from './items/entities/sku';
-import { BullModule } from '@nestjs/bullmq';
 @Module({
   imports: [
     BullModule.forRoot({
@@ -26,7 +26,7 @@ import { BullModule } from '@nestjs/bullmq';
       },
     }),
     BullModule.registerQueue({
-      name: 'data-sync-queue',
+      name: 'miniai-queue',
     }),
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
@@ -38,12 +38,12 @@ import { BullModule } from '@nestjs/bullmq';
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.DATABASE_HOST,
-      port: parseInt(process.env.DATABASE_PORT, 10) || 5432,
-      username: process.env.DATABASE_USER,
-      password: process.env.DATABASE_PASSWORD,
-      database: process.env.DATABASE_NAME,
-      entities: [Shops, Item, Category, Skus],
+      host: process.env.POSTGRES_HOST,
+      port: parseInt(process.env.POSTGRES_PORT, 5432) || 5432,
+      username: process.env.POSTGRES_USER,
+      password: process.env.POSTGRES_PASSWORD,
+      database: process.env.POSTGRES_NAME,
+      entities: [Shop, Item, Category, Skus],
       synchronize: true,
     }),
     ItemsModule,

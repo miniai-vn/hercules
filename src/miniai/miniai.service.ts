@@ -30,7 +30,7 @@ export class MiniaiService {
   /**
    * Scheduled task to trigger data synchronization
    */
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_DAY_AT_NOON)
   async scheduleSyncJobs() {
     const shops = await this.shopsService.findAllHavingZaloId();
     for (const shop of shops) {
@@ -47,6 +47,7 @@ export class MiniaiService {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${MINIAI_TOKEN}`,
     };
+
     try {
       let response;
       this.logger.debug(`Making ${method} request to ${url}`);

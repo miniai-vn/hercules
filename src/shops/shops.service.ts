@@ -39,4 +39,9 @@ export class ShopService {
   async findAllHavingZaloId(): Promise<Shop[]> {
     return this.shopRepository.find({ where: { zaloId: Not(IsNull()) } });
   }
+
+  async updateZaloId(id: string, zaloId: string): Promise<Shop | null> {
+    await this.shopRepository.update(id, { zaloId });
+    return this.findOne(id);
+  }
 }

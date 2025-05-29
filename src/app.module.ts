@@ -16,6 +16,10 @@ import { MiniaiModule } from './miniai/miniai.module';
 import { MiniaiService } from './miniai/miniai.service';
 import { Shop } from './shops/entities/shop';
 import { ShopsModule } from './shops/shops.module';
+import { ChannelsService } from './channels/channels.service';
+import { ChannelsModule } from './channels/channels.module';
+import { Channel } from './channels/channels.entity';
+import { Department } from './departments/departments.entity';
 @Module({
   imports: [
     BullModule.forRoot({
@@ -43,13 +47,14 @@ import { ShopsModule } from './shops/shops.module';
       username: process.env.POSTGRES_USER,
       password: process.env.POSTGRES_PASSWORD,
       database: process.env.POSTGRES_NAME,
-      entities: [Shop, Item, Category, Skus],
-      synchronize: true,
+      entities: [Shop, Item, Category, Skus, Channel, Department],
+      synchronize: false,
     }),
     ItemsModule,
     CategoriesModule,
     ShopsModule,
     MiniaiModule,
+    ChannelsModule,
   ],
   controllers: [AppController],
   providers: [AppService, MiniaiService],

@@ -24,20 +24,27 @@ export class MiniaiService {
     private readonly itemsService: ItemsService,
     private readonly shopsService: ShopService,
   ) {}
-  /**
-   * Initialize the service and schedule sync jobs
- 
+
+  async startSync(shopId: string) {
+    const shop = await this.shopsService.findOne(shopId);
+    console.log('Starting sync for shop:', shop);
+    await this.syncDataShop(shopId, shop.zaloId);
+  }
+
   /**
    * Scheduled task to trigger data synchronization
    */
   @Cron(CronExpression.EVERY_DAY_AT_NOON)
-  async scheduleSyncJobs() {
+  async syncDataShops() {
     const shops = await this.shopsService.findAllHavingZaloId();
     for (const shop of shops) {
-      this.logger.log(`Scheduling sync jobs for shop: ${shop.zaloId}`);
-      await this.syncCategories(shop.zaloId);
-      await this.syncItems(shop.id);
+      await this.syncDataShop(shop.id, shop.zaloId);
     }
+  }
+
+  async syncDataShop(shopId: string, zaloId: string) {
+    await this.syncCategories(zaloId);
+    await this.syncItems(shopId);
   }
 
   private async makeApiRequest({ method, requestUrl = '', payload = {} }) {

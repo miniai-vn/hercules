@@ -8,7 +8,10 @@ import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CategoriesModule } from './categories/categories.module';
-import { Category } from './categories/entities/category';
+import { Category } from './categories/categories.entity';
+import { Channel } from './channels/channels.entity';
+import { ChannelsModule } from './channels/channels.module';
+import { Department } from './departments/departments.entity';
 import { Item } from './items/entities/item';
 import { Skus } from './items/entities/sku';
 import { ItemsModule } from './items/items.module';
@@ -16,10 +19,7 @@ import { MiniaiModule } from './miniai/miniai.module';
 import { MiniaiService } from './miniai/miniai.service';
 import { Shop } from './shops/entities/shop';
 import { ShopsModule } from './shops/shops.module';
-import { ChannelsService } from './channels/channels.service';
-import { ChannelsModule } from './channels/channels.module';
-import { Channel } from './channels/channels.entity';
-import { Department } from './departments/departments.entity';
+import { AppDataSource } from './database/data-source';
 @Module({
   imports: [
     BullModule.forRoot({
@@ -41,14 +41,7 @@ import { Department } from './departments/departments.entity';
       serveRoot: '/uploads',
     }),
     TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.POSTGRES_HOST,
-      port: parseInt(process.env.POSTGRES_PORT, 5432) || 5432,
-      username: process.env.POSTGRES_USER,
-      password: process.env.POSTGRES_PASSWORD,
-      database: process.env.POSTGRES_NAME,
-      entities: [Shop, Item, Category, Skus, Channel, Department],
-      synchronize: false,
+      ...AppDataSource.options,
     }),
     ItemsModule,
     CategoriesModule,

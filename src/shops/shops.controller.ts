@@ -1,15 +1,17 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
   Put,
-  Delete,
-  Param,
-  Body,
-  Query,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
-import { ShopService } from './shops.service';
+import { JwtAuthGuard } from 'src/auth/auth.module';
 import { Shop } from './entities/shop';
+import { ShopService } from './shops.service';
 
 @Controller('shops')
 export class ShopsController {
@@ -28,6 +30,16 @@ export class ShopsController {
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<Shop | null> {
     return this.shopService.findOne(id);
+  }
+
+  @Put('/zalo-id')
+  @UseGuards(JwtAuthGuard)
+  async updateZaloId(
+    @Request() req,
+    @Body('zaloId') zaloId: string,
+  ): Promise<Shop | null> {
+    const id = req.user.shop_id; // or req.user.shopId, depending on your JWT payload
+    return this.shopService.updateZaloId(id, zaloId);
   }
 
   @Put(':id')
@@ -51,13 +63,5 @@ export class ShopsController {
   @Get('has/zalo')
   async findAllHavingZaloId(): Promise<Shop[]> {
     return this.shopService.findAllHavingZaloId();
-  }
-
-  @Put(':id/zalo')
-  async updateZaloId(
-    @Param('id') id: string,
-    @Body('zaloId') zaloId: string,
-  ): Promise<Shop | null> {
-    return this.shopService.updateZaloId(id, zaloId);
   }
 }

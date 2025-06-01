@@ -1,11 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { NestExpressApplication } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    rawBody: true,
-  });
+  const app = await NestFactory.create(AppModule);
+
+  // Swagger setup
+  const config = new DocumentBuilder()
+    .setTitle('MiniAI API')
+    .setDescription('API documentation for MiniAI')
+    .setVersion('1.0')
+    .addBearerAuth() // If you use JWT
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api-docs', app, document);
+
   app.enableCors({
     credentials: true,
     origin: true,

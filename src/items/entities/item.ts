@@ -1,15 +1,13 @@
-import { Category } from 'src/categories/entities/category';
+import { Category } from 'src/categories/categories.entity';
 import { Shop } from 'src/shops/entities/shop';
 import {
-  Entity,
-  ObjectIdColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
+  Entity,
   ManyToOne,
   OneToMany,
-  Unique,
   PrimaryGeneratedColumn,
+  UpdateDateColumn
 } from 'typeorm';
 import { Skus } from './sku';
 

@@ -34,13 +34,13 @@ export class MiniaiService {
   /**
    * Scheduled task to trigger data synchronization
    */
-  @Cron(CronExpression.EVERY_DAY_AT_NOON)
-  async syncDataShops() {
-    const shops = await this.shopsService.findAllHavingZaloId();
-    for (const shop of shops) {
-      await this.syncDataShop(shop.id, shop.zaloId);
-    }
-  }
+  // @Cron(CronExpression.EVERY_DAY_AT_NOON)
+  // async syncDataShops() {
+  //   const shops = await this.shopsService.findAllHavingZaloId();
+  //   for (const shop of shops) {
+  //     await this.syncDataShop(shop.id, shop.zaloId);
+  //   }
+  // }
 
   async syncDataShop(shopId: string, zaloId: string) {
     await this.syncCategories(zaloId);

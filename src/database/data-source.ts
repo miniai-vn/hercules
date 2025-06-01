@@ -15,17 +15,8 @@ export const AppDataSource = new DataSource({
   port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
   username: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_NAME,
+  database: process.env.POSTGRES_DB,
   entities: [Shop, Category, Item, Skus, Channel, Department],
-  migrations: ['src/migrations/*.ts'],
+  // migrations: ['src/migrations/*.ts'],
   synchronize: false,
 });
-
-// "scripts": {
-//   "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
-//   "migration:generate": "npm run typeorm -- migration:generate -d src/database/data-source.ts",
-//   "migration:create": "npm run typeorm -- migration:create",
-//   "migration:run": "npm run typeorm -- migration:run -d src/database/data-source.ts",
-//   "migration:revert": "npm run typeorm -- migration:revert -d src/database/data-source.ts",
-//   "migration:show": "npm run typeorm -- migration:show -d src/database/data-source.ts"
-// }

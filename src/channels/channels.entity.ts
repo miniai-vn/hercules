@@ -6,6 +6,7 @@ import {
   ManyToOne,
   CreateDateColumn,
   UpdateDateColumn,
+  JoinColumn,
 } from 'typeorm';
 
 @Entity('channels')
@@ -52,8 +53,12 @@ export class Channel {
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'api_status' })
   apiStatus?: string;
 
-  @Column({ type: 'int', nullable: true, name: 'department_id' })
-  departmentId?: number;
+  @Column({
+    type: 'boolean',
+    nullable: true,
+    name: 'is_use_product_from_miniapp',
+  })
+  isUseProductFromMiniapp?: boolean;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
@@ -64,5 +69,6 @@ export class Channel {
   @ManyToOne(() => Department, (department) => department.channels, {
     onDelete: 'CASCADE',
   })
+  @JoinColumn({ name: 'department_id' })
   department?: Department;
 }

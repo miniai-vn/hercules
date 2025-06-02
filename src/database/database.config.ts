@@ -1,22 +1,36 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { join } from 'path';
+import { Shop } from 'src/shops/shops.entity';
+import { Category } from 'src/categories/categories.entity';
+import { Item } from 'src/items/items.entity';
+import { Skus } from 'src/items/sku.entity';
+import { Department } from 'src/departments/departments.entity';
+import { Channel } from 'src/channels/channels.entity';
+
 
 export const getDatabaseConfig = (
   configService: ConfigService,
 ): TypeOrmModuleOptions => {
   const isProduction = configService.get('NODE_ENV') === 'production';
-
+  console.log(join(__dirname, '../../', 'migrations', '*.ts'));
   return {
     type: 'postgres',
     host: configService.get('POSTGRES_HOST', 'localhost'),
-    port: configService.get('POSTGRES_PORT', 5432),
+    port: Number(configService.get('POSTGRES_PORT', 5432)),
     username: configService.get('POSTGRES_USER'),
     password: configService.get('POSTGRES_PASSWORD'),
     database: configService.get('POSTGRES_DB'),
-    entities: [join(__dirname, '..', '**', '*.entity.{ts,js}')],
-    migrations: [join(__dirname, '..', 'migrations', '*.{ts,js}')],
+    entities: [Shop, Category, Item, Skus, Channel, Department],
+    migrations: [
+      isProduction
+        ? join(__dirname, '..', '..', 'dist', 'migrations', '*.js')
+        : join(__dirname, '../../', 'migrations', '*.ts'),
+    ],
   };
 };
 
@@ -24,12 +38,12 @@ export const getDatabaseConfig = (
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
   host: process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(process.env.POSTGRES_PORT) || 5432,
+  port: parseInt(process.env.POSTGRES_PORT || '5432'),
   username: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
   database: process.env.POSTGRES_DB,
-  entities: [join(__dirname, '..', '**', '*.entity.{ts,js}')],
-  migrations: [join(__dirname, '..', 'migrations', '*.{ts,js}')],
+  entities: [Shop, Category, Item, Skus, Channel, Department],
+  migrations: ['src/database/migrations/*.ts'],
   synchronize: false,
   logging: process.env.NODE_ENV !== 'production',
 };

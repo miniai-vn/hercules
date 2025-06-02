@@ -9,10 +9,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CategoriesModule } from './categories/categories.module';
 import { ChannelsModule } from './channels/channels.module';
+import { OAModule } from './channels/oa/oa.module';
 import { getDatabaseConfig } from './database/database.config';
+import { DepartmentsModule } from './departments/departments.module';
 import { ItemsModule } from './items/items.module';
 import { MiniaiModule } from './miniai/miniai.module';
-import { MiniaiService } from './miniai/miniai.service';
 import { ShopsModule } from './shops/shops.module';
 @Module({
   imports: [
@@ -45,8 +46,10 @@ import { ShopsModule } from './shops/shops.module';
     ShopsModule,
     MiniaiModule,
     ChannelsModule,
+    DepartmentsModule,
+    OAModule
   ],
   controllers: [AppController],
-  providers: [AppService, MiniaiService],
+  providers: [AppService],
 })
 export class AppModule {}

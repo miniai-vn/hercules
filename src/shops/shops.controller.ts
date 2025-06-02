@@ -27,6 +27,16 @@ export class ShopsController {
     return this.shopService.findAll();
   }
 
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async findMyShop(@Request() req) {
+    const shopId = req.user.shop_id;
+    return {
+      message: 'Shop found successfully',
+      data: await this.shopService.findOne(shopId),
+    };
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<Shop | null> {
     return this.shopService.findOne(id);

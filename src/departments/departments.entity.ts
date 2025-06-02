@@ -1,11 +1,14 @@
 import { Channel } from 'src/channels/channels.entity';
+import { Shop } from 'src/shops/shops.entity';
 import {
-    Column,
-    CreateDateColumn,
-    DeleteDateColumn,
-    Entity,
-    PrimaryGeneratedColumn,
-    UpdateDateColumn
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('departments')
@@ -25,8 +28,9 @@ export class Department {
   @Column({ name: 'is_public', type: 'boolean', default: false })
   isPublic: boolean;
 
-  @Column({ type: 'uuid', name: 'shop_id', nullable: true })
-  shopId?: string;
+  @ManyToOne(() => Shop, (shop) => shop.items)
+  @JoinColumn({ name: 'shop_id' })
+  shop: Shop;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;

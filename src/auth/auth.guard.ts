@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { ShopsModule } from 'src/shops/shops.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -12,6 +13,8 @@ import { JwtModule } from '@nestjs/jwt';
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '60s' },
     }),
+    ShopsModule, // Importing ShopsModule for shop-related functionalities
+    
   ],
 })
 export class AuthModule {}

@@ -4,13 +4,21 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
+import { ShopService } from '../shops/shops.service';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
+  constructor(
+    // @Inject(forwardRef(() => ShopService))
+    // private readonly shopService: ShopService,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractTokenFromHeader(request);
 
@@ -24,9 +32,21 @@ export class JwtAuthGuard implements CanActivate {
         algorithms: [(process.env.JWT_ALGORITHM || 'HS256') as jwt.Algorithm],
       });
 
-      // Attach user data to request object
-      request['user'] = payload;
+      // Ensure payload is an object and has shop_id
+      if (typeof payload !== 'object' || payload === null || !('shop_id' in payload)) {
+        throw new UnauthorizedException('Invalid token payload');
+      }
 
+      // Fetch shop using ShopService
+      // const shop = await this.shopService.findOne((payload as any).shop_id);
+      // if (!shop) {
+      //   throw new UnauthorizedException('Shop not found');
+      // }
+
+      // Attach user and shop to request object
+      request['user'] = payload;
+      // request['shop'] = shop;
+      // console.log('Associated shop:', request['shop']);
       return true;
     } catch (error) {
       if (error.name === 'TokenExpiredError') {

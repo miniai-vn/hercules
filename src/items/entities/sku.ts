@@ -3,19 +3,17 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
+  PrimaryColumn,
+  UpdateDateColumn
 } from 'typeorm';
 import { Item } from './item';
 
 @Entity()
 export class Skus {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @Column({ unique: true })
-  sId: string;
+  @PrimaryColumn({ type: 'varchar' })
+  id: string;
 
   @Column()
   name: string;
@@ -29,25 +27,27 @@ export class Skus {
   @Column()
   price: number;
 
-  @Column()
+  @Column({ name: 'origin_price', nullable: true })
   originPrice: number;
 
-  @Column()
+  @Column({ name: 'is_active' })
   isActive: boolean;
 
   @ManyToOne(() => Shop, (shop) => shop.items)
+  @JoinColumn({ name: 'shop_id' })
   shop: Shop;
 
   @Column({ nullable: true })
   status?: string;
 
   // many to one relationship with Item
-  @ManyToOne(() => Item, (item) => item.skus)
+  @ManyToOne(() => Item, (item) => item.skus, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'item_id' })
   item: Item;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

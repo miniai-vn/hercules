@@ -8,7 +8,7 @@ async function bootstrap() {
   // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('MiniAI API')
-    .setDescription('API documentation for MiniAI')
+    .setDescription('API documentation for mi9.io')
     .setVersion('1.0')
     .addBearerAuth() // If you use JWT
     .build();
@@ -21,7 +21,7 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
-
   await app.listen(process.env.PORT || 8080);
+  console.log('Server is running on port:', process.env.PORT || 8080);
 }
 bootstrap();

@@ -5,6 +5,7 @@ import axios from 'axios';
 import { Queue } from 'bullmq';
 import { CategoriesService } from 'src/categories/categories.service';
 import { ItemsService } from 'src/items/items.service';
+import { Shop } from 'src/shops/entities/shop';
 import { ShopService } from 'src/shops/shops.service';
 enum MiniaiMessageType {
   SYNC_CATEGORIES = 'syncCategories',
@@ -27,8 +28,7 @@ export class MiniaiService {
 
   async startSync(shopId: string) {
     const shop = await this.shopsService.findOne(shopId);
-    console.log('Starting sync for shop:', shop);
-    await this.syncDataShop(shopId, shop.zaloId);
+    await this.syncDataShop(shop);
   }
 
   /**
@@ -42,9 +42,8 @@ export class MiniaiService {
   //   }
   // }
 
-  async syncDataShop(shopId: string, zaloId: string) {
-    await this.syncCategories(zaloId);
-    await this.syncItems(shopId);
+  async syncDataShop(shop: Shop) {
+    await this.syncCategories(shop);
   }
 
   private async makeApiRequest({ method, requestUrl = '', payload = {} }) {
@@ -82,27 +81,35 @@ export class MiniaiService {
     }
   }
 
-  async syncCategories(zaloId: string) {
+  async syncCategories(shop: Shop) {
     const categoriesReponse = await this.makeApiRequest({
       method: 'GET',
-      requestUrl: `/get-categories-by-zalo-id/${zaloId}`,
+      requestUrl: `/get-categories-by-zalo-id/${shop.zaloId}`,
       payload: {},
     });
 
     const categories = categoriesReponse.data;
-    console.log('Categories from Miniai:', categories);
     for (const category of categories) {
-      await this.categoriesService.upsert(category);
+      const cate = await this.categoriesService.upsert({
+        ...category,
+        shop: shop,
+      });
+      const items = await this.makeApiRequest({
+        method: 'GET',
+        requestUrl: `/get-items-by-category-id/${cate.id}`,
+      });
+      for (let i = 0; i < items.data.length; i += 200) {
+        const itemsBatch = items.data.slice(i, i + 200);
+        Promise.all(
+          itemsBatch.map((item) =>
+            this.itemsService.upsert({
+              ...item,
+              shop: shop,
+              category: cate,
+            }),
+          ),
+        );
+      }
     }
-
-    // for (const category of data) {
-    //   await this.categoriesService.upsertCategoryBySourceId(category.sId, {
-    //     ...category,
-    //   });
-    // }
-  }
-
-  async syncItems(shopId: string) {
-    // const allCategory = await this.categoriesService.find();
   }
 }

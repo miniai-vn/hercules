@@ -4,20 +4,18 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
   OneToMany,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn
+  PrimaryColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Skus } from './sku';
 
 @Entity()
 export class Item {
-  @PrimaryGeneratedColumn()
-  id: number;
-
-  @Column({ unique: true })
-  sId: string;
+  @PrimaryColumn({ type: 'varchar' })
+  id: string;
 
   @Column()
   type: string;
@@ -26,7 +24,7 @@ export class Item {
   name: string;
 
   @Column({ nullable: true })
-  description?: string;
+  description: string;
 
   @Column('simple-array', { default: [] })
   images: string[];
@@ -34,25 +32,27 @@ export class Item {
   @Column()
   price: number;
 
-  @Column()
-  originPrice: number;
-
   @ManyToOne(() => Shop, (shop) => shop.items)
+  @JoinColumn({ name: 'shop_id' })
   shop: Shop;
 
-  @ManyToOne(() => Category, (category) => category.items, { nullable: true })
-  category?: Category;
+  @ManyToOne(() => Category, (category) => category.items, {
+    nullable: true,
+    cascade: true,
+  })
+  @JoinColumn({ name: 'category_id' })
+  category: Category;
 
   @Column({ nullable: true })
-  status?: string;
+  status: string;
 
   // one to many relationship with SKU
-  @OneToMany(() => Skus, (sku) => sku.item)
+  @OneToMany(() => Skus, (sku) => sku.item, { cascade: true})
   skus: Skus[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

@@ -1,3 +1,4 @@
+import { on } from 'events';
 import { Item } from 'src/items/entities/item';
 import { Shop } from 'src/shops/entities/shop';
 import {
@@ -5,6 +6,7 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
   OneToMany,
   PrimaryColumn,
@@ -29,7 +31,11 @@ export class Category {
   images: string[];
 
   @ManyToOne(() => Shop, (shop) => shop.categories)
+  @JoinColumn({ name: 'shop_id' })
   shop: Shop;
+
+  // @Column({ name: 'shop_id', nullable: true })
+  // shopId: string;
 
   @OneToMany(() => Item, (item) => item.category)
   items: Item[];

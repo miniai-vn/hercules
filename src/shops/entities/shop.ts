@@ -14,7 +14,13 @@ export class Shop {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', name: 'token_key', length: 255, unique: true })
+  @Column({
+    type: 'varchar',
+    name: 'token_key',
+    length: 255,
+    unique: true,
+    nullable: true,
+  })
   tokenKey: string;
 
   @Column({ type: 'varchar', length: 255 })

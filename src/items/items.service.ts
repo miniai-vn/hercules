@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Item } from './entities/item';
-import { Skus } from './entities/sku';
+import { Item } from './items.entity';
+import { Skus } from './sku.entity';
 
 @Injectable()
 export class ItemsService {
@@ -79,7 +79,7 @@ export class ItemsService {
       await Promise.all(
         skus.map(async (sku) => {
           sku.item = item;
-          sku.shop = data.shop; 
+          sku.shop = data.shop;
           await this.upsertSku(sku);
         }),
       );

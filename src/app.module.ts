@@ -1,6 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -8,18 +8,12 @@ import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CategoriesModule } from './categories/categories.module';
-import { Category } from './categories/categories.entity';
-import { Channel } from './channels/channels.entity';
 import { ChannelsModule } from './channels/channels.module';
-import { Department } from './departments/departments.entity';
-import { Item } from './items/entities/item';
-import { Skus } from './items/entities/sku';
+import { getDatabaseConfig } from './database/database.config';
 import { ItemsModule } from './items/items.module';
 import { MiniaiModule } from './miniai/miniai.module';
 import { MiniaiService } from './miniai/miniai.service';
-import { Shop } from './shops/entities/shop';
 import { ShopsModule } from './shops/shops.module';
-import { AppDataSource } from './database/data-source';
 @Module({
   imports: [
     BullModule.forRoot({
@@ -40,8 +34,11 @@ import { AppDataSource } from './database/data-source';
       rootPath: join(__dirname, '../../', 'uploads'),
       serveRoot: '/uploads',
     }),
-    TypeOrmModule.forRoot({
-      ...AppDataSource.options,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) =>
+        getDatabaseConfig(configService),
+      inject: [ConfigService],
     }),
     ItemsModule,
     CategoriesModule,

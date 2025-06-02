@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-console.log(process.env.JWT_SECRET);
 @Module({
   imports: [
     ConfigModule.forRoot({

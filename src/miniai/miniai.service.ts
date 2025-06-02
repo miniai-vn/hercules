@@ -5,7 +5,7 @@ import axios from 'axios';
 import { Queue } from 'bullmq';
 import { CategoriesService } from 'src/categories/categories.service';
 import { ItemsService } from 'src/items/items.service';
-import { Shop } from 'src/shops/entities/shop';
+import { Shop } from 'src/shops/shops.entity';
 import { ShopService } from 'src/shops/shops.service';
 enum MiniaiMessageType {
   SYNC_CATEGORIES = 'syncCategories',
@@ -31,16 +31,6 @@ export class MiniaiService {
     await this.syncDataShop(shop);
   }
 
-  /**
-   * Scheduled task to trigger data synchronization
-   */
-  // @Cron(CronExpression.EVERY_DAY_AT_NOON)
-  // async syncDataShops() {
-  //   const shops = await this.shopsService.findAllHavingZaloId();
-  //   for (const shop of shops) {
-  //     await this.syncDataShop(shop.id, shop.zaloId);
-  //   }
-  // }
 
   async syncDataShop(shop: Shop) {
     await this.syncCategories(shop);

@@ -1,11 +1,11 @@
 import { DataSource } from 'typeorm';
-import { Shop } from 'src/shops/entities/shop';
-import { Item } from 'src/items/entities/item';
-import { Skus } from 'src/items/entities/sku';
+import { Shop } from 'src/shops/shops.entity';
+import { Item } from 'src/items/items.entity';
 import { Channel } from 'src/channels/channels.entity';
 import { Department } from 'src/departments/departments.entity';
 import { Category } from 'src/categories/categories.entity';
 import * as dotenv from 'dotenv';
+import { Skus } from 'src/items/sku.entity';
 
 dotenv.config();
 

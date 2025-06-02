@@ -1,5 +1,5 @@
 import { Category } from 'src/categories/categories.entity';
-import { Item } from 'src/items/entities/item';
+import { Item } from 'src/items/items.entity';
 import {
   Column,
   CreateDateColumn,

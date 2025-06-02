@@ -1,6 +1,6 @@
 import { on } from 'events';
-import { Item } from 'src/items/entities/item';
-import { Shop } from 'src/shops/entities/shop';
+import { Item } from 'src/items/items.entity';
+import { Shop } from 'src/shops/shops.entity';
 import {
   Column,
   CreateDateColumn,

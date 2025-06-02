@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/auth.module';
-import { Shop } from './entities/shop';
+import { Shop } from './shops.entity';
 import { ShopService } from './shops.service';
 
 @Controller('shops')

@@ -1,25 +1,30 @@
-import { Shop } from 'src/shops/entities/shop';
+import { Category } from 'src/categories/categories.entity';
+import { Shop } from 'src/shops/shops.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryColumn,
-  UpdateDateColumn
+  UpdateDateColumn,
 } from 'typeorm';
-import { Item } from './item';
+import { Skus } from './sku.entity';
 
 @Entity()
-export class Skus {
+export class Item {
   @PrimaryColumn({ type: 'varchar' })
   id: string;
+
+  @Column()
+  type: string;
 
   @Column()
   name: string;
 
   @Column({ nullable: true })
-  description?: string;
+  description: string;
 
   @Column('simple-array', { default: [] })
   images: string[];
@@ -27,23 +32,23 @@ export class Skus {
   @Column()
   price: number;
 
-  @Column({ name: 'origin_price', nullable: true })
-  originPrice: number;
-
-  @Column({ name: 'is_active' })
-  isActive: boolean;
-
   @ManyToOne(() => Shop, (shop) => shop.items)
   @JoinColumn({ name: 'shop_id' })
   shop: Shop;
 
-  @Column({ nullable: true })
-  status?: string;
+  @ManyToOne(() => Category, (category) => category.items, {
+    nullable: true,
+    cascade: true,
+  })
+  @JoinColumn({ name: 'category_id' })
+  category: Category;
 
-  // many to one relationship with Item
-  @ManyToOne(() => Item, (item) => item.skus, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'item_id' })
-  item: Item;
+  @Column({ nullable: true })
+  status: string;
+
+  // one to many relationship with SKU
+  @OneToMany(() => Skus, (sku) => sku.item, { cascade: true })
+  skus: Skus[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

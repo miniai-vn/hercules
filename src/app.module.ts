@@ -15,6 +15,10 @@ import { DepartmentsModule } from './departments/departments.module';
 import { ItemsModule } from './items/items.module';
 import { MiniaiModule } from './miniai/miniai.module';
 import { ShopsModule } from './shops/shops.module';
+import { ConversationsModule } from './conversations/conversations.module';
+import { MessagesService } from './messages/messages.service';
+import { MessagesModule } from './messages/messages.module';
+import { CustomersModule } from './customers/customers.module';
 @Module({
   imports: [
     BullModule.forRoot({
@@ -47,7 +51,10 @@ import { ShopsModule } from './shops/shops.module';
     MiniaiModule,
     ChannelsModule,
     DepartmentsModule,
-    OAModule
+    OAModule,
+    ConversationsModule,
+    MessagesModule,
+    CustomersModule
   ],
   controllers: [AppController],
   providers: [AppService],

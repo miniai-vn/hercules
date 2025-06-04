@@ -1,4 +1,5 @@
 import { Category } from 'src/categories/categories.entity';
+import { Customer } from 'src/customers/customers.entity';
 import { Item } from 'src/items/items.entity';
 import {
   Column,
@@ -40,4 +41,7 @@ export class Shop {
 
   @OneToMany(() => Item, (item) => item.shop)
   items: Item[];
+
+  @OneToMany(() => Customer, (customer) => customer.shop)
+  customers: Customer[];
 }

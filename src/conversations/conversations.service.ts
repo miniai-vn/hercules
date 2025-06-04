@@ -17,6 +17,12 @@ import {
   AddParticipantsDto,
   RemoveParticipantsDto,
 } from './dto/conversation.dto';
+import {
+  ConversationListFEResponseDto,
+  ConversationFEDto,
+  UserDto,
+  MessageDto,
+} from './dto/conversation-fe.dto';
 
 @Injectable()
 export class ConversationsService {
@@ -38,13 +44,15 @@ export class ConversationsService {
     // Handle customer participants
     if (customerParticipantIds && customerParticipantIds.length > 0) {
       const customers = [];
-      
+
       for (const customerId of customerParticipantIds) {
         try {
           const customer = await this.customersService.findOne(customerId);
           customers.push(customer);
         } catch (error) {
-          throw new BadRequestException(`Customer with ID ${customerId} not found`);
+          throw new BadRequestException(
+            `Customer with ID ${customerId} not found`,
+          );
         }
       }
 
@@ -185,13 +193,15 @@ export class ConversationsService {
     if (customerParticipantIds !== undefined) {
       if (customerParticipantIds.length > 0) {
         const customers = [];
-        
+
         for (const customerId of customerParticipantIds) {
           try {
             const customer = await this.customersService.findOne(customerId);
             customers.push(customer);
           } catch (error) {
-            throw new BadRequestException(`Customer with ID ${customerId} not found`);
+            throw new BadRequestException(
+              `Customer with ID ${customerId} not found`,
+            );
           }
         }
 
@@ -272,13 +282,15 @@ export class ConversationsService {
       addParticipantsDto.customerIds.length > 0
     ) {
       const newCustomers = [];
-      
+
       for (const customerId of addParticipantsDto.customerIds) {
         try {
           const customer = await this.customersService.findOne(customerId);
           newCustomers.push(customer);
         } catch (error) {
-          throw new BadRequestException(`Customer with ID ${customerId} not found`);
+          throw new BadRequestException(
+            `Customer with ID ${customerId} not found`,
+          );
         }
       }
 
@@ -358,6 +370,111 @@ export class ConversationsService {
       customers: conversation.customers || [],
       users: [], // Since we only have customer relationship in this entity
     };
+  }
+
+  async getConversationsForFrontend(): Promise<ConversationListFEResponseDto> {
+    const conversations = await this.conversationRepository.find({
+      relations: [
+        'customers',
+        'customers.shop',
+        'customers.channel',
+        'messages',
+      ],
+      order: { updatedAt: 'DESC' },
+    });
+
+    const conversationsFE: ConversationFEDto[] = conversations.map((conv) => {
+      // Map customers to users format
+      const participants: UserDto[] =
+        conv.customers?.map((customer) => ({
+          id: customer.id.toString(),
+          name: customer.name || 'Unknown User',
+          avatar: this.getAvatarUrl(customer),
+          status: this.getRandomStatus(),
+          platform: customer.platform,
+        })) || [];
+
+      // Get last message
+      const lastMessage: MessageDto | null =
+        conv.messages?.length > 0
+          ? {
+              id: conv.messages[conv.messages.length - 1].id.toString(),
+              senderId: this.getSenderIdFromMessage(
+                conv.messages[conv.messages.length - 1],
+              ),
+              content: conv.messages[conv.messages.length - 1].content || '',
+              timestamp: conv.messages[conv.messages.length - 1].createdAt,
+              type: this.mapContentTypeToFE(
+                conv.messages[conv.messages.length - 1].contentType,
+              ),
+            }
+          : null;
+
+      return {
+        id: conv.id.toString(),
+        participants,
+        lastMessage,
+        unreadCount: this.calculateUnreadCount(conv),
+        isGroup: conv.type === 'group',
+        name: conv.name,
+        channel: conv.channel,
+      };
+    });
+
+    return {
+      conversations: conversationsFE,
+      total: conversationsFE.length,
+    };
+  }
+
+  // Helper methods
+  private getAvatarUrl(customer: any): string {
+    // Generate avatar based on customer ID or use predefined ones
+    const avatars = [
+      'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face',
+      'https://images.unsplash.com/photo-1494790108755-2616b612b5aa?w=40&h=40&fit=crop&crop=face',
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face',
+      'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face',
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=40&h=40&fit=crop&crop=face',
+    ];
+
+    return avatars[(customer.id - 1) % avatars.length];
+  }
+
+  private getRandomStatus(): 'online' | 'offline' | 'away' {
+    const statuses: ('online' | 'offline' | 'away')[] = [
+      'online',
+      'offline',
+      'away',
+    ];
+    return statuses[Math.floor(Math.random() * statuses.length)];
+  }
+
+  private getSenderIdFromMessage(message: any): string {
+    // Extract sender ID from message extra_data or use a default
+    if (message.extraData && typeof message.extraData === 'object') {
+      return message.extraData.senderId || '1';
+    }
+    return '1'; // Default to user "1"
+  }
+
+  private mapContentTypeToFE(contentType: string): 'text' | 'image' | 'file' {
+    switch (contentType) {
+      case 'text':
+        return 'text';
+      case 'image':
+        return 'image';
+      case 'file':
+        return 'file';
+      default:
+        return 'text';
+    }
+  }
+
+  private calculateUnreadCount(conversation: any): number {
+    // Simple random unread count for demo
+    // In real app, you'd track read/unread status per user
+    return Math.floor(Math.random() * 3);
   }
 
   private toResponseDto(conversation: Conversation): ConversationResponseDto {

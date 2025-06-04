@@ -47,6 +47,14 @@ export class CreateCustomerDto {
   @IsString()
   @IsNotEmpty()
   shopId: string;
+
+  @ApiProperty({
+    description: 'Channel ID that the customer belongs to',
+    example: 1,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  channelId: number;
 }
 
 export class UpdateCustomerDto {
@@ -83,6 +91,14 @@ export class UpdateCustomerDto {
   @IsString()
   @IsOptional()
   shopId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Channel ID that the customer belongs to',
+    example: 2,
+  })
+  @IsNumber()
+  @IsOptional()
+  channelId?: number;
 }
 
 export class CustomerResponseDto {
@@ -118,6 +134,47 @@ export class CustomerResponseDto {
   shopId: string;
 
   @ApiProperty({
+    description: 'Channel ID that the customer belongs to',
+    example: 1,
+    nullable: true,
+  })
+  channelId?: number;
+
+  @ApiProperty({
+    description: 'Shop information',
+    type: 'object',
+    nullable: true,
+    properties: {
+      id: { type: 'string', description: 'Shop ID' },
+      name: { type: 'string', description: 'Shop name' },
+      email: { type: 'string', description: 'Shop email', nullable: true },
+    },
+    additionalProperties: false,
+  })
+  shop?: {
+    id: string;
+    name: string;
+    email?: string;
+  };
+
+  @ApiProperty({
+    description: 'Channel information',
+    type: 'object',
+    nullable: true,
+    properties: {
+      id: { type: 'number', description: 'Channel ID' },
+      name: { type: 'string', description: 'Channel name' },
+      platform: { type: 'string', description: 'Platform', nullable: true },
+    },
+    additionalProperties: false,
+  })
+  channel?: {
+    id: number;
+    name: string;
+    platform?: string;
+  };
+
+  @ApiProperty({
     description: 'Creation timestamp',
     example: '2025-06-04T10:00:00Z',
   })
@@ -147,6 +204,14 @@ export class CustomerListQueryDto {
   @IsOptional()
   @IsString()
   shopId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by channel ID',
+    example: 1,
+  })
+  @IsOptional()
+  @IsNumber()
+  channelId?: number;
 
   @ApiPropertyOptional({
     description: 'Search by name',

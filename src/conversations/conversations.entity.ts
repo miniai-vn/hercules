@@ -63,4 +63,6 @@ export class Conversation {
     },
   })
   customers: Customer[]; // Changed property name from 'messages' to 'customers'
+
+  
 }

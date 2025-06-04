@@ -1,9 +1,11 @@
 import { Conversation } from 'src/conversations/conversations.entity';
 import { Shop } from 'src/shops/shops.entity';
+import { Channel } from 'src/channels/channels.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   JoinTable,
   ManyToMany,
   ManyToOne,
@@ -42,7 +44,14 @@ export class Customer {
   @ManyToOne(() => Shop, (shop) => shop.customers, {
     nullable: true,
   })
+  @JoinColumn({ name: 'shop_id' })
   shop: Shop;
+
+  @ManyToOne(() => Channel, (channel) => channel.customers, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'channel_id' })
+  channel: Channel;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

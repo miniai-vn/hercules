@@ -1,4 +1,6 @@
+import { Customer } from 'src/customers/customers.entity';
 import { Department } from 'src/departments/departments.entity';
+import { Shop } from 'src/shops/shops.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -7,6 +9,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 
 @Entity('channels')
@@ -71,4 +74,15 @@ export class Channel {
   })
   @JoinColumn({ name: 'department_id' })
   department?: Department;
+
+  @OneToMany(() => Customer, (customer) => customer.channel, {
+    onDelete: 'SET NULL',
+  })
+  customers: Customer[];
+
+  @ManyToOne(() => Shop, (shop) => shop.channels, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'shop_id' })
+  shop: Shop;
 }

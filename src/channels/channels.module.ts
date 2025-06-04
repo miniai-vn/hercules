@@ -10,10 +10,10 @@ import { OAModule } from './oa/oa.module';
   imports: [
     TypeOrmModule.forFeature([Channel]),
     forwardRef(() => DepartmentsModule),
-    OAModule, // <<<<------ OAModule MUST be imported here
+    OAModule,
   ],
   providers: [ChannelsService],
   controllers: [ChannelsController],
-  // exports: [ChannelsService], // If other modules use ChannelsService
+  exports: [ChannelsService],
 })
 export class ChannelsModule {}

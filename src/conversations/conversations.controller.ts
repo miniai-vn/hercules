@@ -1,38 +1,46 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Post,
   Put,
-  UseGuards,
   Query,
-  Patch,
-  DefaultValuePipe,
-  HttpCode,
-  HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
-import { Conversation } from './conversations.entity';
-import { ConversationsService } from './conversations.service';
-import { JwtAuthGuard } from '../auth/auth.module'; // Adjust path
 import {
-  CreateConversationDto,
-  UpdateConversationDto,
-  ConversationQueryParamsDto,
-  ConversationBulkDeleteDto,
-  PaginatedConversationsDto,
-  ConversationResponseDto,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/auth.module';
+import { ConversationsService } from './conversations.service';
+import { ConversationListFEResponseDto } from './dto/conversation-fe.dto';
+import {
   AddParticipantsDto,
+  ConversationBulkDeleteDto,
+  ConversationQueryParamsDto,
+  ConversationResponseDto,
+  CreateConversationDto,
+  PaginatedConversationsDto,
   RemoveParticipantsDto,
+  UpdateConversationDto,
 } from './dto/conversation.dto';
+import * as jwt from 'jsonwebtoken';
 
 interface ApiResponse<T> {
   message: string;
   data: T;
 }
 
+@ApiTags('conversations')
+@ApiBearerAuth('bearerAuth') // Use the security scheme name from main.ts
 @Controller('conversations')
 @UseGuards(JwtAuthGuard)
 export class ConversationsController {
@@ -69,6 +77,16 @@ export class ConversationsController {
     };
   }
 
+  @Get('frontend')
+  @ApiOperation({ summary: 'Get conversations in frontend format' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns conversations formatted for frontend consumption',
+    type: ConversationListFEResponseDto,
+  })
+  async getConversationsForFrontend(): Promise<ConversationListFEResponseDto> {
+    return this.conversationsService.getConversationsForFrontend();
+  }
   @Get('query')
   async query(
     @Query() queryParams: ConversationQueryParamsDto,
@@ -174,6 +192,43 @@ export class ConversationsController {
     return {
       message: 'Participants retrieved successfully',
       data: participants,
+    };
+  }
+
+  // Add a test endpoint without auth to verify Swagger works
+  @Get('test/public')
+  @ApiOperation({ summary: 'Public test endpoint - no auth required' })
+  @ApiResponse({ status: 200, description: 'Test successful' })
+  // Remove @ApiBearerAuth() and @UseGuards() for this endpoint
+  async testPublic() {
+    return {
+      message: 'Public endpoint working',
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+@Controller('auth')
+export class AuthController {
+  @Post('test-token')
+  @ApiOperation({ summary: 'Generate test JWT token for development' })
+  @ApiResponse({ status: 200, description: 'Test token generated' })
+  generateTestToken() {
+    const payload = {
+      shop_id: '0f2faa9a-2eda-4b32-81ee-e6bdb7d36fe3',
+      user_id: 1,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, {
+      algorithm: (process.env.JWT_ALGORITHM || 'HS256') as jwt.Algorithm,
+    });
+
+    return {
+      access_token: token,
+      token_type: 'bearer',
+      expires_in: 86400,
     };
   }
 }

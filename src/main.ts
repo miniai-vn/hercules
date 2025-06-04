@@ -8,15 +8,30 @@ async function bootstrap() {
   // Set global prefix first
   app.setGlobalPrefix('api');
 
-  // Swagger setup
+  // Explicit Bearer auth configuration for Swagger
   const config = new DocumentBuilder()
-    .setTitle('mi9 API')
+    .setTitle('MiniAI API')
     .setDescription('API documentation for mi9.io')
     .setVersion('1.0')
-    .addBearerAuth() // If you use JWT
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        in: 'header',
+        name: 'Authorization',
+        description: 'Enter your Bearer token',
+      },
+      'bearerAuth', // This is the security scheme name
+    )
     .build();
+
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document); // Add api prefix to swagger
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true, // Keep token after page refresh
+    },
+  });
 
   app.enableCors({
     credentials: true,
@@ -25,6 +40,10 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT || 8080);
   console.log('Server is running on port:', process.env.PORT || 8080);
-  console.log('Swagger docs available at: http://localhost:' + (process.env.PORT || 8080) + '/api/docs');
+  console.log(
+    'Swagger docs available at: http://localhost:' +
+      (process.env.PORT || 8080) +
+      '/api/docs',
+  );
 }
 bootstrap();

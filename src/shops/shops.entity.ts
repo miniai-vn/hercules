@@ -2,6 +2,7 @@ import { Category } from 'src/categories/categories.entity';
 import { Channel } from 'src/channels/channels.entity';
 import { Customer } from 'src/customers/customers.entity';
 import { Item } from 'src/items/items.entity';
+import { User } from 'src/users/users.entity';
 import {
   Column,
   CreateDateColumn,
@@ -48,4 +49,8 @@ export class Shop {
 
   @OneToMany(() => Channel, (channel) => channel.shop)
   channels: Channel[];
+
+  // Add this to your Shop entity
+  @OneToMany(() => User, (user) => user.shop)
+  admins: User[];
 }

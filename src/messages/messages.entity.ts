@@ -7,8 +7,11 @@ import {
   ManyToOne,
   JoinColumn,
   DeleteDateColumn,
+  OneToOne,
+  OneToMany,
 } from 'typeorm';
 import { Conversation } from '../conversations/conversations.entity'; // Adjust path as needed
+import { MessageRecipient } from 'src/message-recepients/message-recepients.entity';
 
 @Entity('messages')
 export class Message {
@@ -24,8 +27,16 @@ export class Message {
   @Column({ type: 'text', name: 'content_type' })
   contentType: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'sender_id' })
+  sender_id?: string; // ID of the sender in the conversation
+
   @Column({ type: 'text', nullable: true, name: 'content' })
   content?: string;
+
+  @OneToMany(() => MessageRecipient, (recipient) => recipient.message, {
+    cascade: true,
+  })
+  recipients: MessageRecipient[];
 
   @ManyToOne(() => Conversation, (conversation) => conversation.messages, {
     onDelete: 'CASCADE', // Matches SQLAlchemy

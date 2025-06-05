@@ -106,7 +106,7 @@ export class CustomerResponseDto {
     description: 'Customer ID',
     example: 1,
   })
-  id: number;
+  id: string;
 
   @ApiProperty({
     description: 'Platform name',

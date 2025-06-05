@@ -14,6 +14,9 @@ import { Channel } from 'src/channels/channels.entity';
 import { Customer } from 'src/customers/customers.entity';
 import { Conversation } from 'src/conversations/conversations.entity';
 import { Message } from 'src/messages/messages.entity';
+import { User } from 'src/users/users.entity';
+import { ConversationMember } from 'src/conversation-members/conversation-members.entity';
+import { MessageRecipient } from 'src/message-recepients/message-recepients.entity';
 
 export const getDatabaseConfig = (
   configService: ConfigService,
@@ -36,6 +39,9 @@ export const getDatabaseConfig = (
       Customer,
       Conversation,
       Message,
+      User,
+      ConversationMember,
+      MessageRecipient,
     ],
     migrations: [
       isProduction
@@ -63,6 +69,9 @@ export const dataSourceOptions: DataSourceOptions = {
     Customer,
     Conversation,
     Message,
+    User,
+    ConversationMember,
+    MessageRecipient, // Ensure this is imported if used
   ],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,

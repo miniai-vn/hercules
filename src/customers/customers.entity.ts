@@ -1,13 +1,10 @@
-import { Conversation } from 'src/conversations/conversations.entity';
-import { Shop } from 'src/shops/shops.entity';
 import { Channel } from 'src/channels/channels.entity';
+import { Shop } from 'src/shops/shops.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
   JoinColumn,
-  JoinTable,
-  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -15,8 +12,8 @@ import {
 
 @Entity('customers')
 export class Customer {
-  @PrimaryGeneratedColumn({ name: 'id' })
-  id: number;
+  @PrimaryGeneratedColumn('uuid', { name: 'id' })
+  id: string;
 
   @Column({ type: 'varchar', length: 255, unique: true, name: 'platform' })
   platform: string; // e.g., Zalo, Facebook, TikTok
@@ -24,22 +21,11 @@ export class Customer {
   @Column({ type: 'varchar', length: 255, name: 'external_id' })
   externalId: string; // ID of the customer on the specific channel
 
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'avatar' })
+  avatar?: string; // URL to the customer's avatar image
+
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'name' })
   name?: string;
-
-  @ManyToMany(() => Conversation, (conversation) => conversation.customers)
-  @JoinTable({
-    name: 'conversation_customers', // Name of the join table
-    joinColumn: {
-      name: 'customer_id', // Column name in join table for Customer's PK
-      referencedColumnName: 'id', // Column in Customer table
-    },
-    inverseJoinColumn: {
-      name: 'conversation_id', // Column name in join table for Conversation's PK
-      referencedColumnName: 'id', // Column in Conversation table
-    },
-  })
-  conversations: Conversation[];
 
   @ManyToOne(() => Shop, (shop) => shop.customers, {
     nullable: true,

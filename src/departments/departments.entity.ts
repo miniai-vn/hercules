@@ -1,11 +1,13 @@
 import { Channel } from 'src/channels/channels.entity';
 import { Shop } from 'src/shops/shops.entity';
+import { User } from 'src/users/users.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
   JoinColumn,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -42,4 +44,7 @@ export class Department {
   deletedAt?: Date;
 
   channels: Channel[];
+
+  @ManyToMany(() => User, (user) => user.departments)
+  users: User[];
 }

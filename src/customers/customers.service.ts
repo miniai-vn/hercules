@@ -135,7 +135,7 @@ export class CustomersService {
     };
   }
 
-  async findOne(id: number): Promise<CustomerResponseDto> {
+  async findOne(id: string): Promise<CustomerResponseDto> {
     const customer = await this.customerRepository.findOne({
       where: { id },
       relations: ['shop', 'channel'],
@@ -149,7 +149,7 @@ export class CustomersService {
   }
 
   async update(
-    id: number,
+    id: string,
     updateCustomerDto: UpdateCustomerDto,
   ): Promise<CustomerResponseDto> {
     try {
@@ -227,7 +227,7 @@ export class CustomersService {
     }
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: string): Promise<void> {
     const customer = await this.customerRepository.findOne({
       where: { id },
     });

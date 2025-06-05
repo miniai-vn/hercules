@@ -60,6 +60,9 @@ export class UpdateConversationDto {
 
 export class ConversationQueryParamsDto {
   @IsString()
+  shopId: string; // Shop ID to filter conversationsw
+
+  @IsString()
   @IsOptional()
   name?: string;
 
@@ -119,6 +122,13 @@ export class ConversationResponseDto {
   content?: string;
   createdAt: Date;
   updatedAt: Date;
+  messages?: {
+    id: number;
+    content: string;
+    createdAt: Date;
+    updatedAt: Date;
+    senderId: number; // ID of the user or customer who sent the message
+  }[]; // Optional: array of messages in conversation
   customerParticipants?: {
     id: number;
     name?: string;

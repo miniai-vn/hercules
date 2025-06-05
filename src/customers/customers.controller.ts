@@ -110,7 +110,7 @@ export class CustomersController {
     description: 'Customer not found',
   })
   async findOne(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: string,
   ): Promise<CustomerResponseDto> {
     return this.customersService.findOne(id);
   }
@@ -136,7 +136,7 @@ export class CustomersController {
     description: 'Customer not found',
   })
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIntPipe) id: string,
     @Body() updateCustomerDto: UpdateCustomerDto,
   ): Promise<CustomerResponseDto> {
     return this.customersService.update(id, updateCustomerDto);
@@ -158,7 +158,7 @@ export class CustomersController {
     status: 404,
     description: 'Customer not found',
   })
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+  async remove(@Param('id', ParseIntPipe) id: string): Promise<void> {
     return this.customersService.remove(id);
   }
 

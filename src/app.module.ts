@@ -10,15 +10,18 @@ import { AppService } from './app.service';
 import { CategoriesModule } from './categories/categories.module';
 import { ChannelsModule } from './channels/channels.module';
 import { OAModule } from './channels/oa/oa.module';
+import { ConversationsModule } from './conversations/conversations.module';
+import { CustomersModule } from './customers/customers.module';
 import { getDatabaseConfig } from './database/database.config';
 import { DepartmentsModule } from './departments/departments.module';
 import { ItemsModule } from './items/items.module';
+import { MessagesModule } from './messages/messages.module';
 import { MiniaiModule } from './miniai/miniai.module';
 import { ShopsModule } from './shops/shops.module';
-import { ConversationsModule } from './conversations/conversations.module';
-import { MessagesService } from './messages/messages.service';
-import { MessagesModule } from './messages/messages.module';
-import { CustomersModule } from './customers/customers.module';
+import { UsersModule } from './users/users.module';
+import { UsersService } from './users/users.service';
+import { ConversationMembersModule } from './conversation-members/conversation-members.module';
+import { MessageRecepientsModule } from './message-recepients/message-recepients.module';
 @Module({
   imports: [
     BullModule.forRoot({
@@ -54,7 +57,10 @@ import { CustomersModule } from './customers/customers.module';
     OAModule,
     ConversationsModule,
     MessagesModule,
-    CustomersModule
+    CustomersModule,
+    UsersModule,
+    ConversationMembersModule,
+    MessageRecepientsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

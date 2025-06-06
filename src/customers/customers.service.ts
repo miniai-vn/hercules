@@ -156,74 +156,23 @@ export class CustomersService {
     updateCustomerDto: UpdateCustomerDto,
   ): Promise<CustomerResponseDto> {
     try {
-      const { platform, externalId, name, shopId, channelId } =
-        updateCustomerDto;
-
+      const { name, address, avatar, phone, note } = updateCustomerDto;
       const customer = await this.customerRepository.findOne({
         where: { id },
         relations: ['shop', 'channel'],
       });
 
-      if (!customer) {
-        throw new NotFoundException(`Customer with ID ${id} not found`);
-      }
+      const updatedCustomer = await this.customerRepository.save({
+        ...customer,
+        ...(name && { name }),
+        ...(address && { address }),
+        ...(avatar && { avatar }),
+        ...(phone && { phone }),
+        ...(note && { note }),
+      });
 
-      // Check if shop exists using ShopService (if shopId is provided)
-      if (shopId && shopId !== customer.shop?.id) {
-        try {
-          const shop = await this.shopService.findOne(shopId);
-          customer.shop = shop;
-        } catch (error) {
-          throw new BadRequestException(`Shop with ID ${shopId} not found`);
-        }
-      }
-
-      // Check if channel exists using ChannelService (if channelId is provided)
-      if (channelId && channelId !== customer.channel?.id) {
-        try {
-          const channel = await this.channelService.getOne(channelId);
-          customer.channel = channel;
-        } catch (error) {
-          throw new BadRequestException(
-            `Channel with ID ${channelId} not found`,
-          );
-        }
-      }
-
-      // Check for duplicate platform + externalId (if either is being updated)
-      if (platform || externalId) {
-        const checkPlatform = platform || customer.platform;
-        const checkExternalId = externalId || customer.externalId;
-
-        const existingCustomer = await this.customerRepository.findOne({
-          where: { platform: checkPlatform, externalId: checkExternalId },
-        });
-
-        if (existingCustomer && existingCustomer.id !== id) {
-          throw new ConflictException(
-            `Customer with platform '${checkPlatform}' and external ID '${checkExternalId}' already exists`,
-          );
-        }
-      }
-
-      // Update customer fields
-      if (platform) customer.platform = platform;
-      if (externalId) customer.externalId = externalId;
-      if (name !== undefined) customer.name = name;
-
-      const updatedCustomer = await this.customerRepository.save(customer);
       return this.mapToResponseDto(updatedCustomer);
     } catch (error) {
-      // Re-throw known errors
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException ||
-        error instanceof ConflictException
-      ) {
-        throw error;
-      }
-
-      // Handle unexpected errors
       throw new InternalServerErrorException(
         `Failed to update customer with ID ${id}: ${error.message}`,
       );

@@ -168,7 +168,7 @@ export class ConversationsController {
     status: 200,
     description: 'Returns messages for the conversation',
   })
-  async getConversationMessages(@Param('id', ParseIntPipe) id: number) {
+  async getFullInfoConversation(@Param('id', ParseIntPipe) id: number) {
     const data = await this.conversationsService.getFullInfoConversation(id);
     return {
       message: 'Conversation messages retrieved successfully',

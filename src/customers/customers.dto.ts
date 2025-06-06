@@ -6,6 +6,7 @@ import {
   IsEnum,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export enum Platform {
   ZALO = 'zalo',
@@ -97,8 +98,49 @@ export class UpdateCustomerDto {
     example: 2,
   })
   @IsNumber()
+  @Type(() => Number)
   @IsOptional()
   channelId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Customer phone number',
+    example: '+84123456789',
+  })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Customer email address',
+    example: 'customer@example.com',
+  })
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: 'Customer address',
+    example: '123 Main St, Hanoi, Vietnam',
+  })
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @ApiPropertyOptional({
+    description: 'Notes about the customer',
+    example: 'VIP customer, prefers Zalo contact.',
+  })
+  @IsString()
+  @IsOptional()
+  note?: string;
+
+  @ApiPropertyOptional({
+    description: 'Customer avatar URL',
+    example: 'https://example.com/avatar.jpg',
+  })
+  @IsString()
+  @IsOptional()
+  avatar?: string;
 }
 
 export class CustomerResponseDto {

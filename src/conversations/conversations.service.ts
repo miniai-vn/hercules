@@ -321,6 +321,7 @@ export class ConversationsService {
         .leftJoinAndSelect('conversation.messages', 'messages')
         .leftJoinAndSelect('messages.recipients', 'recipients')
         .leftJoinAndSelect('conversation.members', 'members')
+        .leftJoinAndSelect('members.customer', 'customer')
         .where('conversation.id = :id', { id })
         .getOne();
 
@@ -340,8 +341,11 @@ export class ConversationsService {
 
       return {
         ...conversation,
-        name: customers[0].customer?.name || 'Unknown Customer',
-        avatar: customers[0].customer?.avatar || '',
+        name:
+          conversation.name ??
+          customers[0].customer?.name ??
+          'Unknown Customer',
+        avatar: customers[0].customer?.avatar ?? '',
         messages: messages,
       };
     } catch (error) {

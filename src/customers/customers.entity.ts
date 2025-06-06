@@ -16,16 +16,28 @@ export class Customer {
   id: string;
 
   @Column({ type: 'varchar', length: 255, unique: true, name: 'platform' })
-  platform: string; // e.g., Zalo, Facebook, TikTok
+  platform: string;
 
   @Column({ type: 'varchar', length: 255, name: 'external_id' })
-  externalId: string; // ID of the customer on the specific channel
+  externalId: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'avatar' })
-  avatar?: string; // URL to the customer's avatar image
+  avatar?: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'name' })
   name?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'phone' })
+  phone?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'email' })
+  email?: string;
+
+  @Column({ type: 'text', nullable: true, name: 'address' })
+  address?: string;
+
+  @Column({ type: 'text', nullable: true, name: 'note' })
+  note?: string;
 
   @ManyToOne(() => Shop, (shop) => shop.customers, {
     nullable: true,

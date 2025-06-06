@@ -11,6 +11,7 @@ import {
   HttpStatus,
   ParseIntPipe,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -109,8 +110,11 @@ export class CustomersController {
     status: 404,
     description: 'Customer not found',
   })
-  async findOne(@Param('id', ParseIntPipe) id: string) {
-    return this.customersService.findOne(id);
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return {
+      message: 'Customer retrieved successfully',
+      data: await this.customersService.findOne(id),
+    };
   }
 
   @Put(':id')
@@ -134,7 +138,7 @@ export class CustomersController {
     description: 'Customer not found',
   })
   async update(
-    @Param('id', ParseIntPipe) id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCustomerDto: UpdateCustomerDto,
   ): Promise<CustomerResponseDto> {
     return this.customersService.update(id, updateCustomerDto);

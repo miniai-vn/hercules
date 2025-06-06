@@ -64,6 +64,18 @@ export class ConversationQueryParamsDto {
 
   @IsString()
   @IsOptional()
+  channelType?: string; // Optional: Filter by channel type (e.g., Zalo, Facebook)
+
+  @IsString()
+  @IsOptional()
+  channelId?: string; // Optional: Filter by channel ID
+
+  @IsString()
+  @IsOptional()
+  userId?: string; // User ID to filter conversations
+
+  @IsString()
+  @IsOptional()
   name?: string;
 
   @IsEnum(ConversationType)
@@ -127,12 +139,12 @@ export class ConversationResponseDto {
     content: string;
     createdAt: Date;
     updatedAt: Date;
-    senderId: number; // ID of the user or customer who sent the message
+    senderId: string; // ID of the user or customer who sent the message
   }[]; // Optional: array of messages in conversation
   customerParticipants?: {
     id: number;
     name?: string;
-    externalId: string;
+    externalId?: string;
   }[];
   userParticipants?: {
     id: string;

@@ -11,6 +11,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -19,6 +20,7 @@ import {
   ApiOperation,
   ApiResponse,
   ApiTags,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/auth.module';
 import { ConversationsService } from './conversations.service';
@@ -106,17 +108,40 @@ export class ConversationsController {
     status: 200,
     description: 'Conversations queried successfully',
   })
-  async query(
-    @Query() queryParams: ConversationQueryParamsDto,
-    @Request() req: AuthenticatedRequest,
-  ): Promise<ApiResponse<ConversationResponseDto[]>> {
-    const conversations = await this.conversationsService.query({
-      ...queryParams,
-      shopId: req.user.shop_id, // Get shopId from request user
-    });
+  @ApiQuery({ name: 'type', required: false, description: 'Conversation type' })
+  @ApiQuery({ name: 'name', required: false, description: 'Conversation name' })
+  @ApiQuery({
+    name: 'channelId',
+    required: false,
+    type: Number,
+    description: 'Channel ID',
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    type: String,
+    description: 'User ID',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search term for conversation name or content',
+  })
+  @ApiQuery({
+    name: 'channelType',
+    required: false,
+    type: String,
+    description: 'Channel type (e.g., Zalo, Facebook)',
+  })
+  async query(@Req() req, @Query() queryParams: ConversationQueryParamsDto) {
+    const shopId = req.user.shop_id;
+    queryParams.shopId = shopId;
+    const userId = req.user.user_id;
+    queryParams.userId = userId;
     return {
       message: 'Conversations queried successfully',
-      data: conversations,
+      data: await this.conversationsService.query(queryParams),
     };
   }
 
@@ -144,7 +169,7 @@ export class ConversationsController {
     description: 'Returns messages for the conversation',
   })
   async getConversationMessages(@Param('id', ParseIntPipe) id: number) {
-    const data = await this.conversationsService.getConversationMessages(id);
+    const data = await this.conversationsService.getFullInfoConversation(id);
     return {
       message: 'Conversation messages retrieved successfully',
       data,
@@ -190,6 +215,23 @@ export class ConversationsController {
     return {
       message: 'Participants added successfully',
       data: conversation,
+    };
+  }
+
+  @Get(':id/users')
+  @ApiOperation({ summary: 'Get participants of a conversation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Participants retrieved successfully',
+  })
+  async getParticipants(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ApiResponse<{ participants: any[] }>> {
+    const participants =
+      await this.conversationsService.getUsersInConversation(id);
+    return {
+      message: 'Participants retrieved successfully',
+      data: { participants },
     };
   }
 

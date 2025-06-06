@@ -1,6 +1,8 @@
+import { Conversation } from 'src/conversations/conversations.entity';
 import { Customer } from 'src/customers/customers.entity';
 import { Department } from 'src/departments/departments.entity';
 import { Shop } from 'src/shops/shops.entity';
+import { User } from 'src/users/users.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -10,6 +12,8 @@ import {
   UpdateDateColumn,
   JoinColumn,
   OneToMany,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 
 @Entity('channels')
@@ -63,6 +67,16 @@ export class Channel {
   })
   isUseProductFromMiniapp?: boolean;
 
+  @ManyToMany(() => User, (user) => user.channels, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinTable({
+    name: 'channel_users',
+    joinColumn: { name: 'channel_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  })
+  users: User[];
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 
@@ -79,6 +93,11 @@ export class Channel {
     onDelete: 'SET NULL',
   })
   customers: Customer[];
+
+  @OneToMany(() => Conversation, (conversation) => conversation.channel, {
+    onDelete: 'SET NULL',
+  })
+  conversations: Conversation[];
 
   @ManyToOne(() => Shop, (shop) => shop.channels, {
     onDelete: 'CASCADE',

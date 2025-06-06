@@ -1,3 +1,4 @@
+import { Channel } from 'src/channels/channels.entity';
 import {
   ConversationMember,
   ParticipantType,
@@ -6,11 +7,13 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
-  UpdateDateColumn
+  UpdateDateColumn,
 } from 'typeorm';
-import { Message } from '../messages/messages.entity'; // Ensure path is correct
+import { Message } from '../messages/messages.entity';
 
 export enum ConversationType {
   DIRECT = 'direct',
@@ -31,6 +34,14 @@ export class Conversation {
   })
   type: ConversationType;
 
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'avatar',
+  })
+  avatar: string;
+
   @Column({ type: 'text', nullable: true, name: 'content' })
   content?: string;
 
@@ -40,7 +51,12 @@ export class Conversation {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
 
-  // Assuming you still have a OneToMany with Message
+  @ManyToOne(() => Channel, (channel) => channel.conversations, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'channel_id' })
+  channel: Channel;
   @OneToMany(() => Message, (message) => message.conversation, {
     cascade: true,
   })
@@ -51,21 +67,18 @@ export class Conversation {
   })
   members: ConversationMember[];
 
-  // Helper method to get active participants
   getActiveParticipants(): ConversationMember[] {
     return (
       this.members?.filter((member) => member.isActive && !member.leftAt) || []
     );
   }
 
-  // Helper method to get customers only
   getCustomerParticipants(): ConversationMember[] {
     return this.getActiveParticipants().filter(
       (member) => member.participantType === ParticipantType.CUSTOMER,
     );
   }
 
-  // Helper method to get users only
   getUserParticipants(): ConversationMember[] {
     return this.getActiveParticipants().filter(
       (member) => member.participantType === ParticipantType.USER,

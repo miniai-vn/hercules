@@ -4,6 +4,8 @@ import {
   ConflictException,
   BadRequestException,
   InternalServerErrorException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindManyOptions } from 'typeorm';
@@ -24,6 +26,7 @@ export class CustomersService {
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
     private readonly shopService: ShopService,
+    @Inject(forwardRef(() => ChannelsService))
     private readonly channelService: ChannelsService,
   ) {}
 
@@ -135,7 +138,7 @@ export class CustomersService {
     };
   }
 
-  async findOne(id: string): Promise<CustomerResponseDto> {
+  async findOne(id: string) {
     const customer = await this.customerRepository.findOne({
       where: { id },
       relations: ['shop', 'channel'],
@@ -145,7 +148,7 @@ export class CustomersService {
       throw new NotFoundException(`Customer with ID ${id} not found`);
     }
 
-    return this.mapToResponseDto(customer);
+    return customer;
   }
 
   async update(

@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AddParticipantDto } from 'src/conversation-members/conversation-members.dto';
+import { Message } from 'src/messages/messages.entity';
+import { MessagesService } from 'src/messages/messages.service';
 import { Repository } from 'typeorm';
 import { ParticipantType } from '../conversation-members/conversation-members.entity';
 import { ConversationMembersService } from '../conversation-members/conversation-members.service';
@@ -24,6 +26,7 @@ export class ConversationsService {
     @InjectRepository(Conversation)
     private readonly conversationRepository: Repository<Conversation>,
     private readonly conversationMembersService: ConversationMembersService,
+    private readonly messagesService: MessagesService,
   ) {}
 
   async create(
@@ -111,8 +114,8 @@ export class ConversationsService {
 
       if (search) {
         queryBuilder.andWhere(
-          '(conversation.name ILIKE :search OR conversation.content ILIKE :search)',
-          { search: `%${search}%` },
+          '(conversation.name ~* :search OR conversation.content ~* :search)',
+          { search: search },
         );
       }
 
@@ -141,32 +144,13 @@ export class ConversationsService {
       // Verify the conversation belongs to the shop through its members
       const conversation = await this.conversationRepository
         .createQueryBuilder('conversation')
-        .leftJoin(
-          'conversation_members',
-          'members',
-          'members.conversation_id = conversation.id',
-        )
-        .leftJoin(
-          'customers',
-          'customers',
-          'customers.id = members.customer_id',
-        )
-        .leftJoin('shops', 'shops', 'shops.id = customers.shop_id')
-        .leftJoin('users', 'users', 'users.id = members.user_id')
+        .leftJoinAndSelect('conversation.members', 'members')
+        .leftJoinAndSelect('conversation.messages', 'messages')
         .where('conversation.id = :id', { id })
-        .andWhere('members.is_active = true')
         .getOne();
-
-      if (!conversation) {
-        throw new NotFoundException('Conversation not found or not accessible');
-      }
-
       return this.toResponseDto(conversation);
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      throw new InternalServerErrorException('Failed to get conversation');
+      throw new InternalServerErrorException('Failed to retrieve conversation');
     }
   }
 
@@ -175,30 +159,22 @@ export class ConversationsService {
     updateConversationDto: UpdateConversationDto,
   ): Promise<ConversationResponseDto> {
     try {
-      // Verify conversation exists and belongs to shop
-      await this.findOne(id);
-
       const { customerParticipantIds, userParticipantIds, ...updateData } =
         updateConversationDto;
 
-      // Update conversation data
       await this.conversationRepository.update(id, updateData);
 
-      // Handle participant updates if provided
       if (
         customerParticipantIds !== undefined ||
         userParticipantIds !== undefined
       ) {
-        // Get current members
         const currentMembers =
           await this.conversationMembersService.getConversationMembers(id);
 
-        // Remove all current members (soft delete)
         for (const member of currentMembers) {
           await this.conversationMembersService.removeParticipant(member.id);
         }
 
-        // Add new participants
         const newParticipants: AddParticipantDto[] = [];
 
         if (customerParticipantIds && customerParticipantIds.length > 0) {
@@ -230,7 +206,6 @@ export class ConversationsService {
         }
       }
 
-      // Return updated conversation
       const updatedConversation = await this.conversationRepository.findOne({
         where: { id },
       });
@@ -246,10 +221,6 @@ export class ConversationsService {
 
   async remove(id: number): Promise<void> {
     try {
-      // Verify conversation exists and belongs to shop
-      await this.findOne(id);
-
-      // Remove all members first (cascade will handle this, but being explicit)
       const members =
         await this.conversationMembersService.getConversationMembers(id);
 
@@ -257,7 +228,6 @@ export class ConversationsService {
         await this.conversationMembersService.removeParticipant(member.id);
       }
 
-      // Remove the conversation
       await this.conversationRepository.delete(id);
     } catch (error) {
       if (error instanceof NotFoundException) {
@@ -274,7 +244,6 @@ export class ConversationsService {
     try {
       const participants: AddParticipantDto[] = [];
 
-      // Add customer participants
       if (
         addParticipantsDto.customerIds &&
         addParticipantsDto.customerIds.length > 0
@@ -316,19 +285,65 @@ export class ConversationsService {
     }
   }
 
-  async getConversationMessages(id: number): Promise<ConversationResponseDto> {
+  async getUsersInConversation(conversationId: number) {
     try {
       const conversation = await this.conversationRepository
         .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.messages', 'messages')
-        .where('conversation.id = :id', { id })
+        .leftJoinAndSelect('conversation.members', 'members')
+        .leftJoinAndSelect('members.user', 'user')
+        .where('conversation.id = :conversationId', { conversationId })
         .getOne();
 
       if (!conversation) {
         throw new NotFoundException('Conversation not found');
       }
 
-      return this.toResponseDto(conversation);
+      return conversation.members
+        .filter((member) => member.participantType === ParticipantType.USER)
+        .map((member) => ({
+          id: member.id,
+          memberType: member.participantType,
+          systemId: member.userId,
+          name: member.user?.name || 'Unknown User',
+        }));
+    } catch (error) {
+      console.log(error);
+      throw new InternalServerErrorException(
+        'Failed to get users in conversation',
+      );
+    }
+  }
+
+  async getFullInfoConversation(id: number) {
+    try {
+      const conversation = await this.conversationRepository
+        .createQueryBuilder('conversation')
+        .leftJoinAndSelect('conversation.messages', 'messages')
+        .leftJoinAndSelect('messages.recipients', 'recipients')
+        .leftJoinAndSelect('conversation.members', 'members')
+        .where('conversation.id = :id', { id })
+        .getOne();
+
+      if (!conversation) {
+        throw new NotFoundException('Conversation not found');
+      }
+      const customers = conversation.members.filter(
+        (member) => member.participantType === ParticipantType.CUSTOMER,
+      );
+
+      const messages = await Promise.all(
+        conversation.messages.map(async (message) => ({
+          ...message,
+          sender: await this.messagesService.getInfoSenderMessages(message.id),
+        })),
+      );
+
+      return {
+        ...conversation,
+        name: customers[0].customer?.name || 'Unknown Customer',
+        avatar: customers[0].customer?.avatar || '',
+        messages: messages,
+      };
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to get conversation messages',
@@ -340,12 +355,27 @@ export class ConversationsService {
   ): Promise<ConversationResponseDto[]> {
     const queryBuilder = this.conversationRepository
       .createQueryBuilder('conversation')
-      .leftJoinAndSelect('conversation.customers', 'customers')
-      .leftJoinAndSelect('conversation.messages', 'messages');
+      .leftJoinAndSelect('conversation.messages', 'messages')
+      .leftJoinAndSelect('conversation.members', 'members')
+      .orderBy('conversation.createdAt', 'DESC');
 
-    if (queryParams.name) {
-      queryBuilder.andWhere('conversation.name ILIKE :name', {
-        name: `%${queryParams.name}%`,
+    if (queryParams.channelType) {
+      queryBuilder
+        .leftJoinAndSelect('conversation.channel', 'channel')
+        .where('channel.type = :channelType', {
+          channelType: queryParams.channelType.toLocaleLowerCase(),
+        });
+    }
+
+    if (queryParams.userId) {
+      queryBuilder.andWhere('members.user_id = :userId', {
+        userId: queryParams.userId,
+      });
+    }
+
+    if (queryParams.channelId) {
+      queryBuilder.andWhere('conversation.channel_id = :channelId', {
+        channelId: queryParams.channelId,
       });
     }
 
@@ -355,10 +385,10 @@ export class ConversationsService {
       });
     }
 
-    if (queryParams.search) {
+    if (queryParams.search && queryParams.search.trim() !== '') {
       queryBuilder.andWhere(
-        '(conversation.name ILIKE :search OR conversation.content ILIKE :search)',
-        { search: `%${queryParams.search}%` },
+        '(conversation.name ~* :search OR conversation.content ~* :search)',
+        { search: queryParams.search },
       );
     }
 
@@ -383,8 +413,36 @@ export class ConversationsService {
     const conversations = await queryBuilder
       .orderBy('conversation.createdAt', 'DESC')
       .getMany();
+    const conversaiontsResponse = conversations.map(async (conv) => {
+      const countMessagesUnread = await this.getUnReadMessagesCount(conv.id);
+      const lastestMessage = conv.messages[conv.messages.length - 1].content;
+      delete conv.messages;
+      return {
+        ...this.toResponseDto(conv),
+        unreadMessagesCount: countMessagesUnread,
+        isRead: countMessagesUnread === 0,
+        lastestMessage,
+      };
+    });
+    return Promise.all(conversaiontsResponse);
+  }
 
-    return conversations.map((conv) => this.toResponseDto(conv));
+  async getUnReadMessagesCount(conversationId: number): Promise<number> {
+    try {
+      const count = await this.conversationRepository
+        .createQueryBuilder('conversation')
+        .leftJoinAndSelect('conversation.messages', 'messages')
+        .leftJoinAndSelect('messages.recipients', 'recipients')
+        .leftJoin('conversation.members', 'members')
+        .where('conversation.id = :conversationId', { conversationId })
+        .andWhere('recipients.is_read = false')
+        .getCount();
+      return count;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to get unread messages count',
+      );
+    }
   }
 
   private toResponseDto(conversation: Conversation): ConversationResponseDto {
@@ -395,7 +453,21 @@ export class ConversationsService {
       content: conversation.content,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
-      messagesCount: conversation.messages?.length || 0,
+      messages: conversation.messages?.map((message) => ({
+        id: message.id,
+        content: message.content,
+        createdAt: message.createdAt,
+        updatedAt: message.updatedAt,
+        senderId: message.senderId, // Assuming messages have a senderId field
+      })),
+
+      customerParticipants: conversation.members.map((member) => ({
+        id: member.id,
+        memberType: member.participantType,
+        systemId: member.customerId ?? member.userId,
+        name: member.customer?.name || 'Unknown Customer',
+      })),
+      // messagesCount: conversation.messages?.length || 0,
     };
   }
 }

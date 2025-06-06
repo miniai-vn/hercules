@@ -11,6 +11,7 @@ import { Repository } from 'typeorm';
 import { Department } from '../departments/departments.entity';
 import { DepartmentsService } from '../departments/departments.service';
 import { Channel } from './channels.entity';
+import { User } from '../users/users.entity';
 import {
   ChannelBulkDeleteDto,
   ChannelQueryParamsDto,
@@ -21,6 +22,8 @@ import {
   UpdateChannelStatusDto,
 } from './dto/channel.dto';
 import { OAService } from './oa/oa.service';
+import { ConversationsService } from 'src/conversations/conversations.service';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class ChannelsService {
@@ -31,7 +34,9 @@ export class ChannelsService {
     private readonly channelRepository: Repository<Channel>,
     @Inject(forwardRef(() => DepartmentsService))
     private readonly departmentsService: DepartmentsService,
+    private readonly conversationsService: ConversationsService, // Inject ConversationsService if needed
     private readonly oaService: OAService, // Inject OAService
+    private readonly usersService: UsersService, // Use UsersService instead of userRepository
   ) {}
 
   async create(data: CreateChannelDto): Promise<Channel> {
@@ -87,9 +92,9 @@ export class ChannelsService {
 
   async update(id: number, data: UpdateChannelDto): Promise<Channel> {
     try {
-      const channel = await this.getOne(id); // Ensures channel exists and loads relations
+      const channel = await this.getOne(id);
 
-      let department: Department | undefined | null = channel.department; // Keep existing if not changed
+      let department: Department | undefined | null = channel.department;
       if (data.departmentId && data.departmentId !== channel.department.id) {
         department = await this.departmentsService.findOne(data.departmentId);
         if (!department) {
@@ -98,36 +103,22 @@ export class ChannelsService {
           );
         }
       } else if (data.departmentId === null) {
-        // Explicitly setting department to null
         department = null;
       }
 
-      // Merge new data into the existing channel entity
-      // TypeORM's save method can handle partial updates if you load the entity first
       const updatedChannelData = {
         ...channel,
         ...data,
         department: department === undefined ? channel.department : department,
       };
 
-      // delete departmentId from data to prevent TypeORM from trying to set it directly if department entity is also present
       const { departmentId, ...restOfData } = data;
 
-      // Update the channel entity
-      // Option 1: Merge and save
-      // this.channelRepository.merge(channel, restOfData);
-      // if (department !== undefined) { // if department was re-fetched or set to null
-      //   channel.department = department;
-      // }
-      // const savedChannel = await this.channelRepository.save(channel);
-
-      // Option 2: Use update method (doesn't run subscribers/listeners, returns UpdateResult)
-      // For this conversion, to match Python's "refresh" behavior and return entity, we'll fetch after update.
       await this.channelRepository.update(id, {
         ...restOfData,
-        department: department === undefined ? channel.department : department, // Pass the entity or null
+        department: department === undefined ? channel.department : department,
       });
-      const updatedChannel = await this.getOne(id); // Re-fetch to get the full entity with relations
+      const updatedChannel = await this.getOne(id);
 
       if (
         updatedChannel.type === ChannelType.ZALO &&
@@ -327,5 +318,136 @@ export class ChannelsService {
         error.message,
       );
     }
+  }
+
+  async getByShopIdAndUserIdAndCountUnreadMessages(
+    shopId: string,
+    userId?: string,
+  ): Promise<{ type: ChannelType; totalUnreadMessages: number }[]> {
+    const channelQueryBuild = this.channelRepository
+      .createQueryBuilder('channel')
+      .andWhere('channel.shop_id = :shopId', { shopId })
+      .leftJoinAndSelect('channel.conversations', 'conversations')
+      .leftJoinAndSelect('conversations.members', 'members');
+
+    if (userId) {
+      channelQueryBuild.where('members.userId = :userId', { userId });
+    }
+
+    const channels = await channelQueryBuild.getMany();
+    const channelsWithUnreadMessages = channels.map(async (channel) => {
+      const conversationsWithUnreadMessages = await Promise.all(
+        channel.conversations.map(async (conv) => {
+          return {
+            ...conv,
+            unreadMessagesCount:
+              await this.conversationsService.getUnReadMessagesCount(conv.id),
+          };
+        }),
+      );
+      const totalUnreadMessages = conversationsWithUnreadMessages.reduce(
+        (acc, conv) => acc + conv.unreadMessagesCount,
+        0,
+      );
+
+      return {
+        ...channel,
+        totalUnreadMessages,
+      };
+    });
+    const channelsWithUnreadMessagesPromise = await Promise.all(
+      channelsWithUnreadMessages,
+    );
+
+    const groupChannelsWithUnreadMessages = {};
+    channelsWithUnreadMessagesPromise.forEach((channel) => {
+      if (groupChannelsWithUnreadMessages[channel.id]) {
+        groupChannelsWithUnreadMessages[channel.id] = {
+          type: channel.type,
+          totalUnreadMessages:
+            channel.totalUnreadMessages + channel.totalUnreadMessages,
+        };
+      } else {
+        groupChannelsWithUnreadMessages[channel.id] = {
+          type: channel.type,
+          totalUnreadMessages: channel.totalUnreadMessages,
+        };
+      }
+    });
+
+    // Convert the object to an array if needed
+    const result: {
+      type: ChannelType;
+      totalUnreadMessages: number;
+    }[] = Object.values(groupChannelsWithUnreadMessages);
+    return result;
+  }
+
+  // Add a single user to a channel
+  async addUser(channelId: number, userId: string): Promise<Channel> {
+    const channel = await this.channelRepository.findOne({
+      where: { id: channelId },
+      relations: ['users'],
+    });
+    if (!channel) throw new NotFoundException('Channel not found');
+
+    const user = await this.usersService.getOne(userId);
+    if (!user) throw new NotFoundException('User not found');
+
+    if (!channel.users) channel.users = [];
+    // Prevent duplicates
+    if (!channel.users.find((u) => u.id === user.id)) {
+      channel.users.push(user);
+      await this.channelRepository.save(channel);
+    }
+    return channel;
+  }
+
+  // Add multiple users to a channel
+  async addUsers(channelId: number, userIds: string[]): Promise<Channel> {
+    const channel = await this.channelRepository.findOne({
+      where: { id: channelId },
+      relations: ['users'],
+    });
+    if (!channel) throw new NotFoundException('Channel not found');
+
+    const users = await this.usersService.findByIds(userIds);
+    if (!channel.users) channel.users = [];
+    // Add only new users
+    const existingUserIds = new Set(channel.users.map((u) => u.id));
+    for (const user of users) {
+      if (!existingUserIds.has(user.id)) {
+        channel.users.push(user);
+      }
+    }
+    await this.channelRepository.save(channel);
+    return channel;
+  }
+
+  // Remove a single user from a channel
+  async removeUser(channelId: number, userId: string): Promise<Channel> {
+    const channel = await this.channelRepository.findOne({
+      where: { id: channelId },
+      relations: ['users'],
+    });
+    if (!channel) throw new NotFoundException('Channel not found');
+    if (!channel.users) return channel;
+    channel.users = channel.users.filter((u) => u.id !== userId);
+    await this.channelRepository.save(channel);
+    return channel;
+  }
+
+  // Remove multiple users from a channel
+  async removeUsers(channelId: number, userIds: string[]): Promise<Channel> {
+    const channel = await this.channelRepository.findOne({
+      where: { id: channelId },
+      relations: ['users'],
+    });
+    if (!channel) throw new NotFoundException('Channel not found');
+    if (!channel.users) return channel;
+    const removeSet = new Set(userIds);
+    channel.users = channel.users.filter((u) => !removeSet.has(u.id));
+    await this.channelRepository.save(channel);
+    return channel;
   }
 }

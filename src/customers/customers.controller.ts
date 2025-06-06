@@ -109,9 +109,7 @@ export class CustomersController {
     status: 404,
     description: 'Customer not found',
   })
-  async findOne(
-    @Param('id', ParseIntPipe) id: string,
-  ): Promise<CustomerResponseDto> {
+  async findOne(@Param('id', ParseIntPipe) id: string) {
     return this.customersService.findOne(id);
   }
 

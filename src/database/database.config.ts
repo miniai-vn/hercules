@@ -71,7 +71,7 @@ export const dataSourceOptions: DataSourceOptions = {
     Message,
     User,
     ConversationMember,
-    MessageRecipient, // Ensure this is imported if used
+    MessageRecipient,
   ],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,

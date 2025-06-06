@@ -8,12 +8,12 @@ import { ChannelsModule } from 'src/channels/channels.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Customer]), // Register Customer entity repository
-    forwardRef(() => ShopsModule), // Use forwardRef to handle circular dependency
-    forwardRef(() => ChannelsModule), // Use forwardRef to handle circular dependency with ChannelsModule
+    TypeOrmModule.forFeature([Customer]), 
+    forwardRef(() => ShopsModule), 
+    forwardRef(() => ChannelsModule), 
   ],
   providers: [CustomersService],
   controllers: [CustomersController],
-  exports: [CustomersService], // Export service for other modules to use
+  exports: [CustomersService], 
 })
 export class CustomersModule {}

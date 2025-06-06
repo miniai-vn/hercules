@@ -25,13 +25,13 @@ import {
   MessageStatsDto,
   PaginatedMessagesDto,
   RestoreMessageDto,
-  UpdateMessageDto
+  UpdateMessageDto,
 } from './messages.dto';
 import { MessagesService } from './messages.service';
 
 interface ApiResponse<T> {
   message: string;
-  data: T;
+  data?: T;
 }
 
 @Controller('messages')
@@ -222,6 +222,16 @@ export class MessagesController {
     return {
       message: 'All messages in conversation deleted successfully',
       data: result,
+    };
+  }
+
+  @Patch('/:id/mark-as-read')
+  async markAsRead(
+    @Param('id', ParseIntPipe) ids: number[],
+  ): Promise<ApiResponse<MessageResponseDto>> {
+    const message = await this.messagesService.markAsRead(ids);
+    return {
+      message: 'Message marked as read successfully',
     };
   }
 }

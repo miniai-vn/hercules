@@ -8,7 +8,7 @@ import {
   ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn
+  UpdateDateColumn,
 } from 'typeorm';
 import { Department } from '../departments/departments.entity';
 import { Shop } from '../shops/shops.entity';
@@ -94,7 +94,6 @@ export class User {
   })
   @JoinColumn({ name: 'shop_id' })
   shop: Shop;
-  
 
   // Many-to-Many relationship with Departments
   @ManyToMany(() => Department, (department) => department.users, {
@@ -113,6 +112,16 @@ export class User {
   })
   departments: Department[];
 
+  @ManyToMany(() => User, (user) => user.channels, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinTable({
+    name: 'user_channels',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'channel_id', referencedColumnName: 'id' },
+  })
+  channels: User[];
 
   @CreateDateColumn({
     name: 'created_at',

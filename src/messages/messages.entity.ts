@@ -28,7 +28,7 @@ export class Message {
   contentType: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'sender_id' })
-  sender_id?: string; // ID of the sender in the conversation
+  senderId?: string; // ID of the sender in the conversation
 
   @Column({ type: 'text', nullable: true, name: 'content' })
   content?: string;

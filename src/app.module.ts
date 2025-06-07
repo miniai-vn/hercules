@@ -19,6 +19,7 @@ import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesService } from './messages/messages.service';
 import { MessagesModule } from './messages/messages.module';
 import { CustomersModule } from './customers/customers.module';
+import { IntegrationModule } from './integration/integration.module';
 @Module({
   imports: [
     BullModule.forRoot({
@@ -54,7 +55,8 @@ import { CustomersModule } from './customers/customers.module';
     OAModule,
     ConversationsModule,
     MessagesModule,
-    CustomersModule
+    CustomersModule,
+    IntegrationModule
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
   OneToOne,
+  OneToMany,
 } from 'typeorm';
 import { Conversation } from '../conversations/conversations.entity';
 import { Customer } from '../customers/customers.entity';
@@ -59,12 +60,12 @@ export class ConversationMember {
   @JoinColumn({ name: 'user_id' })
   user?: User;
 
-  @OneToOne(() => Message, {
+  @ManyToOne(() => Message, (message) => message.lastMessagesMembers, {
     onDelete: 'SET NULL',
     nullable: true,
   })
   @JoinColumn({ name: 'last_message_id' })
-  lastMessage?: Message;
+  lastMessage: Message;
 
   @Column({
     type: 'timestamp with time zone',

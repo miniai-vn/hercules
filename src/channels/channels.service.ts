@@ -341,7 +341,10 @@ export class ChannelsService {
           return {
             ...conv,
             unreadMessagesCount:
-              await this.conversationsService.getUnReadMessagesCount(conv.id),
+              await this.conversationsService.getUnReadMessagesCount(
+                conv.id,
+                userId,
+              ),
           };
         }),
       );

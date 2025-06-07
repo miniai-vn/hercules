@@ -163,10 +163,7 @@ export class MessagesService {
     return messages.map((message) => this.toResponseDto(message));
   }
 
-  async findOne(
-    id: number,
-    includeDeleted: boolean = false,
-  ): Promise<MessageWithConversationDto> {
+  async findOne(id: number, includeDeleted: boolean = false): Promise<Message> {
     const queryBuilder = this.messageRepository
       .createQueryBuilder('message')
       .where('message.id = :id', { id });
@@ -177,16 +174,7 @@ export class MessagesService {
 
     const message = await queryBuilder.getOne();
 
-    if (!message) {
-      throw new NotFoundException(`Message with ID ${id} not found`);
-    }
-
-    // Get conversation details
-    const conversation = await this.conversationsService.findOne(
-      message.conversation.id,
-    );
-
-    return this.toDetailedResponseDto(message, conversation);
+    return message;
   }
 
   async findByConversation(

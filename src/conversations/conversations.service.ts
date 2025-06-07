@@ -318,7 +318,6 @@ export class ConversationsService {
       const conversation = await this.conversationRepository
         .createQueryBuilder('conversation')
         .leftJoinAndSelect('conversation.messages', 'messages')
-        .leftJoinAndSelect('messages.recipients', 'recipients')
         .leftJoinAndSelect('conversation.members', 'members')
         .leftJoinAndSelect('members.customer', 'customer')
         .where('conversation.id = :id', { id })
@@ -345,6 +344,7 @@ export class ConversationsService {
           customers[0].customer?.name ??
           'Unknown Customer',
         avatar: customers[0].customer?.avatar ?? '',
+        senderId: customers[0].customer?.id,
         messages: messages,
       };
     } catch (error) {
@@ -417,7 +417,10 @@ export class ConversationsService {
       .orderBy('conversation.createdAt', 'DESC')
       .getMany();
     const conversaiontsResponse = conversations.map(async (conv) => {
-      const countMessagesUnread = await this.getUnReadMessagesCount(conv.id);
+      const countMessagesUnread = await this.getUnReadMessagesCount(
+        conv.id,
+        queryParams.userId,
+      );
       const lastestMessage = conv.messages[conv.messages.length - 1].content;
       delete conv.messages;
       return {
@@ -430,21 +433,28 @@ export class ConversationsService {
     return Promise.all(conversaiontsResponse);
   }
 
-  async getUnReadMessagesCount(conversationId: number): Promise<number> {
+  async getUnReadMessagesCount(
+    conversationId: number,
+    userId: string,
+  ): Promise<number> {
     try {
-      const count = await this.conversationRepository.find({
-        where: { id: conversationId },
-        relations: ['messages', 'messages.recipients'],
-      });
-      // .createQueryBuilder('conversation')
-      // .leftJoinAndSelect('conversation.messages', 'messages')
-      // .leftJoinAndSelect('messages.recipients', 'recipients')
-      // .where('conversation.id = :conversationId', { conversationId })
+      const conversation = await this.conversationRepository
+        .createQueryBuilder('conversation')
+        .leftJoinAndSelect('conversation.messages', 'messages')
+        .leftJoinAndSelect('conversation.members', 'members')
+        .leftJoinAndSelect('members.lastMessage', 'lastMessage')
+        .where('conversation.id = :conversationId', { conversationId })
+        .getOne();
 
-      // .andWhere('recipients.is_read = false')
-      // .getMany();
-      console.log(count);
-      return 0;
+      const lastMessageId =
+        conversation.members.find((member) => member.userId === userId)
+          ?.lastMessage?.id ?? 0;
+
+      const messages = conversation.messages.filter(
+        (msg) => msg.id > lastMessageId,
+      );
+
+      return messages.length;
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to get unread messages count',
@@ -461,7 +471,18 @@ export class ConversationsService {
         where: { id: conversationId },
         relations: ['messages', 'members'],
       });
-      const messageIds = conversation.messages.map((msg) => msg.id);
+
+      const currentMembersId = conversation.members.find(
+        (member) => member.userId === userId,
+      )?.id;
+
+      const lastMessage = conversation.messages.pop();
+      await this.conversationMembersService.updateLastMessage(
+        currentMembersId,
+        {
+          messageId: lastMessage.id,
+        },
+      );
     } catch (error) {
       throw new InternalServerErrorException(
         'Server error while marking conversation as read',
@@ -482,7 +503,7 @@ export class ConversationsService {
         content: message.content,
         createdAt: message.createdAt,
         updatedAt: message.updatedAt,
-        senderId: message.senderId, // Assuming messages have a senderId field
+        senderId: message.senderId,
       })),
 
       customerParticipants: conversation.members.map((member) => ({
@@ -491,7 +512,6 @@ export class ConversationsService {
         systemId: member.customerId ?? member.userId,
         name: member.customer?.name || 'Unknown Customer',
       })),
-      // messagesCount: conversation.messages?.length || 0,
     };
   }
 }

@@ -18,12 +18,14 @@ import {
   ConversationMember,
   ParticipantType,
 } from './conversation-members.entity';
+import { MessagesService } from 'src/messages/messages.service';
 
 @Injectable()
 export class ConversationMembersService {
   constructor(
     @InjectRepository(ConversationMember)
     private memberRepository: Repository<ConversationMember>,
+    private readonly messageService: MessagesService,
     private readonly customersService?: CustomersService,
     private readonly usersService?: UsersService,
   ) {}
@@ -277,20 +279,15 @@ export class ConversationMembersService {
     updateDto: UpdateLastMessageDto,
   ): Promise<ConversationMember> {
     try {
-      const member = await this.memberRepository.findOne({
-        where: { id: memberId },
+      const message = await this.messageService.findOne(updateDto.messageId);
+      await this.memberRepository.update(memberId, {
+        lastMessage: message,
       });
-
-      if (!member) {
-        throw new NotFoundException(`Member with ID ${memberId} not found`);
-      }
-
-      // Set the last message reference by ID
-      return await this.memberRepository.save(member);
+      return await this.memberRepository.findOne({
+        where: { id: memberId },
+        relations: ['customer', 'user', 'lastMessage'],
+      });
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
       throw new InternalServerErrorException(
         `Failed to update last message: ${error.message}`,
       );

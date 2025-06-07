@@ -6,9 +6,10 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn
+  UpdateDateColumn,
 } from 'typeorm';
 import { Conversation } from '../conversations/conversations.entity'; // Adjust path as needed
 
@@ -32,11 +33,8 @@ export class Message {
   @Column({ type: 'text', nullable: true, name: 'content' })
   content?: string;
 
-  @OneToOne(() => ConversationMember, {
-    nullable: true,
-    cascade: true,
-  })
-  conversationMember?: ConversationMember;
+  @OneToMany(() => ConversationMember, (member) => member.conversation)
+  lastMessagesMembers: ConversationMember[];
 
   @ManyToOne(() => Conversation, (conversation) => conversation.messages, {
     onDelete: 'CASCADE', // Matches SQLAlchemy

@@ -50,8 +50,8 @@ interface AuthenticatedRequest extends Request {
 }
 
 @ApiTags('conversations')
-@ApiBearerAuth('bearerAuth')
 @Controller('conversations')
+@ApiBearerAuth('bearerAuth')
 @UseGuards(JwtAuthGuard)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
@@ -78,32 +78,7 @@ export class ConversationsController {
     };
   }
 
-  @Get()
-  @ApiOperation({ summary: 'Get all conversations with pagination' })
-  @ApiResponse({
-    status: 200,
-    description: 'Conversations retrieved successfully',
-    type: PaginatedConversationsDto,
-  })
-  async findAll(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-    @Query('search', new DefaultValuePipe('')) search: string,
-    @Request() req: AuthenticatedRequest,
-  ): Promise<ApiResponse<PaginatedConversationsDto>> {
-    const conversations = await this.conversationsService.findAll(
-      page,
-      limit,
-      search,
-      req.user.shop_id, // Get shopId from request user
-    );
-    return {
-      message: 'Conversations retrieved successfully',
-      data: conversations,
-    };
-  }
-
-  @Get('query')
+  @Get('')
   @ApiOperation({ summary: 'Query conversations with custom parameters' })
   @ApiResponse({
     status: 200,
@@ -269,6 +244,33 @@ export class ConversationsController {
     return {
       message: 'Conversation marked as read successfully',
       data: { id },
+    };
+  }
+
+  @Post(':id/add-tags')
+  @ApiOperation({ summary: 'Add tags to a conversation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tags added to conversation successfully',
+    schema: {
+      example: {
+        message: 'Tags added to conversation successfully',
+        data: { conversationId: 1, tagIds: [1, 2] },
+      },
+    },
+  })
+  async addTags(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() tagIds: number[],
+  ): Promise<{
+    message: string;
+    data: { conversationId: number; tagIds: number[] };
+  }> {
+    // You should implement addTagsToConversation in your ConversationsService
+    await this.conversationsService.addTagsToConversation(id, tagIds);
+    return {
+      message: 'Tags added to conversation successfully',
+      data: { conversationId: id, tagIds },
     };
   }
 }

@@ -2,6 +2,7 @@ import { Category } from 'src/categories/categories.entity';
 import { Channel } from 'src/channels/channels.entity';
 import { Customer } from 'src/customers/customers.entity';
 import { Item } from 'src/items/items.entity';
+import { Tag } from 'src/tags/tags.entity';
 import { User } from 'src/users/users.entity';
 import {
   Column,
@@ -53,4 +54,7 @@ export class Shop {
   // Add this to your Shop entity
   @OneToMany(() => User, (user) => user.shop)
   admins: User[];
+
+  @OneToMany(() => Tag, (tag) => tag.shop)
+  tags: Tag[];
 }

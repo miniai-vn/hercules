@@ -20,6 +20,7 @@ import { MessagesModule } from './messages/messages.module';
 import { MiniaiModule } from './miniai/miniai.module';
 import { ShopsModule } from './shops/shops.module';
 import { UsersModule } from './users/users.module';
+import { TagsModule } from './tags/tags.module';
 @Module({
   imports: [
     BullModule.forRoot({
@@ -58,6 +59,7 @@ import { UsersModule } from './users/users.module';
     CustomersModule,
     UsersModule,
     ConversationMembersModule,
+    TagsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

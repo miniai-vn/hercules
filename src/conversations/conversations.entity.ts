@@ -8,12 +8,15 @@ import {
   CreateDateColumn,
   Entity,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Message } from '../messages/messages.entity';
+import { Tag } from 'src/tags/tags.entity';
 
 export enum ConversationType {
   DIRECT = 'direct',
@@ -57,6 +60,7 @@ export class Conversation {
   })
   @JoinColumn({ name: 'channel_id' })
   channel: Channel;
+
   @OneToMany(() => Message, (message) => message.conversation, {
     cascade: true,
   })
@@ -66,4 +70,12 @@ export class Conversation {
     cascade: true,
   })
   members: ConversationMember[];
+
+  @ManyToMany(() => Tag, (tag) => tag.conversations)
+  @JoinTable({
+    name: 'tag_conversations',
+    joinColumn: { name: 'conversation_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
+  })
+  tags: Tag[];
 }

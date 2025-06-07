@@ -1,10 +1,13 @@
 import { Channel } from 'src/channels/channels.entity';
 import { Shop } from 'src/shops/shops.entity';
+import { Tag } from 'src/tags/tags.entity';
 import {
   Column,
   CreateDateColumn,
   Entity,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -38,6 +41,17 @@ export class Customer {
 
   @Column({ type: 'text', nullable: true, name: 'note' })
   note?: string;
+
+  @ManyToMany(() => Tag, (tag) => tag.customers, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  @JoinTable({
+    name: 'tag_customers',
+    joinColumn: { name: 'customer_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
+  })
+  tags: Tag[];
 
   @ManyToOne(() => Shop, (shop) => shop.customers, {
     nullable: true,

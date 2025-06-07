@@ -18,6 +18,7 @@ import {
   PaginatedConversationsDto,
   UpdateConversationDto,
 } from './dto/conversation.dto';
+import { TagsService } from 'src/tags/tags.service';
 
 @Injectable()
 export class ConversationsService {
@@ -26,6 +27,7 @@ export class ConversationsService {
     private readonly conversationRepository: Repository<Conversation>,
     private readonly conversationMembersService: ConversationMembersService,
     private readonly messagesService: MessagesService,
+    private readonly tagsService: TagsService,
   ) {}
 
   async create(
@@ -315,13 +317,16 @@ export class ConversationsService {
 
   async getFullInfoConversation(id: number) {
     try {
-      const conversation = await this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.messages', 'messages')
-        .leftJoinAndSelect('conversation.members', 'members')
-        .leftJoinAndSelect('members.customer', 'customer')
-        .where('conversation.id = :id', { id })
-        .getOne();
+      const conversation = await this.conversationRepository.findOne({
+        where: { id },
+        relations: [
+          'messages',
+          'members',
+          'members.customer',
+          'members.user',
+          'tags',
+        ],
+      });
 
       if (!conversation) {
         throw new NotFoundException('Conversation not found');
@@ -486,6 +491,28 @@ export class ConversationsService {
     } catch (error) {
       throw new InternalServerErrorException(
         'Server error while marking conversation as read',
+      );
+    }
+  }
+
+  async addTagsToConversation(
+    conversationId: number,
+    tagIds: number[],
+  ): Promise<void> {
+    try {
+      const conversation = await this.conversationRepository.findOne({
+        where: { id: conversationId },
+      });
+
+      if (!conversation) {
+        throw new NotFoundException('Conversation not found');
+      }
+      const tags = await this.tagsService.findByIds(tagIds);
+      conversation.tags = tags;
+      await this.conversationRepository.save(conversation);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to add tags to conversation',
       );
     }
   }

@@ -66,22 +66,4 @@ export class Conversation {
     cascade: true,
   })
   members: ConversationMember[];
-
-  getActiveParticipants(): ConversationMember[] {
-    return (
-      this.members?.filter((member) => member.isActive && !member.leftAt) || []
-    );
-  }
-
-  getCustomerParticipants(): ConversationMember[] {
-    return this.getActiveParticipants().filter(
-      (member) => member.participantType === ParticipantType.CUSTOMER,
-    );
-  }
-
-  getUserParticipants(): ConversationMember[] {
-    return this.getActiveParticipants().filter(
-      (member) => member.participantType === ParticipantType.USER,
-    );
-  }
 }

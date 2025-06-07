@@ -1,17 +1,16 @@
+import { ConversationMember } from 'src/conversation-members/conversation-members.entity';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
   DeleteDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
   OneToOne,
-  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn
 } from 'typeorm';
 import { Conversation } from '../conversations/conversations.entity'; // Adjust path as needed
-import { MessageRecipient } from 'src/message-recepients/message-recepients.entity';
 
 @Entity('messages')
 export class Message {
@@ -33,10 +32,11 @@ export class Message {
   @Column({ type: 'text', nullable: true, name: 'content' })
   content?: string;
 
-  @OneToMany(() => MessageRecipient, (recipient) => recipient.message, {
+  @OneToOne(() => ConversationMember, {
+    nullable: true,
     cascade: true,
   })
-  recipients: MessageRecipient[];
+  conversationMember?: ConversationMember;
 
   @ManyToOne(() => Conversation, (conversation) => conversation.messages, {
     onDelete: 'CASCADE', // Matches SQLAlchemy

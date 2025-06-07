@@ -151,6 +151,12 @@ export class CustomerResponseDto {
   id: string;
 
   @ApiProperty({
+    description: 'Customer unique identifier',
+    example: 'c1234567890',
+  })
+  email?: string;
+
+  @ApiProperty({
     description: 'Platform name',
     example: 'zalo',
   })

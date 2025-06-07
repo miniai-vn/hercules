@@ -6,9 +6,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CustomersService } from '../customers/customers.service';
+import { UsersService } from '../users/users.service';
 import {
   AddMultipleParticipantsDto,
   AddParticipantDto,
+  UpdateLastMessageDto,
+  UpdateMemberSettingsDto,
 } from './conversation-members.dto';
 import {
   ConversationMember,
@@ -20,19 +24,22 @@ export class ConversationMembersService {
   constructor(
     @InjectRepository(ConversationMember)
     private memberRepository: Repository<ConversationMember>,
+    private readonly customersService?: CustomersService,
+    private readonly usersService?: UsersService,
   ) {}
 
   async addParticipant(
     conversationId: number,
     addParticipantDto: AddParticipantDto,
-  ) {
+  ): Promise<ConversationMember> {
     try {
       const {
         participantType,
         customerId,
         userId,
-        role,
-        notificationsEnabled,
+        role = 'member',
+        notificationsEnabled = true,
+        nickname,
       } = addParticipantDto;
 
       // Validate that the correct ID is provided for the participant type
@@ -48,40 +55,84 @@ export class ConversationMembersService {
         );
       }
 
-      // Check if participant already exists in conversation
+      // Verify the participant exists if customersService/usersService are provided
+      if (customerId && this.customersService) {
+        const customer = await this.customersService.findOne(customerId);
+        if (!customer) {
+          throw new NotFoundException(
+            `Customer with ID ${customerId} not found`,
+          );
+        }
+      }
+
+      if (userId && this.usersService) {
+        const user = await this.usersService.getOne(userId);
+        if (!user) {
+          throw new NotFoundException(`User with ID ${userId} not found`);
+        }
+      }
+
       const existingMember = await this.memberRepository.findOne({
         where: {
           conversationId,
           participantType,
           ...(customerId && { customerId }),
           ...(userId && { userId }),
-          isActive: true,
+          leftAt: null, // Only check active members
         },
       });
 
       if (existingMember) {
-        throw new BadRequestException(
-          'Participant already exists in conversation',
-        );
+        // Instead of throwing an error, return the existing member
+        return existingMember;
       }
 
-      // Create new member - let database handle foreign key constraints
+      // Check if there's a previous inactive membership and reactivate it
+      const inactiveMember = await this.memberRepository.findOne({
+        where: {
+          conversationId,
+          participantType,
+          ...(customerId && { customerId }),
+          ...(userId && { userId }),
+        },
+      });
+
+      if (inactiveMember) {
+        // Reactivate the member with updated settings
+        inactiveMember.leftAt = null;
+        inactiveMember.memberSettings = {
+          ...inactiveMember.memberSettings,
+          role,
+          notifications_enabled: notificationsEnabled,
+          ...(nickname && { nickname }),
+        };
+        return await this.memberRepository.save(inactiveMember);
+      }
+
+      // Create new member with proper settings structure
       const member = this.memberRepository.create({
         conversationId,
         participantType,
         customerId,
         userId,
-        joinedAt: new Date(),
-        isActive: true,
         memberSettings: {
-          role: role ?? 'member',
-          notifications_enabled: notificationsEnabled ?? true,
-        } as any, // Cast as any if memberSettings expects a specific type
+          role,
+          notifications_enabled: notificationsEnabled,
+          ...(nickname && { nickname }),
+        },
       });
 
       return await this.memberRepository.save(member);
     } catch (error) {
-      throw new InternalServerErrorException('Failed to add participant');
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to add participant: ${error.message}`,
+      );
     }
   }
 
@@ -90,6 +141,7 @@ export class ConversationMembersService {
     addMultipleDto: AddMultipleParticipantsDto,
   ): Promise<ConversationMember[]> {
     const addedMembers: ConversationMember[] = [];
+    const errors: string[] = [];
 
     for (const participant of addMultipleDto.participants) {
       try {
@@ -97,11 +149,19 @@ export class ConversationMembersService {
         addedMembers.push(member);
       } catch (error) {
         // Log error but continue with other participants
-        console.error(
-          `Failed to add participant ${participant.customerId || participant.userId}:`,
-          error.message,
-        );
+        const errorMessage = `Failed to add participant ${
+          participant.customerId || participant.userId
+        }: ${error.message}`;
+        console.error(errorMessage);
+        errors.push(errorMessage);
       }
+    }
+
+    // Only throw an error if no members were added at all
+    if (addedMembers.length === 0 && errors.length > 0) {
+      throw new InternalServerErrorException(
+        `Failed to add any participants: ${errors.join('; ')}`,
+      );
     }
 
     return addedMembers;
@@ -118,7 +178,6 @@ export class ConversationMembersService {
       }
 
       // Soft remove - mark as inactive and set left_at
-      member.isActive = false;
       member.leftAt = new Date();
       await this.memberRepository.save(member);
     } catch (error) {
@@ -126,28 +185,220 @@ export class ConversationMembersService {
         throw error;
       }
 
-      throw new InternalServerErrorException('Failed to remove participant');
+      throw new InternalServerErrorException(
+        `Failed to remove participant: ${error.message}`,
+      );
+    }
+  }
+
+  async removeParticipantByUserOrCustomerId(
+    conversationId: number,
+    participantType: ParticipantType,
+    participantId: string,
+  ): Promise<void> {
+    try {
+      const member = await this.memberRepository.findOne({
+        where: {
+          conversationId,
+          participantType,
+          ...(participantType === ParticipantType.USER
+            ? { userId: participantId }
+            : { customerId: participantId }),
+          leftAt: null, // Only active members
+        },
+      });
+
+      if (!member) {
+        throw new NotFoundException('Conversation member not found');
+      }
+
+      member.leftAt = new Date();
+      await this.memberRepository.save(member);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      throw new InternalServerErrorException(
+        `Failed to remove participant: ${error.message}`,
+      );
     }
   }
 
   async getConversationMembers(
     conversationId: number,
+    includeInactive: boolean = false,
   ): Promise<ConversationMember[]> {
     try {
       const members = await this.memberRepository.find({
-        where: { conversationId, isActive: true },
-        relations: ['customer', 'user', 'memberSettings'],
+        where: {
+          conversationId,
+          ...(includeInactive ? {} : { leftAt: null }),
+        },
+        relations: ['customer', 'user', 'lastMessage'],
       });
 
       if (!members || members.length === 0) {
-        throw new NotFoundException(
-          'No active members found for this conversation',
-        );
+        return []; // Return empty array instead of throwing
       }
 
       return members;
     } catch (error) {
-      throw new InternalServerErrorException('Failed to retrieve members');
+      throw new InternalServerErrorException(
+        `Failed to retrieve members: ${error.message}`,
+      );
+    }
+  }
+
+  async getMemberById(memberId: number): Promise<ConversationMember> {
+    try {
+      const member = await this.memberRepository.findOne({
+        where: { id: memberId },
+        relations: ['customer', 'user', 'lastMessage'],
+      });
+
+      if (!member) {
+        throw new NotFoundException(`Member with ID ${memberId} not found`);
+      }
+
+      return member;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to retrieve member: ${error.message}`,
+      );
+    }
+  }
+
+  async updateLastMessage(
+    memberId: number,
+    updateDto: UpdateLastMessageDto,
+  ): Promise<ConversationMember> {
+    try {
+      const member = await this.memberRepository.findOne({
+        where: { id: memberId },
+      });
+
+      if (!member) {
+        throw new NotFoundException(`Member with ID ${memberId} not found`);
+      }
+
+      // Set the last message reference by ID
+      return await this.memberRepository.save(member);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to update last message: ${error.message}`,
+      );
+    }
+  }
+
+  async updateMemberSettings(
+    memberId: number,
+    updateDto: UpdateMemberSettingsDto,
+  ): Promise<ConversationMember> {
+    try {
+      const member = await this.memberRepository.findOne({
+        where: { id: memberId },
+      });
+
+      if (!member) {
+        throw new NotFoundException(`Member with ID ${memberId} not found`);
+      }
+
+      // Update member settings using the DTO structure
+      member.memberSettings = {
+        ...member.memberSettings,
+        ...(updateDto.role && { role: updateDto.role }),
+        ...(updateDto.notifications_enabled !== undefined && {
+          notifications_enabled: updateDto.notifications_enabled,
+        }),
+        ...(updateDto.nickname && { nickname: updateDto.nickname }),
+        ...(updateDto.additionalSettings && {
+          ...updateDto.additionalSettings,
+        }),
+      };
+
+      return await this.memberRepository.save(member);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to update member settings: ${error.message}`,
+      );
+    }
+  }
+
+  async isMemberOfConversation(
+    conversationId: number,
+    participantType: ParticipantType,
+    participantId: string,
+  ): Promise<boolean> {
+    try {
+      const member = await this.memberRepository.findOne({
+        where: {
+          conversationId,
+          participantType,
+          ...(participantType === ParticipantType.USER
+            ? { userId: participantId }
+            : { customerId: participantId }),
+          leftAt: null, // Only active members
+        },
+      });
+
+      return !!member;
+    } catch (error) {
+      console.error(`Error checking membership: ${error.message}`);
+      return false;
+    }
+  }
+
+  async isAdmin(conversationId: number, userId: string): Promise<boolean> {
+    try {
+      const member = await this.memberRepository.findOne({
+        where: {
+          conversationId,
+          participantType: ParticipantType.USER,
+          userId,
+          leftAt: null,
+        },
+      });
+
+      if (!member) return false;
+
+      return member.memberSettings?.role === 'admin';
+    } catch (error) {
+      console.error(`Error checking admin status: ${error.message}`);
+      return false;
+    }
+  }
+
+  async getConversationsForParticipant(
+    participantType: ParticipantType,
+    participantId: string,
+  ): Promise<number[]> {
+    try {
+      const members = await this.memberRepository.find({
+        where: {
+          participantType,
+          ...(participantType === ParticipantType.USER
+            ? { userId: participantId }
+            : { customerId: participantId }),
+          leftAt: null, // Only active memberships
+        },
+        select: ['conversationId'],
+      });
+
+      return members.map((member) => member.conversationId);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to retrieve conversations: ${error.message}`,
+      );
     }
   }
 }

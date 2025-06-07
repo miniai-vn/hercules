@@ -6,10 +6,12 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  OneToOne,
 } from 'typeorm';
 import { Conversation } from '../conversations/conversations.entity';
 import { Customer } from '../customers/customers.entity';
 import { User } from '../users/users.entity';
+import { Message } from 'src/messages/messages.entity';
 
 export enum ParticipantType {
   CUSTOMER = 'customer',
@@ -57,26 +59,24 @@ export class ConversationMember {
   @JoinColumn({ name: 'user_id' })
   user?: User;
 
+  @OneToOne(() => Message, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'last_message_id' })
+  lastMessage?: Message;
+
   @Column({
     type: 'timestamp with time zone',
     nullable: true,
     name: 'joined_at',
   })
-  joinedAt?: Date;
-
   @Column({
     type: 'timestamp with time zone',
     nullable: true,
     name: 'left_at',
   })
   leftAt?: Date;
-
-  @Column({
-    type: 'boolean',
-    default: true,
-    name: 'is_active',
-  })
-  isActive: boolean;
 
   @Column({
     type: 'jsonb',
@@ -95,35 +95,4 @@ export class ConversationMember {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
-
-  // Helper method to get participant info
-  getParticipantInfo(): {
-    id: string;
-    name: string;
-    type: ParticipantType;
-    avatar?: string;
-    platform?: string;
-  } | null {
-    if (this.participantType === ParticipantType.CUSTOMER && this.customer) {
-      return {
-        id: this.customer.id.toString(),
-        name: this.customer.name || 'Unknown Customer',
-        type: ParticipantType.CUSTOMER,
-        avatar: this.customer.avatar,
-        platform: this.customer.platform,
-      };
-    }
-
-    if (this.participantType === ParticipantType.USER && this.user) {
-      return {
-        id: this.user.id,
-        name: this.user.name || this.user.username || 'Support Agent',
-        type: ParticipantType.USER,
-        avatar: this.user.avatar,
-        platform: this.user.platform,
-      };
-    }
-
-    return null;
-  }
 }

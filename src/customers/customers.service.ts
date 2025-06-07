@@ -156,7 +156,7 @@ export class CustomersService {
     updateCustomerDto: UpdateCustomerDto,
   ): Promise<CustomerResponseDto> {
     try {
-      const { name, address, avatar, phone, note } = updateCustomerDto;
+      const { name, address, avatar, phone, note, email } = updateCustomerDto;
       const customer = await this.customerRepository.findOne({
         where: { id },
         relations: ['shop', 'channel'],
@@ -164,6 +164,7 @@ export class CustomersService {
 
       const updatedCustomer = await this.customerRepository.save({
         ...customer,
+        ...(email && { email }),
         ...(name && { name }),
         ...(address && { address }),
         ...(avatar && { avatar }),
@@ -250,6 +251,7 @@ export class CustomersService {
   private mapToResponseDto(customer: Customer): CustomerResponseDto {
     return {
       id: customer.id,
+      email: customer.email,
       platform: customer.platform,
       externalId: customer.externalId,
       name: customer.name,

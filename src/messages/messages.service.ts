@@ -493,25 +493,4 @@ export class MessagesService {
       },
     };
   }
-
-  async markAsRead(messageIds: number[]): Promise<void> {
-    try {
-      const messages = await this.messageRepository.find({
-        where: { id: In(messageIds), deletedAt: IsNull() },
-      });
-
-      for (const message of messages) {
-        message.extraData = {
-          ...message.extraData,
-          read: true, // Assuming you want to mark as read
-        };
-      }
-
-      await this.messageRepository.save(messages);
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to update read status for messages: ${error.message}`,
-      );
-    }
-  }
 }

@@ -13,6 +13,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/auth.module'; // Adjust path
@@ -225,13 +226,5 @@ export class MessagesController {
     };
   }
 
-  @Patch('/:id/mark-as-read')
-  async markAsRead(
-    @Param('id', ParseIntPipe) ids: number[],
-  ): Promise<ApiResponse<MessageResponseDto>> {
-    const message = await this.messagesService.markAsRead(ids);
-    return {
-      message: 'Message marked as read successfully',
-    };
-  }
+  
 }

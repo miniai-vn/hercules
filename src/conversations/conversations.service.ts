@@ -5,7 +5,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AddParticipantDto } from 'src/conversation-members/conversation-members.dto';
-import { Message } from 'src/messages/messages.entity';
 import { MessagesService } from 'src/messages/messages.service';
 import { Repository } from 'typeorm';
 import { ParticipantType } from '../conversation-members/conversation-members.entity';
@@ -177,27 +176,27 @@ export class ConversationsService {
 
         const newParticipants: AddParticipantDto[] = [];
 
-        if (customerParticipantIds && customerParticipantIds.length > 0) {
-          const customerParticipants = customerParticipantIds.map(
-            (customerId) => ({
-              participantType: ParticipantType.CUSTOMER,
-              customerId: customerId.toString(),
-              role: 'member',
-              notificationsEnabled: true,
-            }),
-          );
-          newParticipants.push(...customerParticipants);
-        }
+        // if (customerParticipantIds && customerParticipantIds.length > 0) {
+        //   const customerParticipants = customerParticipantIds.map(
+        //     (customerId) => ({
+        //       participantType: ParticipantType.CUSTOMER,
+        //       customerId: customerId.toString(),
+        //       role: 'member',
+        //       notificationsEnabled: true,
+        //     }),
+        //   );
+        //   newParticipants.push(...customerParticipants);
+        // }
 
-        if (userParticipantIds && userParticipantIds.length > 0) {
-          const userParticipants = userParticipantIds.map((userId) => ({
-            participantType: ParticipantType.USER,
-            userId,
-            role: 'member',
-            notificationsEnabled: true,
-          }));
-          newParticipants.push(...userParticipants);
-        }
+        // if (userParticipantIds && userParticipantIds.length > 0) {
+        //   const userParticipants = userParticipantIds.map((userId) => ({
+        //     participantType: ParticipantType.USER,
+        //     userId,
+        //     role: 'member',
+        //     notificationsEnabled: true,
+        //   }));
+        //   newParticipants.push(...userParticipants);
+        // }
 
         if (newParticipants.length > 0) {
           await this.conversationMembersService.addMultipleParticipants(id, {
@@ -244,31 +243,31 @@ export class ConversationsService {
     try {
       const participants: AddParticipantDto[] = [];
 
-      if (
-        addParticipantsDto.customerIds &&
-        addParticipantsDto.customerIds.length > 0
-      ) {
-        const customerParticipants = addParticipantsDto.customerIds.map(
-          (customerId) => ({
-            participantType: ParticipantType.CUSTOMER,
-            customerId: customerId.toString(),
-            role: 'member',
-            notificationsEnabled: true,
-          }),
-        );
-        participants.push(...customerParticipants);
-      }
+      // if (
+      //   addParticipantsDto.customerIds &&
+      //   addParticipantsDto.customerIds.length > 0
+      // ) {
+      //   const customerParticipants = addParticipantsDto.customerIds.map(
+      //     (customerId) => ({
+      //       participantType: ParticipantType.CUSTOMER,
+      //       customerId: customerId.toString(),
+      //       role: 'member',
+      //       notificationsEnabled: true,
+      //     }),
+      //   );
+      //   participants.push(...customerParticipants);
+      // }
 
-      // Add user participants
-      if (addParticipantsDto.userIds && addParticipantsDto.userIds.length > 0) {
-        const userParticipants = addParticipantsDto.userIds.map((userId) => ({
-          participantType: ParticipantType.USER,
-          userId,
-          role: 'member',
-          notificationsEnabled: true,
-        }));
-        participants.push(...userParticipants);
-      }
+      // // Add user participants
+      // if (addParticipantsDto.userIds && addParticipantsDto.userIds.length > 0) {
+      //   const userParticipants = addParticipantsDto.userIds.map((userId) => ({
+      //     participantType: ParticipantType.USER,
+      //     userId,
+      //     role: 'member',
+      //     notificationsEnabled: true,
+      //   }));
+      //   participants.push(...userParticipants);
+      // }
 
       if (participants.length > 0) {
         await this.conversationMembersService.addMultipleParticipants(id, {
@@ -433,18 +432,39 @@ export class ConversationsService {
 
   async getUnReadMessagesCount(conversationId: number): Promise<number> {
     try {
-      const count = await this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.messages', 'messages')
-        .leftJoinAndSelect('messages.recipients', 'recipients')
-        .leftJoin('conversation.members', 'members')
-        .where('conversation.id = :conversationId', { conversationId })
-        .andWhere('recipients.is_read = false')
-        .getCount();
-      return count;
+      const count = await this.conversationRepository.find({
+        where: { id: conversationId },
+        relations: ['messages', 'messages.recipients'],
+      });
+      // .createQueryBuilder('conversation')
+      // .leftJoinAndSelect('conversation.messages', 'messages')
+      // .leftJoinAndSelect('messages.recipients', 'recipients')
+      // .where('conversation.id = :conversationId', { conversationId })
+
+      // .andWhere('recipients.is_read = false')
+      // .getMany();
+      console.log(count);
+      return 0;
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to get unread messages count',
+      );
+    }
+  }
+
+  async markReadConversation(
+    conversationId: number,
+    userId: string,
+  ): Promise<void> {
+    try {
+      const conversation = await this.conversationRepository.findOne({
+        where: { id: conversationId },
+        relations: ['messages', 'members'],
+      });
+      const messageIds = conversation.messages.map((msg) => msg.id);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Server error while marking conversation as read',
       );
     }
   }

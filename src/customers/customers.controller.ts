@@ -1,37 +1,33 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
   Body,
-  Param,
-  Query,
+  Controller,
+  Delete,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
   ParseIntPipe,
-  UseGuards,
   ParseUUIDPipe,
+  Post,
+  Put,
+  Query
 } from '@nestjs/common';
 import {
-  ApiTags,
   ApiOperation,
-  ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBearerAuth,
-  ApiSecurity,
+  ApiResponse,
+  ApiTags
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from 'src/auth/auth.module';
-import { CustomersService } from './customers.service';
 import {
   CreateCustomerDto,
-  UpdateCustomerDto,
-  CustomerResponseDto,
   CustomerListQueryDto,
   CustomerListResponseDto,
+  CustomerResponseDto,
   FindCustomerByExternalIdDto,
+  UpdateCustomerDto,
 } from './customers.dto';
+import { CustomersService } from './customers.service';
 
 @ApiTags('Customers')
 @Controller('customers')

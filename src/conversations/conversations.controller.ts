@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -248,6 +249,25 @@ export class ConversationsController {
     await this.conversationsService.remove(id);
     return {
       message: 'Conversation deleted successfully',
+      data: { id },
+    };
+  }
+
+  @Put(':id/mark-read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Mark a conversation as read' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversation marked as read successfully',
+  })
+  async markReadConversation(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+  ): Promise<ApiResponse<{ id: number }>> {
+    const userId = req.user.user_id;
+    await this.conversationsService.markReadConversation(id, userId);
+    return {
+      message: 'Conversation marked as read successfully',
       data: { id },
     };
   }

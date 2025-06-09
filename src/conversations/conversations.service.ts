@@ -243,41 +243,42 @@ export class ConversationsService {
     addParticipantsDto: AddParticipantsDto,
   ): Promise<ConversationResponseDto> {
     try {
-      const participants: AddParticipantDto[] = [];
+      const conversation = await this.conversationRepository.findOne({
+        where: { id },
+        relations: ['members'],
+      });
 
-      // if (
-      //   addParticipantsDto.customerIds &&
-      //   addParticipantsDto.customerIds.length > 0
-      // ) {
-      //   const customerParticipants = addParticipantsDto.customerIds.map(
-      //     (customerId) => ({
-      //       participantType: ParticipantType.CUSTOMER,
-      //       customerId: customerId.toString(),
-      //       role: 'member',
-      //       notificationsEnabled: true,
-      //     }),
-      //   );
-      //   participants.push(...customerParticipants);
-      // }
+      const { userIds, customerIds } = addParticipantsDto;
+      if (userIds && userIds.length > 0) {
+        const userParticipants: AddParticipantDto[] = userIds.map((userId) => ({
+          participantType: ParticipantType.USER,
+          userId,
+          role: 'member',
+          notificationsEnabled: true,
+        }));
 
-      // // Add user participants
-      // if (addParticipantsDto.userIds && addParticipantsDto.userIds.length > 0) {
-      //   const userParticipants = addParticipantsDto.userIds.map((userId) => ({
-      //     participantType: ParticipantType.USER,
-      //     userId,
-      //     role: 'member',
-      //     notificationsEnabled: true,
-      //   }));
-      //   participants.push(...userParticipants);
-      // }
+        await this.conversationMembersService.addMultipleParticipants(
+          conversation.id,
+          { participants: userParticipants },
+        );
+      }
+      if (customerIds && customerIds.length > 0) {
+        const customerParticipants: AddParticipantDto[] = customerIds.map(
+          (customerId) => ({
+            participantType: ParticipantType.CUSTOMER,
+            customerId: customerId.toString(),
+            role: 'member',
+            notificationsEnabled: true,
+          }),
+        );
 
-      if (participants.length > 0) {
-        await this.conversationMembersService.addMultipleParticipants(id, {
-          participants,
-        });
+        await this.conversationMembersService.addMultipleParticipants(
+          conversation.id,
+          { participants: customerParticipants },
+        );
       }
 
-      return this.findOne(id);
+      return this.toResponseDto(conversation);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -292,23 +293,22 @@ export class ConversationsService {
         .createQueryBuilder('conversation')
         .leftJoinAndSelect('conversation.members', 'members')
         .leftJoinAndSelect('members.user', 'user')
+        .leftJoinAndSelect('members.customer', 'customer')
         .where('conversation.id = :conversationId', { conversationId })
         .getOne();
-
-      if (!conversation) {
-        throw new NotFoundException('Conversation not found');
-      }
-
-      return conversation.members
-        .filter((member) => member.participantType === ParticipantType.USER)
-        .map((member) => ({
+      const members = conversation.members.map((member) => {
+        const memberType = member.user ?? member.customer;
+        return {
           id: member.id,
           memberType: member.participantType,
-          systemId: member.userId,
-          name: member.user?.name || 'Unknown User',
-        }));
+          systemId: memberType.id,
+          name: memberType.name || 'Unknown Participant',
+          avatar: memberType.avatar || '',
+          role: member?.memberSettings?.role ?? 'member',
+        };
+      });
+      return members;
     } catch (error) {
-      console.log(error);
       throw new InternalServerErrorException(
         'Failed to get users in conversation',
       );
@@ -361,81 +361,92 @@ export class ConversationsService {
   async query(
     queryParams: ConversationQueryParamsDto,
   ): Promise<ConversationResponseDto[]> {
-    const queryBuilder = this.conversationRepository
-      .createQueryBuilder('conversation')
-      .leftJoinAndSelect('conversation.messages', 'messages')
-      .leftJoinAndSelect('conversation.members', 'members')
-      .orderBy('conversation.createdAt', 'DESC');
+    try {
+      const queryBuilder = this.conversationRepository
+        .createQueryBuilder('conversation')
+        .leftJoinAndSelect('conversation.messages', 'messages')
+        .leftJoinAndSelect('conversation.members', 'members')
+        .leftJoinAndSelect('members.customer', 'customer')
+        .leftJoinAndSelect('members.user', 'user')
+        .leftJoinAndSelect('conversation.tags', 'tags')
+        .orderBy('conversation.createdAt', 'DESC');
 
-    if (queryParams.channelType) {
-      queryBuilder
-        .leftJoinAndSelect('conversation.channel', 'channel')
-        .where('channel.type = :channelType', {
-          channelType: queryParams.channelType.toLocaleLowerCase(),
+      if (queryParams.channelType) {
+        queryBuilder
+          .leftJoinAndSelect('conversation.channel', 'channel')
+          .where('channel.type = :channelType', {
+            channelType: queryParams.channelType.toLocaleLowerCase(),
+          });
+      }
+
+      if (queryParams.userId) {
+        queryBuilder.andWhere('members.user_id = :userId', {
+          userId: queryParams.userId,
         });
-    }
+      }
 
-    if (queryParams.userId) {
-      queryBuilder.andWhere('members.user_id = :userId', {
-        userId: queryParams.userId,
+      if (queryParams.channelId) {
+        queryBuilder.andWhere('conversation.channel_id = :channelId', {
+          channelId: queryParams.channelId,
+        });
+      }
+
+      if (queryParams.type) {
+        queryBuilder.andWhere('conversation.type = :type', {
+          type: queryParams.type,
+        });
+      }
+
+      if (queryParams.search && queryParams.search.trim() !== '') {
+        queryBuilder.andWhere(
+          '(conversation.name ~* :search OR conversation.content ~* :search)',
+          { search: queryParams.search },
+        );
+      }
+
+      if (
+        queryParams.participantUserIds &&
+        queryParams.participantUserIds.length > 0
+      ) {
+        queryBuilder.andWhere('user.id IN (:...participantUserIds)', {
+          participantUserIds: queryParams.participantUserIds,
+        });
+      }
+
+      if (queryParams.timeFrom) {
+        queryBuilder.andWhere('conversation.createdAt >= :createdAfter', {
+          createdAfter: new Date(queryParams.timeFrom),
+        });
+      }
+
+      if (queryParams.timeTo) {
+        queryBuilder.andWhere('conversation.createdAt <= :timeTo', {
+          timeTo: new Date(queryParams.timeTo),
+        });
+      }
+
+      const conversations = await queryBuilder
+        .orderBy('conversation.createdAt', 'DESC')
+        .getMany();
+      const conversaiontsResponse = conversations.map(async (conv) => {
+        const countMessagesUnread = await this.getUnReadMessagesCount(
+          conv.id,
+          queryParams.userId,
+        );
+        const lastestMessage = conv.messages[conv.messages.length - 1].content;
+        delete conv.messages;
+        return {
+          ...this.toResponseDto(conv),
+          tags: conv.tags,
+          unreadMessagesCount: countMessagesUnread,
+          isRead: countMessagesUnread === 0,
+          lastestMessage,
+        };
       });
+      return Promise.all(conversaiontsResponse);
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to query conversations');
     }
-
-    if (queryParams.channelId) {
-      queryBuilder.andWhere('conversation.channel_id = :channelId', {
-        channelId: queryParams.channelId,
-      });
-    }
-
-    if (queryParams.type) {
-      queryBuilder.andWhere('conversation.type = :type', {
-        type: queryParams.type,
-      });
-    }
-
-    if (queryParams.search && queryParams.search.trim() !== '') {
-      queryBuilder.andWhere(
-        '(conversation.name ~* :search OR conversation.content ~* :search)',
-        { search: queryParams.search },
-      );
-    }
-
-    if (queryParams.customerParticipantId) {
-      queryBuilder.andWhere('customers.id = :customerId', {
-        customerId: queryParams.customerParticipantId,
-      });
-    }
-
-    if (queryParams.createdAfter) {
-      queryBuilder.andWhere('conversation.createdAt >= :createdAfter', {
-        createdAfter: new Date(queryParams.createdAfter),
-      });
-    }
-
-    if (queryParams.createdBefore) {
-      queryBuilder.andWhere('conversation.createdAt <= :createdBefore', {
-        createdBefore: new Date(queryParams.createdBefore),
-      });
-    }
-
-    const conversations = await queryBuilder
-      .orderBy('conversation.createdAt', 'DESC')
-      .getMany();
-    const conversaiontsResponse = conversations.map(async (conv) => {
-      const countMessagesUnread = await this.getUnReadMessagesCount(
-        conv.id,
-        queryParams.userId,
-      );
-      const lastestMessage = conv.messages[conv.messages.length - 1].content;
-      delete conv.messages;
-      return {
-        ...this.toResponseDto(conv),
-        unreadMessagesCount: countMessagesUnread,
-        isRead: countMessagesUnread === 0,
-        lastestMessage,
-      };
-    });
-    return Promise.all(conversaiontsResponse);
   }
 
   async getUnReadMessagesCount(
@@ -502,6 +513,7 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
+        relations: ['tags'],
       });
 
       if (!conversation) {
@@ -513,6 +525,50 @@ export class ConversationsService {
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to add tags to conversation',
+      );
+    }
+  }
+
+  async removeParticipants(
+    conversationId: number,
+    participantIds: number[],
+  ): Promise<ConversationResponseDto> {
+    try {
+      const conversation = await this.conversationRepository.findOne({
+        where: { id: conversationId },
+        relations: ['members'],
+      });
+
+      for (const participantId of participantIds) {
+        const member = conversation.members.find((m) => m.id === participantId);
+        if (member) {
+          await this.conversationMembersService.removeParticipant(member.id);
+        }
+      }
+
+      return this.toResponseDto(conversation);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to remove participants from conversation',
+      );
+    }
+  }
+
+  async getTags(conversationId: number): Promise<ConversationResponseDto> {
+    try {
+      const conversation = await this.conversationRepository.findOne({
+        where: { id: conversationId },
+        relations: ['tags'],
+      });
+
+      if (!conversation) {
+        throw new NotFoundException('Conversation not found');
+      }
+
+      return this.toResponseDto(conversation);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to get tags for conversation',
       );
     }
   }

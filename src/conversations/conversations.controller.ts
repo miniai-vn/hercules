@@ -1,14 +1,12 @@
 import {
   Body,
   Controller,
-  DefaultValuePipe,
   Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseIntPipe,
-  Patch,
   Post,
   Put,
   Query,
@@ -18,19 +16,20 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
-  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/auth.module';
 import { ConversationsService } from './conversations.service';
 import {
   AddParticipantsDto,
+  AddTagsToConversationDto,
   ConversationQueryParamsDto,
   ConversationResponseDto,
   CreateConversationDto,
-  PaginatedConversationsDto,
   UpdateConversationDto,
 } from './dto/conversation.dto';
 
@@ -110,14 +109,67 @@ export class ConversationsController {
     type: String,
     description: 'Channel type (e.g., Zalo, Facebook)',
   })
-  async query(@Req() req, @Query() queryParams: ConversationQueryParamsDto) {
+  @ApiQuery({
+    name: 'tagId',
+    required: false,
+    type: Number,
+    description: 'Filter by tag ID',
+  })
+  @ApiQuery({
+    name: 'timeFrom',
+    required: false,
+    type: String,
+    description:
+      'Filter conversations created from this date (ISO 8601 format)',
+    example: '2024-01-01T00:00:00.000Z',
+  })
+  @ApiQuery({
+    name: 'timeTo',
+    required: false,
+    type: String,
+    description: 'Filter conversations created to this date (ISO 8601 format)',
+    example: '2024-12-31T23:59:59.999Z',
+  })
+  @ApiQuery({
+    name: 'participantUserId',
+    required: false,
+    type: [String],
+    description: 'Filter by participant user ID',
+    isArray: true,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+    example: 10,
+  })
+  async query(
+    @Req() req,
+    @Query() queryParams: ConversationQueryParamsDto,
+  ): Promise<{
+    message: string;
+    data: any;
+  }> {
     const shopId = req.user.shop_id;
     queryParams.shopId = shopId;
-    const userId = req.user.user_id;
-    queryParams.userId = userId;
+
+    if (!queryParams.userId) {
+      queryParams.userId = req.user.user_id;
+    }
+
     return {
       message: 'Conversations queried successfully',
-      data: await this.conversationsService.query(queryParams),
+      data: await this.conversationsService.query({
+        ...queryParams,
+      }),
     };
   }
 
@@ -194,20 +246,19 @@ export class ConversationsController {
     };
   }
 
-  @Get(':id/users')
+  @Get(':id/participants')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get participants of a conversation' })
   @ApiResponse({
     status: 200,
     description: 'Participants retrieved successfully',
   })
-  async getParticipants(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<ApiResponse<{ participants: any[] }>> {
+  async getParticipants(@Param('id', ParseIntPipe) id: number) {
     const participants =
       await this.conversationsService.getUsersInConversation(id);
     return {
       message: 'Participants retrieved successfully',
-      data: { participants },
+      data: participants,
     };
   }
 
@@ -249,6 +300,7 @@ export class ConversationsController {
 
   @Post(':id/add-tags')
   @ApiOperation({ summary: 'Add tags to a conversation' })
+  @ApiBody({ type: AddTagsToConversationDto })
   @ApiResponse({
     status: 200,
     description: 'Tags added to conversation successfully',
@@ -261,16 +313,71 @@ export class ConversationsController {
   })
   async addTags(
     @Param('id', ParseIntPipe) id: number,
-    @Body() tagIds: number[],
+    @Body() addTagsDto: AddTagsToConversationDto,
   ): Promise<{
     message: string;
-    data: { conversationId: number; tagIds: number[] };
+    data: { conversationId: number };
   }> {
-    // You should implement addTagsToConversation in your ConversationsService
-    await this.conversationsService.addTagsToConversation(id, tagIds);
+    await this.conversationsService.addTagsToConversation(
+      id,
+      addTagsDto.tagIds,
+    );
     return {
       message: 'Tags added to conversation successfully',
-      data: { conversationId: id, tagIds },
+      data: { conversationId: id },
+    };
+  }
+
+  @Delete(':id/participants')
+  @ApiOperation({ summary: 'Remove participants from a conversation' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        participantIds: {
+          type: 'array',
+          items: { type: 'number' },
+          example: [1, 2, 3],
+          description: 'Array of participant IDs to remove',
+        },
+      },
+      required: ['participantIds'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Participants removed successfully',
+    type: ConversationResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Conversation not found',
+  })
+  async removeParticipants(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { participantIds: number[] },
+  ): Promise<ApiResponse<ConversationResponseDto>> {
+    const conversation = await this.conversationsService.removeParticipants(
+      id,
+      body.participantIds,
+    );
+    return {
+      message: 'Participants removed successfully',
+      data: conversation,
+    };
+  }
+
+  @Get(':id/tags')
+  @ApiOperation({ summary: 'Get tags of a conversation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tags retrieved successfully',
+  })
+  async getTags(@Param('id', ParseIntPipe) id: number) {
+    const tags = await this.conversationsService.getTags(id);
+    return {
+      message: 'Tags retrieved successfully',
+      data: tags,
     };
   }
 }

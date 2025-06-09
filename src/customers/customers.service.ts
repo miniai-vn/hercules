@@ -141,7 +141,7 @@ export class CustomersService {
   async findOne(id: string) {
     const customer = await this.customerRepository.findOne({
       where: { id },
-      relations: ['shop', 'channel'],
+      relations: ['shop', 'channel', 'tags'],
     });
 
     if (!customer) {

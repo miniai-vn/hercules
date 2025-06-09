@@ -6,8 +6,10 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsDateString,
 } from 'class-validator';
 import { ConversationType } from '../conversations.entity';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export { ConversationType };
 
@@ -59,49 +61,128 @@ export class UpdateConversationDto {
 }
 
 export class ConversationQueryParamsDto {
-  @IsString()
-  shopId: string; // Shop ID to filter conversationsw
-
-  @IsString()
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  channelType?: string; // Optional: Filter by channel type (e.g., Zalo, Facebook)
-
-  @IsString()
+  participantUserIds?: string[];
+  
+  @ApiPropertyOptional({
+    description: 'Conversation type',
+    example: 'direct',
+  })
   @IsOptional()
-  channelId?: string; // Optional: Filter by channel ID
-
   @IsString()
-  @IsOptional()
-  userId?: string; // User ID to filter conversations
+  type?: string;
 
-  @IsString()
+  @ApiPropertyOptional({
+    description: 'Conversation name',
+    example: 'Support Chat',
+  })
   @IsOptional()
+  @IsString()
   name?: string;
 
-  @IsEnum(ConversationType)
+  @ApiPropertyOptional({
+    description: 'Channel ID',
+    example: 1,
+  })
   @IsOptional()
-  type?: ConversationType;
-
-  @IsString()
-  @IsOptional()
-  search?: string; // For searching in name or content
-
   @IsNumber()
-  @IsOptional()
   @Type(() => Number)
-  customerParticipantId?: number; // Filter by specific customer participant
+  channelId?: number;
 
-  @IsString()
+  @ApiPropertyOptional({
+    description: 'User ID',
+    example: 'user-uuid-123',
+  })
   @IsOptional()
-  userParticipantId?: string; // Filter by specific user participant
+  @IsString()
+  userId?: string;
 
-  @IsString()
+  @ApiPropertyOptional({
+    description: 'Search term for conversation name or content',
+    example: 'help',
+  })
   @IsOptional()
-  createdAfter?: string; // ISO date string
+  @IsString()
+  search?: string;
 
-  @IsString()
+  @ApiPropertyOptional({
+    description: 'Channel type (e.g., Zalo, Facebook)',
+    example: 'Zalo',
+  })
   @IsOptional()
-  createdBefore?: string; // ISO date string
+  @IsString()
+  channelType?: string;
+
+  @ApiPropertyOptional({
+    description: 'Shop ID (automatically set from authenticated user)',
+    example: 'shop-uuid-123',
+  })
+  @IsOptional()
+  @IsString()
+  shopId?: string;
+
+  // New filter fields
+  @ApiPropertyOptional({
+    description: 'Filter by tag ID',
+    example: 1,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  tagId?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Filter conversations created from this date (ISO 8601 format)',
+    example: '2024-01-01T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  timeFrom?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter conversations created to this date (ISO 8601 format)',
+    example: '2024-12-31T23:59:59.999Z',
+  })
+  @IsOptional()
+  @IsDateString()
+  timeTo?: string;
+
+  // Pagination
+  @ApiPropertyOptional({
+    description: 'Page number (starts from 1)',
+    example: 1,
+    minimum: 1,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  page?: number = 1;
+
+  @ApiPropertyOptional({
+    description: 'Number of items per page',
+    example: 10,
+    minimum: 1,
+    maximum: 100,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  limit?: number = 10;
+}
+
+export class AddTagsToConversationDto {
+  @ApiProperty({
+    description: 'Array of tag IDs to add to the conversation',
+    type: [Number],
+    example: [1, 2, 3],
+  })
+  @IsArray()
+  @IsNumber({}, { each: true })
+  @IsNotEmpty({ each: true })
+  tagIds: number[];
 }
 
 export class ConversationBulkDeleteDto {

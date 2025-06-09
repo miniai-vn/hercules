@@ -169,24 +169,11 @@ export class ConversationMembersService {
     return addedMembers;
   }
 
-  async removeParticipant(memberId: number): Promise<void> {
+  async removeParticipant(memberId: number): Promise<number> {
     try {
-      const member = await this.memberRepository.findOne({
-        where: { id: memberId },
-      });
-
-      if (!member) {
-        throw new NotFoundException('Conversation member not found');
-      }
-
-      // Soft remove - mark as inactive and set left_at
-      member.leftAt = new Date();
-      await this.memberRepository.save(member);
+      await this.memberRepository.delete(memberId);
+      return memberId;
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
       throw new InternalServerErrorException(
         `Failed to remove participant: ${error.message}`,
       );

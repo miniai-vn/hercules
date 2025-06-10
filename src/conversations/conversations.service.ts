@@ -9,7 +9,7 @@ import { MessagesService } from 'src/messages/messages.service';
 import { Repository } from 'typeorm';
 import { ParticipantType } from '../conversation-members/conversation-members.entity';
 import { ConversationMembersService } from '../conversation-members/conversation-members.service';
-import { Conversation } from './conversations.entity';
+import { Conversation, ConversationType } from './conversations.entity';
 import {
   AddParticipantsDto,
   ConversationQueryParamsDto,
@@ -19,6 +19,11 @@ import {
   UpdateConversationDto,
 } from './dto/conversation.dto';
 import { TagsService } from 'src/tags/tags.service';
+import { CustomersService } from 'src/customers/customers.service';
+import { ChannelType } from 'src/channels/dto/channel.dto';
+import { SenderType } from 'src/messages/messages.dto';
+import { ZaloMessageDto } from 'src/chat/dto/chat-zalo.dto';
+import { Channel } from 'src/channels/channels.entity';
 
 @Injectable()
 export class ConversationsService {
@@ -28,12 +33,10 @@ export class ConversationsService {
     private readonly conversationMembersService: ConversationMembersService,
     private readonly messagesService: MessagesService,
     private readonly tagsService: TagsService,
+    private readonly customerService: CustomersService,
   ) {}
 
-  async create(
-    createConversationDto: CreateConversationDto,
-    shopId: string,
-  ): Promise<ConversationResponseDto> {
+  async create(createConversationDto: CreateConversationDto, channel: Channel) {
     try {
       const {
         customerParticipantIds,
@@ -41,47 +44,20 @@ export class ConversationsService {
         ...conversationData
       } = createConversationDto;
 
-      // Create the conversation entity
       const conversation = this.conversationRepository.create({
         ...conversationData,
+        channel,
       });
 
       const savedConversation =
         await this.conversationRepository.save(conversation);
 
-      // Add participants using ConversationMembersService
-      if (customerParticipantIds && customerParticipantIds.length > 0) {
-        const customerParticipants: AddParticipantDto[] =
-          customerParticipantIds.map((customerId) => ({
-            participantType: ParticipantType.CUSTOMER,
-            customerId: customerId.toString(),
-            role: 'member',
-            notificationsEnabled: true,
-          }));
+      await this.addParticipants(conversation.id, {
+        userIds: userParticipantIds || [],
+        customerIds: customerParticipantIds || [],
+      });
 
-        await this.conversationMembersService.addMultipleParticipants(
-          savedConversation.id,
-          { participants: customerParticipants },
-        );
-      }
-
-      if (userParticipantIds && userParticipantIds.length > 0) {
-        const userParticipants: AddParticipantDto[] = userParticipantIds.map(
-          (userId) => ({
-            participantType: ParticipantType.USER,
-            userId,
-            role: 'member',
-            notificationsEnabled: true,
-          }),
-        );
-
-        await this.conversationMembersService.addMultipleParticipants(
-          savedConversation.id,
-          { participants: userParticipants },
-        );
-      }
-
-      return this.toResponseDto(savedConversation);
+      return savedConversation;
     } catch (error) {
       throw new InternalServerErrorException('Failed to create conversation');
     }
@@ -407,7 +383,7 @@ export class ConversationsService {
           { search: queryParams.search },
         );
       }
-      
+
       if (
         queryParams.participantUserIds &&
         queryParams.participantUserIds.length > 0
@@ -432,14 +408,14 @@ export class ConversationsService {
       // Fixed phoneFilter logic
       if (queryParams.phoneFilter) {
         queryBuilder.andWhere(
-          'EXISTS (SELECT 1 FROM conversation_members cm JOIN customers c ON cm.customer_id = c.id WHERE cm.conversation_id = conversation.id AND c.phone IS NOT NULL)'
+          'EXISTS (SELECT 1 FROM conversation_members cm JOIN customers c ON cm.customer_id = c.id WHERE cm.conversation_id = conversation.id AND c.phone IS NOT NULL)',
         );
       }
 
       const conversations = await queryBuilder
         .orderBy('conversation.createdAt', 'DESC')
         .getMany();
-      
+
       const conversaiontsResponse = conversations.map(async (conv) => {
         const countMessagesUnread = await this.getUnReadMessagesCount(
           conv.id,
@@ -585,15 +561,68 @@ export class ConversationsService {
     }
   }
 
+  async sendMessageToConversation({
+    channel,
+    customerId,
+    message = '',
+  }: {
+    channel: Channel;
+    customerId: string;
+    message: string;
+  }) {
+    try {
+      let conversation = await this.conversationRepository
+        .createQueryBuilder('conversation')
+        .leftJoinAndSelect('conversation.members', 'members')
+        .leftJoinAndSelect('conversation.channel', 'channel')
+        .leftJoinAndSelect('members.customer', 'customer')
+        .where('customer.external_id = :customerId', { customerId })
+        .andWhere('channel.id = :channelId', { channelId: channel.id })
+        .getOne();
+
+      const customer = await this.customerService.findOrCreateByExternalId({
+        externalId: customerId,
+        shopId: channel.shop.id,
+        platform: ChannelType.ZALO,
+        channelId: channel.id,
+      });
+
+      if (!conversation) {
+        conversation = await this.create(
+          {
+            name: 'New Conversation',
+            type: ConversationType.DIRECT,
+            content: '',
+            customerParticipantIds: [customer.id],
+          },
+          channel,
+        );
+      }
+
+      await this.messagesService.create({
+        conversationId: conversation.id,
+        content: message,
+        contentType: 'text',
+        senderType: SenderType.customer,
+        senderId: customer.id,
+      });
+
+      return conversation;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to get conversation by channel and customer',
+      );
+    }
+  }
   private toResponseDto(conversation: Conversation): ConversationResponseDto {
     return {
       id: conversation.id,
-      name: conversation.name,
-      type: conversation.type,
-      content: conversation.content,
-      createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt,
-      messages: conversation.messages?.map((message) => ({
+      name: conversation?.name,
+      type: conversation?.type,
+      content: conversation?.content,
+      createdAt: conversation?.createdAt,
+      updatedAt: conversation?.updatedAt,
+      messages: conversation?.messages?.map((message) => ({
         id: message.id,
         content: message.content,
         createdAt: message.createdAt,
@@ -601,7 +630,7 @@ export class ConversationsService {
         senderId: message.senderId,
       })),
 
-      customerParticipants: conversation.members.map((member) => ({
+      customerParticipants: conversation?.members.map((member) => ({
         id: member.id,
         memberType: member.participantType,
         systemId: member.customerId ?? member.userId,

@@ -8,6 +8,7 @@ import {
   IsString,
   IsDateString,
   IsBoolean,
+  isNumber,
 } from 'class-validator';
 import { ConversationType } from '../conversations.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -26,15 +27,19 @@ export class CreateConversationDto {
   @IsOptional()
   content?: string;
 
+  @IsNumber()
+  @IsOptional()
+  channelId?: number;
+
   @IsArray()
   @IsNumber({}, { each: true })
   @IsOptional()
-  customerParticipantIds?: number[];
+  customerParticipantIds?: string[];
 
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
-  userParticipantIds?: string[]; // Assuming User ID is UUID string
+  userParticipantIds?: string[];
 }
 
 export class UpdateConversationDto {
@@ -248,7 +253,7 @@ export class AddParticipantsDto {
   @IsArray()
   @IsNumber({}, { each: true })
   @IsOptional()
-  customerIds?: number[];
+  customerIds?: string[];
 
   @IsArray()
   @IsString({ each: true })

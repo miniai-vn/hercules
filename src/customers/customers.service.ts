@@ -248,6 +248,41 @@ export class CustomersService {
     });
   }
 
+  async findOrCreateByExternalId({
+    platform,
+    externalId,
+    name,
+    shopId,
+    channelId,
+  }: {
+    platform: string;
+    externalId: string;
+    name?: string;
+    shopId?: string;
+    channelId?: number;
+  }) {
+    let customer = await this.customerRepository
+      .createQueryBuilder('customer')
+      .leftJoinAndSelect('customer.channel', 'channel')
+      .where('channel.type = :platform', { platform })
+      .andWhere('customer.externalId = :externalId', { externalId })
+      .getOne();
+    if (!customer) {
+      // If customer does not exist, create a new one
+      customer = this.customerRepository.create({
+        platform,
+        externalId,
+        name,
+        shop: shopId ? await this.shopService.findOne(shopId) : null,
+        channel: channelId ? await this.channelService.getOne(channelId) : null,
+      });
+
+      customer = await this.customerRepository.save(customer);
+    }
+
+    return customer;
+  }
+
   private mapToResponseDto(customer: Customer): CustomerResponseDto {
     return {
       id: customer.id,

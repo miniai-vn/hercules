@@ -87,7 +87,7 @@ export class ConversationMember {
   memberSettings?: {
     notifications_enabled?: boolean;
     nickname?: string;
-    role?: 'admin' | 'member' | 'viewer';
+    role?: 'admin' | 'member' | 'viewer' | 'customer';
     [key: string]: any;
   };
 

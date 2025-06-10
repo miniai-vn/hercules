@@ -30,20 +30,14 @@ export class Channel {
   @Column({ type: 'varchar', length: 50, default: 'inactive', name: 'status' })
   status: string; // e.g., active, inactive
 
-  @Column({ type: 'text', nullable: true, name: 'url' })
-  url?: string;
-
-  @Column({ type: 'int', nullable: true, name: 'audience_size' })
-  audienceSize?: number;
-
   @Column({ type: 'text', nullable: true, name: 'description' })
   description?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'api_key' })
-  apiKey?: string;
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'app_id' })
+  appId?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'api_secret' })
-  apiSecret?: string;
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'app_secret' })
+  appSecret?: string;
 
   @Column({ type: 'text', nullable: true, name: 'access_token' })
   accessToken?: string;
@@ -51,14 +45,8 @@ export class Channel {
   @Column({ type: 'text', nullable: true, name: 'refresh_token' })
   refreshToken?: string;
 
-  @Column({ type: 'json', nullable: true, name: 'auth_credentials' })
-  authCredentials?: Record<string, any>;
-
   @Column({ type: 'json', nullable: true, name: 'extra_data' })
   extraData?: Record<string, any>;
-
-  @Column({ type: 'varchar', length: 50, nullable: true, name: 'api_status' })
-  apiStatus?: string;
 
   @Column({
     type: 'boolean',
@@ -66,6 +54,13 @@ export class Channel {
     name: 'is_use_product_from_miniapp',
   })
   isUseProductFromMiniapp?: boolean;
+
+  @Column({
+    type: 'boolean',
+    nullable: true,
+    name: 'enable_auto_reply',
+  })
+  enableAutoReply?: boolean;
 
   @ManyToMany(() => User, (user) => user.channels, {
     onDelete: 'SET NULL',

@@ -6,6 +6,7 @@ import { ConversationsController } from './conversations.controller';
 import { Conversation } from './conversations.entity';
 import { ConversationsService } from './conversations.service';
 import { TagsModule } from 'src/tags/tags.module';
+import { CustomersModule } from 'src/customers/customers.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { TagsModule } from 'src/tags/tags.module';
     forwardRef(() => MessagesModule),
     forwardRef(() => ConversationMembersModule),
     forwardRef(() => TagsModule),
+    forwardRef(() => CustomersModule), // Prevent circular dependency
   ],
   controllers: [ConversationsController],
   providers: [ConversationsService],

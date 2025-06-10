@@ -1,8 +1,8 @@
 import { Channel } from 'src/channels/channels.entity';
 import {
-  ConversationMember,
-  ParticipantType,
+  ConversationMember
 } from 'src/conversation-members/conversation-members.entity';
+import { Tag } from 'src/tags/tags.entity';
 import {
   Column,
   CreateDateColumn,
@@ -16,7 +16,6 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Message } from '../messages/messages.entity';
-import { Tag } from 'src/tags/tags.entity';
 
 export enum ConversationType {
   DIRECT = 'direct',

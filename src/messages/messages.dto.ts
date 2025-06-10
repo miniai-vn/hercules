@@ -30,6 +30,10 @@ export class CreateMessageDto {
 
   @IsString()
   @IsOptional()
+  senderId?: string;
+
+  @IsString()
+  @IsOptional()
   intent?: string;
 
   @IsObject()

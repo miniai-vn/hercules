@@ -21,6 +21,8 @@ import { MiniaiModule } from './miniai/miniai.module';
 import { ShopsModule } from './shops/shops.module';
 import { UsersModule } from './users/users.module';
 import { TagsModule } from './tags/tags.module';
+import { ChatGateway } from './chat/chat.gateway';
+import { ChatModule } from './chat/chat.module';
 @Module({
   imports: [
     BullModule.forRoot({
@@ -60,8 +62,9 @@ import { TagsModule } from './tags/tags.module';
     UsersModule,
     ConversationMembersModule,
     TagsModule,
+    ChatModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, ChatGateway],
 })
 export class AppModule {}

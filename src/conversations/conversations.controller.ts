@@ -38,44 +38,12 @@ interface ApiResponse<T> {
   data: T;
 }
 
-interface AuthenticatedRequest extends Request {
-  user: {
-    sub: string;
-    username: string;
-    shop_id: string;
-    iat?: number;
-    exp?: number;
-  };
-}
-
 @ApiTags('conversations')
 @Controller('conversations')
 @ApiBearerAuth('bearerAuth')
 @UseGuards(JwtAuthGuard)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
-
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new conversation' })
-  @ApiResponse({
-    status: 201,
-    description: 'Conversation created successfully',
-    type: ConversationResponseDto,
-  })
-  async create(
-    @Body() createConversationDto: CreateConversationDto,
-    @Request() req: AuthenticatedRequest,
-  ): Promise<ApiResponse<ConversationResponseDto>> {
-    const conversation = await this.conversationsService.create(
-      createConversationDto,
-      req.user.shop_id, // Get shopId from request user
-    );
-    return {
-      message: 'Conversation created successfully',
-      data: conversation,
-    };
-  }
 
   @Get('')
   @ApiOperation({ summary: 'Query conversations with custom parameters' })

@@ -26,8 +26,6 @@ export class ConversationMembersService {
     @InjectRepository(ConversationMember)
     private memberRepository: Repository<ConversationMember>,
     private readonly messageService: MessagesService,
-    private readonly customersService?: CustomersService,
-    private readonly usersService?: UsersService,
   ) {}
 
   async addParticipant(
@@ -43,36 +41,6 @@ export class ConversationMembersService {
         notificationsEnabled = true,
         nickname,
       } = addParticipantDto;
-
-      // Validate that the correct ID is provided for the participant type
-      if (participantType === ParticipantType.CUSTOMER && !customerId) {
-        throw new BadRequestException(
-          'Customer ID is required for customer participants',
-        );
-      }
-
-      if (participantType === ParticipantType.USER && !userId) {
-        throw new BadRequestException(
-          'User ID is required for user participants',
-        );
-      }
-
-      // Verify the participant exists if customersService/usersService are provided
-      if (customerId && this.customersService) {
-        const customer = await this.customersService.findOne(customerId);
-        if (!customer) {
-          throw new NotFoundException(
-            `Customer with ID ${customerId} not found`,
-          );
-        }
-      }
-
-      if (userId && this.usersService) {
-        const user = await this.usersService.getOne(userId);
-        if (!user) {
-          throw new NotFoundException(`User with ID ${userId} not found`);
-        }
-      }
 
       const existingMember = await this.memberRepository.findOne({
         where: {
@@ -150,12 +118,9 @@ export class ConversationMembersService {
         const member = await this.addParticipant(conversationId, participant);
         addedMembers.push(member);
       } catch (error) {
-        // Log error but continue with other participants
-        const errorMessage = `Failed to add participant ${
-          participant.customerId || participant.userId
-        }: ${error.message}`;
-        console.error(errorMessage);
-        errors.push(errorMessage);
+        throw new InternalServerErrorException(
+          'Server internal error while adding participants',
+        );
       }
     }
 

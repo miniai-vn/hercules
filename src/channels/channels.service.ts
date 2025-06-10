@@ -453,4 +453,11 @@ export class ChannelsService {
     await this.channelRepository.save(channel);
     return channel;
   }
+
+  async getByTypeAndAppId(type: ChannelType, appId: string): Promise<Channel> {
+    return this.channelRepository.findOne({
+      where: { type, appId },
+      relations: ['shop'],
+    });
+  }
 }

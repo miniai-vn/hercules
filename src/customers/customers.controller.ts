@@ -10,14 +10,14 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
-  Query
+  Query,
 } from '@nestjs/common';
 import {
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiResponse,
-  ApiTags
+  ApiTags,
 } from '@nestjs/swagger';
 import {
   CreateCustomerDto,

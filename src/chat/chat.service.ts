@@ -1,14 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
-import { ChatGateway } from './chat.gateway';
-import { ConversationsService } from '../conversations/conversations.service';
-import { MessagesService } from '../messages/messages.service';
-import { ZaloWebhookDto } from './dto/chat-zalo.dto';
+import { Injectable } from '@nestjs/common';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
+import { ConversationsService } from '../conversations/conversations.service';
+import { MessagesService } from '../messages/messages.service';
+import { ChatGateway } from './chat.gateway';
+import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 
 export interface SendMessageData {
   conversationId: number;
@@ -54,32 +50,18 @@ export class ChatService {
       app_id,
     );
 
-    const conversation =
+    const { conversation, messageData } =
       await this.conversationsService.sendMessageToConversation({
         message: message.text,
         channel: zaloChannel,
         customerId: sender.id,
       });
 
-
-    // const participants = conversation.members;
-
-    // participants.forEach((participant) => {
-    //   if (participant.userId) {
-    //     this.chatGateway.server
-    //       .to(`user:${participant.userId}`)
-    //       .emit('receiveMessage', {
-    //         message: message.text,
-    //         userId: participant.userId,
-    //         conversationId: conversation.id,
-    //         messageType: 'text',
-    //         timestamp: new Date(),
-    //       });
-    //   } else {
-    //     throw new NotFoundException(
-    //       `User with ID ${participant.userId} not found in conversation ${conversation.id}`,
-    //     );
-    //   }
-    // });
+    const roomName = `conversation:${conversation.id}`;
+    this.chatGateway.server.to(roomName).emit('receiveMessage', {
+      ...messageData,
+      conversationId: conversation.id,
+      channelType: ChannelType.ZALO,
+    });
   }
 }

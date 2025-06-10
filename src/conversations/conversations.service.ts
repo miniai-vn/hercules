@@ -4,8 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Channel } from 'src/channels/channels.entity';
+import { ChannelType } from 'src/channels/dto/channel.dto';
 import { AddParticipantDto } from 'src/conversation-members/conversation-members.dto';
+import { CustomersService } from 'src/customers/customers.service';
+import { SenderType } from 'src/messages/messages.dto';
 import { MessagesService } from 'src/messages/messages.service';
+import { TagsService } from 'src/tags/tags.service';
 import { Repository } from 'typeorm';
 import { ParticipantType } from '../conversation-members/conversation-members.entity';
 import { ConversationMembersService } from '../conversation-members/conversation-members.service';
@@ -18,12 +23,7 @@ import {
   PaginatedConversationsDto,
   UpdateConversationDto,
 } from './dto/conversation.dto';
-import { TagsService } from 'src/tags/tags.service';
-import { CustomersService } from 'src/customers/customers.service';
-import { ChannelType } from 'src/channels/dto/channel.dto';
-import { SenderType } from 'src/messages/messages.dto';
-import { ZaloMessageDto } from 'src/chat/dto/chat-zalo.dto';
-import { Channel } from 'src/channels/channels.entity';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class ConversationsService {
@@ -34,6 +34,7 @@ export class ConversationsService {
     private readonly messagesService: MessagesService,
     private readonly tagsService: TagsService,
     private readonly customerService: CustomersService,
+    private readonly userService: UsersService, // Assuming you have a UsersService to handle user-related logic
   ) {}
 
   async create(createConversationDto: CreateConversationDto, channel: Channel) {
@@ -586,20 +587,23 @@ export class ConversationsService {
         platform: ChannelType.ZALO,
         channelId: channel.id,
       });
-
       if (!conversation) {
+        const adminChannels = await this.userService.findAdminChannel(
+          channel.id,
+        );
         conversation = await this.create(
           {
             name: 'New Conversation',
             type: ConversationType.DIRECT,
             content: '',
             customerParticipantIds: [customer.id],
+            userParticipantIds: adminChannels.map((user) => user.id),
           },
           channel,
         );
       }
 
-      await this.messagesService.create({
+      const messageData = await this.messagesService.create({
         conversationId: conversation.id,
         content: message,
         contentType: 'text',
@@ -607,7 +611,10 @@ export class ConversationsService {
         senderId: customer.id,
       });
 
-      return conversation;
+      return {
+        conversation,
+        messageData,
+      };
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to get conversation by channel and customer',

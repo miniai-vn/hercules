@@ -393,6 +393,25 @@ export class UsersService {
     }
   }
 
+  async findAdminChannel(chanelId: number) {
+    try {
+      const users = await this.usersRepository.find({
+        where: {
+          channels: {
+            id: chanelId,
+          },
+        },
+
+        relations: ['shop'],
+      });
+      return users.map((user) => this.toResponseDto(user));
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to find admin channel: ${error.message}`,
+      );
+    }
+  }
+
   private toResponseDto(user: User): UserResponseDto {
     return {
       id: user.id,

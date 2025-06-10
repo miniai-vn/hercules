@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { Department } from '../departments/departments.entity';
 import { Shop } from '../shops/shops.entity';
+import { Channel } from 'src/channels/channels.entity';
 
 @Entity('users')
 export class User {
@@ -112,7 +113,7 @@ export class User {
   })
   departments: Department[];
 
-  @ManyToMany(() => User, (user) => user.channels, {
+  @ManyToMany(() => Channel, (channel) => channel.users, {
     onDelete: 'SET NULL',
     nullable: true,
   })
@@ -121,7 +122,7 @@ export class User {
     joinColumn: { name: 'user_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'channel_id', referencedColumnName: 'id' },
   })
-  channels: User[];
+  channels: Channel[];
 
   @CreateDateColumn({
     name: 'created_at',

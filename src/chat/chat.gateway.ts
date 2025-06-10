@@ -141,12 +141,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return Array.from(this.userToClient.keys());
   }
 
-  @SubscribeMessage('joinConversation')
+@SubscribeMessage('joinConversation')
   handleJoinConversation(
     @MessageBody() data: { conversationId: number; userId?: string },
     @ConnectedSocket() client: Socket,
   ) {
     // Validate client exists
+    console.log(data);
     if (!this.validateClient(client)) {
       client.emit('error', { message: 'Client not found or invalid' });
       return;

@@ -151,6 +151,13 @@ export class ConversationsController {
     description: 'Items per page',
     example: 10,
   })
+  @ApiQuery({
+    name: 'phoneFilter',
+    required: false,
+    type: Boolean,
+    description: 'Filter conversations by phone number',
+    example: true,
+  })
   async query(
     @Req() req,
     @Query() queryParams: ConversationQueryParamsDto,

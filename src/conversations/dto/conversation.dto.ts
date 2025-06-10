@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   IsDateString,
+  IsBoolean,
 } from 'class-validator';
 import { ConversationType } from '../conversations.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -65,7 +66,7 @@ export class ConversationQueryParamsDto {
   @IsString({ each: true })
   @IsOptional()
   participantUserIds?: string[];
-  
+
   @ApiPropertyOptional({
     description: 'Conversation type',
     example: 'direct',
@@ -73,6 +74,14 @@ export class ConversationQueryParamsDto {
   @IsOptional()
   @IsString()
   type?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  @ApiPropertyOptional({
+    description: 'Filter conversations by phone number',
+    example: false,
+  })
+  phoneFilter?: boolean;
 
   @ApiPropertyOptional({
     description: 'Conversation name',

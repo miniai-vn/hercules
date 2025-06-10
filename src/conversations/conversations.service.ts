@@ -371,6 +371,10 @@ export class ConversationsService {
         .leftJoinAndSelect('conversation.tags', 'tags')
         .orderBy('conversation.createdAt', 'DESC');
 
+      if (queryParams.tagId) {
+        queryBuilder.andWhere('tags.id = :tagId', { tagId: queryParams.tagId });
+      }
+
       if (queryParams.channelType) {
         queryBuilder
           .leftJoinAndSelect('conversation.channel', 'channel')
@@ -403,7 +407,7 @@ export class ConversationsService {
           { search: queryParams.search },
         );
       }
-
+      
       if (
         queryParams.participantUserIds &&
         queryParams.participantUserIds.length > 0
@@ -425,9 +429,17 @@ export class ConversationsService {
         });
       }
 
+      // Fixed phoneFilter logic
+      if (queryParams.phoneFilter) {
+        queryBuilder.andWhere(
+          'EXISTS (SELECT 1 FROM conversation_members cm JOIN customers c ON cm.customer_id = c.id WHERE cm.conversation_id = conversation.id AND c.phone IS NOT NULL)'
+        );
+      }
+
       const conversations = await queryBuilder
         .orderBy('conversation.createdAt', 'DESC')
         .getMany();
+      
       const conversaiontsResponse = conversations.map(async (conv) => {
         const countMessagesUnread = await this.getUnReadMessagesCount(
           conv.id,

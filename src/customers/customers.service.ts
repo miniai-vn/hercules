@@ -19,6 +19,7 @@ import {
   CustomerListQueryDto,
   CustomerListResponseDto,
 } from './customers.dto';
+import { TagsService } from 'src/tags/tags.service';
 
 @Injectable()
 export class CustomersService {
@@ -28,6 +29,7 @@ export class CustomersService {
     private readonly shopService: ShopService,
     @Inject(forwardRef(() => ChannelsService))
     private readonly channelService: ChannelsService,
+    private readonly tagsService: TagsService,
   ) {}
 
   async create(
@@ -281,6 +283,29 @@ export class CustomersService {
     }
 
     return customer;
+  }
+
+  async addTagsToCustomer(
+    customerId: string,
+    tagIds: number[],
+  ): Promise<CustomerResponseDto> {
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId },
+      relations: ['tags'],
+    });
+
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${customerId} not found`);
+    }
+
+    // Fetch tags by IDs
+    const tags = await this.tagsService.findByIds(tagIds);
+
+    // Add tags to customer
+    customer.tags = tags;
+
+    const updatedCustomer = await this.customerRepository.save(customer);
+    return this.mapToResponseDto(updatedCustomer);
   }
 
   private mapToResponseDto(customer: Customer): CustomerResponseDto {

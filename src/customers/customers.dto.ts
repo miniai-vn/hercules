@@ -13,7 +13,10 @@ export enum Platform {
   FACEBOOK = 'facebook',
   TIKTOK = 'tiktok',
 }
-
+export class AddTagsToCustomerDto {
+  @ApiProperty({ type: [Number] })
+  tagIds: number[];
+}
 export class CreateCustomerDto {
   @ApiProperty({
     description: 'Platform name',

@@ -372,12 +372,6 @@ export class ConversationsService {
         });
       }
 
-      if (queryParams.type) {
-        queryBuilder.andWhere('conversation.type = :type', {
-          type: queryParams.type,
-        });
-      }
-
       if (queryParams.search && queryParams.search.trim() !== '') {
         queryBuilder.andWhere(
           '(conversation.name ~* :search OR conversation.content ~* :search)',
@@ -417,21 +411,36 @@ export class ConversationsService {
         .orderBy('conversation.createdAt', 'DESC')
         .getMany();
 
-      const conversaiontsResponse = conversations.map(async (conv) => {
-        const countMessagesUnread = await this.getUnReadMessagesCount(
-          conv.id,
-          queryParams.userId,
-        );
-        const lastestMessage = conv.messages[conv.messages.length - 1].content;
-        delete conv.messages;
-        return {
-          ...this.toResponseDto(conv),
-          tags: conv.tags,
-          unreadMessagesCount: countMessagesUnread,
-          isRead: countMessagesUnread === 0,
-          lastestMessage,
-        };
-      });
+      const conversationWithUnreadCount = await Promise.all(
+        conversations.map(async (conv) => {
+          const countMessagesUnread = await this.getUnReadMessagesCount(
+            conv.id,
+            queryParams.userId,
+          );
+          const lastestMessage =
+            conv.messages[conv.messages.length - 1].content;
+          delete conv.messages;
+          return {
+            ...this.toResponseDto(conv),
+            tags: conv.tags,
+            unreadMessagesCount: countMessagesUnread,
+            isRead: countMessagesUnread === 0,
+            lastestMessage,
+          };
+        }),
+      );
+
+      const conversaiontsResponse = conversationWithUnreadCount.filter(
+        (conv) => {
+          if (queryParams.readStatus === 'read') {
+            return conv.unreadMessagesCount === 0;
+          }
+          if (queryParams.readStatus === 'unread') {
+            return conv.unreadMessagesCount > 0;
+          }
+          return conv;
+        },
+      );
       return Promise.all(conversaiontsResponse);
     } catch (error) {
       throw new InternalServerErrorException('Failed to query conversations');

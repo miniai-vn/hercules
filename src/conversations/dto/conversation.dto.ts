@@ -78,7 +78,7 @@ export class ConversationQueryParamsDto {
   })
   @IsOptional()
   @IsString()
-  type?: string;
+  readStatus?: 'read' | 'unread' | 'all';
 
   @IsBoolean()
   @IsOptional()

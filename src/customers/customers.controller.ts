@@ -26,6 +26,7 @@ import {
   CustomerResponseDto,
   FindCustomerByExternalIdDto,
   UpdateCustomerDto,
+  AddTagsToCustomerDto,
 } from './customers.dto';
 import { CustomersService } from './customers.service';
 
@@ -218,6 +219,16 @@ export class CustomersController {
     description: 'Customers by channel retrieved successfully',
     type: CustomerListResponseDto,
   })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing token',
+  })
+  async findByChannel(
+    @Query() query: CustomerListQueryDto,
+  ): Promise<CustomerListResponseDto> {
+    return this.customersService.findAll({ ...query });
+  }
+
   @Get('search/:searchTerm')
   @ApiOperation({ summary: 'Search customers by name' })
   @ApiParam({
@@ -240,5 +251,24 @@ export class CustomersController {
     @Query() query: CustomerListQueryDto,
   ): Promise<CustomerListResponseDto> {
     return this.customersService.findAll({ ...query, name: searchTerm });
+  }
+
+  @Post(':id/add-tags')
+  @ApiOperation({ summary: 'Add tags to a customer' })
+  @ApiParam({ name: 'id', description: 'Customer ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tags added to customer successfully',
+    type: CustomerResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Customer not found',
+  })
+  async addTagsToCustomer(
+    @Param('id') id: string,
+    @Body() body: AddTagsToCustomerDto,
+  ): Promise<CustomerResponseDto> {
+    return this.customersService.addTagsToCustomer(id, body.tagIds);
   }
 }

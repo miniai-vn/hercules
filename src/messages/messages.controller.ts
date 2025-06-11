@@ -13,6 +13,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/auth.module'; // Adjust path
@@ -25,13 +26,13 @@ import {
   MessageStatsDto,
   PaginatedMessagesDto,
   RestoreMessageDto,
-  UpdateMessageDto
+  UpdateMessageDto,
 } from './messages.dto';
 import { MessagesService } from './messages.service';
 
 interface ApiResponse<T> {
   message: string;
-  data: T;
+  data?: T;
 }
 
 @Controller('messages')
@@ -224,4 +225,6 @@ export class MessagesController {
       data: result,
     };
   }
+
+  
 }

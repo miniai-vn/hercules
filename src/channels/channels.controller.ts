@@ -14,6 +14,7 @@ import {
   DefaultValuePipe,
   HttpCode,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
 import { Channel } from './channels.entity';
 import { ChannelsService } from './channels.service';
@@ -26,6 +27,13 @@ import {
   ChannelBulkDeleteDto,
   PaginatedChannelsDto,
 } from './dto/channel.dto';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+} from '@nestjs/swagger';
+import { ChannelUserIdsDto } from './dto/channel-user-ids.dto';
 
 interface ApiResponse<T> {
   message: string;
@@ -33,6 +41,7 @@ interface ApiResponse<T> {
 }
 
 @Controller('channels')
+@ApiBearerAuth('bearerAuth')
 @UseGuards(JwtAuthGuard) // Apply guard to all routes in this controller
 export class ChannelsController {
   constructor(private readonly channelsService: ChannelsService) {}
@@ -70,6 +79,20 @@ export class ChannelsController {
     };
   }
 
+  @Get('unread-count')
+  @ApiOperation({ summary: 'Get unread message count by shopId and userId' })
+  async getUnreadCount(@Request() req) {
+    const shopId = req.user.shop_id;
+    const userId = req.user.user_id; // Assuming req.user.id is the correct way to get user ID
+    return {
+      message: 'Unread message count retrieved successfully',
+      data: await this.channelsService.getByShopIdAndUserIdAndCountUnreadMessages(
+        shopId,
+        userId,
+      ),
+    };
+  }
+
   @Get('query')
   async queryChannelsForShop(
     @Request() req,
@@ -82,14 +105,8 @@ export class ChannelsController {
     };
   }
 
-  // The route /get-by-shop-id seems redundant if / is already fetching by shopId.
-  // If it has a different purpose, adjust accordingly.
-  // For now, I'll assume it's similar to findAllForShop or can be removed.
-  // If you keep it, ensure its service call is also scoped by shopId.
-  // Example:
-  @Get('get-by-shop-id') // This specific path might be redundant with the main GET /
+  @Get('get-by-shop-id')
   async getByShopIdRoute(
-    // Renamed to avoid conflict with service method name
     @Request() req,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
@@ -181,6 +198,40 @@ export class ChannelsController {
     return {
       message: 'Bulk delete operation completed',
       data: result,
+    };
+  }
+
+  @Post(':id/add-users')
+  @ApiOperation({ summary: 'Add multiple users to a channel' })
+  @ApiResponse({ status: 200, description: 'Users added to channel' })
+  async addUsersToChannel(
+    @Param('id', ParseIntPipe) channelId: number,
+    @Body() body: ChannelUserIdsDto,
+  ): Promise<ApiResponse<Channel>> {
+    const channel = await this.channelsService.addUsers(
+      channelId,
+      body.userIds,
+    );
+    return {
+      message: 'Users added to channel',
+      data: channel,
+    };
+  }
+
+  @Post(':id/remove-users')
+  @ApiOperation({ summary: 'Remove multiple users from a channel' })
+  @ApiResponse({ status: 200, description: 'Users removed from channel' })
+  async removeUsersFromChannel(
+    @Param('id', ParseIntPipe) channelId: number,
+    @Body() body: ChannelUserIdsDto,
+  ): Promise<ApiResponse<Channel>> {
+    const channel = await this.channelsService.removeUsers(
+      channelId,
+      body.userIds,
+    );
+    return {
+      message: 'Users removed from channel',
+      data: channel,
     };
   }
 }

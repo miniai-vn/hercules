@@ -1,36 +1,34 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
   Body,
-  Param,
-  Query,
+  Controller,
+  Delete,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
   ParseIntPipe,
-  UseGuards,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
 } from '@nestjs/common';
 import {
-  ApiTags,
   ApiOperation,
-  ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBearerAuth,
-  ApiSecurity,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from 'src/auth/auth.module';
-import { CustomersService } from './customers.service';
 import {
   CreateCustomerDto,
-  UpdateCustomerDto,
-  CustomerResponseDto,
   CustomerListQueryDto,
   CustomerListResponseDto,
+  CustomerResponseDto,
   FindCustomerByExternalIdDto,
+  UpdateCustomerDto,
+  AddTagsToCustomerDto,
 } from './customers.dto';
+import { CustomersService } from './customers.service';
 
 @ApiTags('Customers')
 @Controller('customers')
@@ -109,10 +107,11 @@ export class CustomersController {
     status: 404,
     description: 'Customer not found',
   })
-  async findOne(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<CustomerResponseDto> {
-    return this.customersService.findOne(id);
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return {
+      message: 'Customer retrieved successfully',
+      data: await this.customersService.findOne(id),
+    };
   }
 
   @Put(':id')
@@ -136,7 +135,7 @@ export class CustomersController {
     description: 'Customer not found',
   })
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCustomerDto: UpdateCustomerDto,
   ): Promise<CustomerResponseDto> {
     return this.customersService.update(id, updateCustomerDto);
@@ -158,7 +157,7 @@ export class CustomersController {
     status: 404,
     description: 'Customer not found',
   })
-  async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
+  async remove(@Param('id', ParseIntPipe) id: string): Promise<void> {
     return this.customersService.remove(id);
   }
 
@@ -220,6 +219,16 @@ export class CustomersController {
     description: 'Customers by channel retrieved successfully',
     type: CustomerListResponseDto,
   })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing token',
+  })
+  async findByChannel(
+    @Query() query: CustomerListQueryDto,
+  ): Promise<CustomerListResponseDto> {
+    return this.customersService.findAll({ ...query });
+  }
+
   @Get('search/:searchTerm')
   @ApiOperation({ summary: 'Search customers by name' })
   @ApiParam({
@@ -242,5 +251,24 @@ export class CustomersController {
     @Query() query: CustomerListQueryDto,
   ): Promise<CustomerListResponseDto> {
     return this.customersService.findAll({ ...query, name: searchTerm });
+  }
+
+  @Post(':id/add-tags')
+  @ApiOperation({ summary: 'Add tags to a customer' })
+  @ApiParam({ name: 'id', description: 'Customer ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tags added to customer successfully',
+    type: CustomerResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Customer not found',
+  })
+  async addTagsToCustomer(
+    @Param('id') id: string,
+    @Body() body: AddTagsToCustomerDto,
+  ): Promise<CustomerResponseDto> {
+    return this.customersService.addTagsToCustomer(id, body.tagIds);
   }
 }

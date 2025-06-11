@@ -5,15 +5,17 @@ import { CustomersController } from './customers.controller';
 import { Customer } from './customers.entity';
 import { ShopsModule } from '../shops/shops.module';
 import { ChannelsModule } from 'src/channels/channels.module';
+import { TagsModule } from 'src/tags/tags.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Customer]), // Register Customer entity repository
-    forwardRef(() => ShopsModule), // Use forwardRef to handle circular dependency
-    forwardRef(() => ChannelsModule), // Use forwardRef to handle circular dependency with ChannelsModule
+    TypeOrmModule.forFeature([Customer]),
+    forwardRef(() => ShopsModule),
+    forwardRef(() => ChannelsModule),
+    forwardRef(() => TagsModule),
   ],
   providers: [CustomersService],
   controllers: [CustomersController],
-  exports: [CustomersService], // Export service for other modules to use
+  exports: [CustomersService],
 })
 export class CustomersModule {}

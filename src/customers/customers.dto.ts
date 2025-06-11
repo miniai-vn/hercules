@@ -6,13 +6,17 @@ import {
   IsEnum,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export enum Platform {
   ZALO = 'zalo',
   FACEBOOK = 'facebook',
   TIKTOK = 'tiktok',
 }
-
+export class AddTagsToCustomerDto {
+  @ApiProperty({ type: [Number] })
+  tagIds: number[];
+}
 export class CreateCustomerDto {
   @ApiProperty({
     description: 'Platform name',
@@ -97,8 +101,49 @@ export class UpdateCustomerDto {
     example: 2,
   })
   @IsNumber()
+  @Type(() => Number)
   @IsOptional()
   channelId?: number;
+
+  @ApiPropertyOptional({
+    description: 'Customer phone number',
+    example: '+84123456789',
+  })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Customer email address',
+    example: 'customer@example.com',
+  })
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: 'Customer address',
+    example: '123 Main St, Hanoi, Vietnam',
+  })
+  @IsString()
+  @IsOptional()
+  address?: string;
+
+  @ApiPropertyOptional({
+    description: 'Notes about the customer',
+    example: 'VIP customer, prefers Zalo contact.',
+  })
+  @IsString()
+  @IsOptional()
+  note?: string;
+
+  @ApiPropertyOptional({
+    description: 'Customer avatar URL',
+    example: 'https://example.com/avatar.jpg',
+  })
+  @IsString()
+  @IsOptional()
+  avatar?: string;
 }
 
 export class CustomerResponseDto {
@@ -106,7 +151,13 @@ export class CustomerResponseDto {
     description: 'Customer ID',
     example: 1,
   })
-  id: number;
+  id: string;
+
+  @ApiProperty({
+    description: 'Customer unique identifier',
+    example: 'c1234567890',
+  })
+  email?: string;
 
   @ApiProperty({
     description: 'Platform name',

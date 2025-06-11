@@ -1,12 +1,15 @@
+import { ConversationMember } from 'src/conversation-members/conversation-members.entity';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
   DeleteDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Conversation } from '../conversations/conversations.entity'; // Adjust path as needed
 
@@ -24,8 +27,14 @@ export class Message {
   @Column({ type: 'text', name: 'content_type' })
   contentType: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'sender_id' })
+  senderId?: string; // ID of the sender in the conversation
+
   @Column({ type: 'text', nullable: true, name: 'content' })
   content?: string;
+
+  @OneToMany(() => ConversationMember, (member) => member.conversation)
+  lastMessagesMembers: ConversationMember[];
 
   @ManyToOne(() => Conversation, (conversation) => conversation.messages, {
     onDelete: 'CASCADE', // Matches SQLAlchemy

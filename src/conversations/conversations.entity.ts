@@ -1,15 +1,21 @@
-import { Customer } from '../customers/customers.entity'; // Ensure path is correct
-import { Message } from '../messages/messages.entity'; // Ensure path is correct
+import { Channel } from 'src/channels/channels.entity';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
+  ConversationMember
+} from 'src/conversation-members/conversation-members.entity';
+import { Tag } from 'src/tags/tags.entity';
+import {
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
-  OneToMany,
-  ManyToMany,
+  Entity,
+  JoinColumn,
   JoinTable,
+  ManyToMany,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
+import { Message } from '../messages/messages.entity';
 
 export enum ConversationType {
   DIRECT = 'direct',
@@ -30,6 +36,14 @@ export class Conversation {
   })
   type: ConversationType;
 
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'avatar',
+  })
+  avatar: string;
+
   @Column({ type: 'text', nullable: true, name: 'content' })
   content?: string;
 
@@ -39,30 +53,28 @@ export class Conversation {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
 
+  @ManyToOne(() => Channel, (channel) => channel.conversations, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'channel_id' })
+  channel: Channel;
 
-  @Column({type: 'varchar', length: 255, nullable: true, name: 'channel'})
-  channel?: string; // e.g., Zalo, Facebook, TikTok
-
-  // Assuming you still have a OneToMany with Message
   @OneToMany(() => Message, (message) => message.conversation, {
     cascade: true,
   })
   messages: Message[];
 
-  // ManyToMany relationship with Customer
-  @ManyToMany(() => Customer, (customer) => customer.conversations)
-  @JoinTable({
-    name: 'conversation_customers', // Name of the join table
-    joinColumn: {
-      name: 'conversation_id', // Column name in join table for Conversation's PK
-      referencedColumnName: 'id',
-    },
-    inverseJoinColumn: {
-      name: 'customer_id', // Column name in join table for Customer's PK
-      referencedColumnName: 'id',
-    },
+  @OneToMany(() => ConversationMember, (member) => member.conversation, {
+    cascade: true,
   })
-  customers: Customer[]; // Changed property name from 'messages' to 'customers'
+  members: ConversationMember[];
 
-  
+  @ManyToMany(() => Tag, (tag) => tag.conversations)
+  @JoinTable({
+    name: 'tag_conversations',
+    joinColumn: { name: 'conversation_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
+  })
+  tags: Tag[];
 }

@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  DefaultValuePipe,
   Delete,
   Get,
   HttpCode,
@@ -11,28 +10,28 @@ import {
   Post,
   Put,
   Query,
+  Req,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/auth.module';
 import { ConversationsService } from './conversations.service';
-import { ConversationListFEResponseDto } from './dto/conversation-fe.dto';
 import {
   AddParticipantsDto,
-  ConversationBulkDeleteDto,
+  AddTagsToConversationDto,
   ConversationQueryParamsDto,
   ConversationResponseDto,
   CreateConversationDto,
-  PaginatedConversationsDto,
-  RemoveParticipantsDto,
   UpdateConversationDto,
 } from './dto/conversation.dto';
-import * as jwt from 'jsonwebtoken';
 
 interface ApiResponse<T> {
   message: string;
@@ -40,65 +39,122 @@ interface ApiResponse<T> {
 }
 
 @ApiTags('conversations')
-@ApiBearerAuth('bearerAuth') // Use the security scheme name from main.ts
 @Controller('conversations')
+@ApiBearerAuth('bearerAuth')
 @UseGuards(JwtAuthGuard)
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  async create(
-    @Body() createConversationDto: CreateConversationDto,
-  ): Promise<ApiResponse<ConversationResponseDto>> {
-    const conversation = await this.conversationsService.create(
-      createConversationDto,
-    );
-    return {
-      message: 'Conversation created successfully',
-      data: conversation,
-    };
-  }
-
-  @Get()
-  async findAll(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-    @Query('search', new DefaultValuePipe('')) search: string,
-  ): Promise<ApiResponse<PaginatedConversationsDto>> {
-    const conversations = await this.conversationsService.findAll(
-      page,
-      limit,
-      search,
-    );
-    return {
-      message: 'Conversations retrieved successfully',
-      data: conversations,
-    };
-  }
-
-  @Get('frontend')
-  @ApiOperation({ summary: 'Get conversations in frontend format' })
+  @Get('')
+  @ApiOperation({ summary: 'Query conversations with custom parameters' })
   @ApiResponse({
     status: 200,
-    description: 'Returns conversations formatted for frontend consumption',
-    type: ConversationListFEResponseDto,
+    description: 'Conversations queried successfully',
   })
-  async getConversationsForFrontend(): Promise<ConversationListFEResponseDto> {
-    return this.conversationsService.getConversationsForFrontend();
-  }
-  @Get('query')
+  @ApiQuery({ name: 'type', required: false, description: 'Conversation type' })
+  @ApiQuery({ name: 'name', required: false, description: 'Conversation name' })
+  @ApiQuery({
+    name: 'channelId',
+    required: false,
+    type: Number,
+    description: 'Channel ID',
+  })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    type: String,
+    description: 'User ID',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    type: String,
+    description: 'Search term for conversation name or content',
+  })
+  @ApiQuery({
+    name: 'channelType',
+    required: false,
+    type: String,
+    description: 'Channel type (e.g., Zalo, Facebook)',
+  })
+  @ApiQuery({
+    name: 'tagId',
+    required: false,
+    type: Number,
+    description: 'Filter by tag ID',
+  })
+  @ApiQuery({
+    name: 'timeFrom',
+    required: false,
+    type: String,
+    description:
+      'Filter conversations created from this date (ISO 8601 format)',
+    example: '2024-01-01T00:00:00.000Z',
+  })
+  @ApiQuery({
+    name: 'timeTo',
+    required: false,
+    type: String,
+    description: 'Filter conversations created to this date (ISO 8601 format)',
+    example: '2024-12-31T23:59:59.999Z',
+  })
+  @ApiQuery({
+    name: 'participantUserId',
+    required: false,
+    type: [String],
+    description: 'Filter by participant user ID',
+    isArray: true,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+    example: 10,
+  })
+  @ApiQuery({
+    name: 'phoneFilter',
+    required: false,
+    type: Boolean,
+    description: 'Filter conversations by phone number',
+    example: true,
+  })
   async query(
+    @Req() req,
     @Query() queryParams: ConversationQueryParamsDto,
-  ): Promise<ApiResponse<ConversationResponseDto[]>> {
-    const conversations = await this.conversationsService.query(queryParams);
+  ): Promise<{
+    message: string;
+    data: any;
+  }> {
+    const shopId = req.user.shop_id;
+    queryParams.shopId = shopId;
+
+    if (!queryParams.userId) {
+      queryParams.userId = req.user.user_id;
+    }
+
     return {
       message: 'Conversations queried successfully',
-      data: conversations,
+      data: await this.conversationsService.query({
+        ...queryParams,
+      }),
     };
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get a specific conversation by ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversation retrieved successfully',
+    type: ConversationResponseDto,
+  })
   async findOne(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<ApiResponse<ConversationResponseDto>> {
@@ -109,7 +165,27 @@ export class ConversationsController {
     };
   }
 
+  @Get(':id/messages')
+  @ApiOperation({ summary: 'Get messages for a specific conversation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns messages for the conversation',
+  })
+  async getFullInfoConversation(@Param('id', ParseIntPipe) id: number) {
+    const data = await this.conversationsService.getFullInfoConversation(id);
+    return {
+      message: 'Conversation messages retrieved successfully',
+      data,
+    };
+  }
+
   @Put(':id')
+  @ApiOperation({ summary: 'Update a conversation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversation updated successfully',
+    type: ConversationResponseDto,
+  })
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateConversationDto: UpdateConversationDto,
@@ -124,34 +200,13 @@ export class ConversationsController {
     };
   }
 
-  @Delete(':id')
-  @HttpCode(HttpStatus.OK)
-  async remove(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<ApiResponse<{ id: number }>> {
-    await this.conversationsService.remove(id);
-    return {
-      message: 'Conversation deleted successfully',
-      data: { id },
-    };
-  }
-
-  @Post('bulk-delete')
-  async bulkDelete(@Body() bulkDeleteDto: ConversationBulkDeleteDto): Promise<
-    ApiResponse<{
-      totalRequested: number;
-      deletedCount: number;
-      notFoundCount: number;
-    }>
-  > {
-    const result = await this.conversationsService.bulkDelete(bulkDeleteDto);
-    return {
-      message: 'Bulk delete operation completed',
-      data: result,
-    };
-  }
-
   @Post(':id/participants')
+  @ApiOperation({ summary: 'Add participants to a conversation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Participants added successfully',
+    type: ConversationResponseDto,
+  })
   async addParticipants(
     @Param('id', ParseIntPipe) id: number,
     @Body() addParticipantsDto: AddParticipantsDto,
@@ -166,14 +221,120 @@ export class ConversationsController {
     };
   }
 
+  @Get(':id/participants')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get participants of a conversation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Participants retrieved successfully',
+  })
+  async getParticipants(@Param('id', ParseIntPipe) id: number) {
+    const participants =
+      await this.conversationsService.getUsersInConversation(id);
+    return {
+      message: 'Participants retrieved successfully',
+      data: participants,
+    };
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete a conversation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversation deleted successfully',
+  })
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ApiResponse<{ id: number }>> {
+    await this.conversationsService.remove(id);
+    return {
+      message: 'Conversation deleted successfully',
+      data: { id },
+    };
+  }
+
+  @Put(':id/mark-read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Mark a conversation as read' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversation marked as read successfully',
+  })
+  async markReadConversation(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req,
+  ): Promise<ApiResponse<{ id: number }>> {
+    const userId = req.user.user_id;
+    await this.conversationsService.markReadConversation(id, userId);
+    return {
+      message: 'Conversation marked as read successfully',
+      data: { id },
+    };
+  }
+
+  @Post(':id/add-tags')
+  @ApiOperation({ summary: 'Add tags to a conversation' })
+  @ApiBody({ type: AddTagsToConversationDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Tags added to conversation successfully',
+    schema: {
+      example: {
+        message: 'Tags added to conversation successfully',
+        data: { conversationId: 1, tagIds: [1, 2] },
+      },
+    },
+  })
+  async addTags(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() addTagsDto: AddTagsToConversationDto,
+  ): Promise<{
+    message: string;
+    data: { conversationId: number };
+  }> {
+    await this.conversationsService.addTagsToConversation(
+      id,
+      addTagsDto.tagIds,
+    );
+    return {
+      message: 'Tags added to conversation successfully',
+      data: { conversationId: id },
+    };
+  }
+
   @Delete(':id/participants')
+  @ApiOperation({ summary: 'Remove participants from a conversation' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        participantIds: {
+          type: 'array',
+          items: { type: 'number' },
+          example: [1, 2, 3],
+          description: 'Array of participant IDs to remove',
+        },
+      },
+      required: ['participantIds'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Participants removed successfully',
+    type: ConversationResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Conversation not found',
+  })
   async removeParticipants(
     @Param('id', ParseIntPipe) id: number,
-    @Body() removeParticipantsDto: RemoveParticipantsDto,
+    @Body() body: { participantIds: number[] },
   ): Promise<ApiResponse<ConversationResponseDto>> {
     const conversation = await this.conversationsService.removeParticipants(
       id,
-      removeParticipantsDto,
+      body.participantIds,
     );
     return {
       message: 'Participants removed successfully',
@@ -181,54 +342,17 @@ export class ConversationsController {
     };
   }
 
-  @Get(':id/participants')
-  async getParticipants(@Param('id', ParseIntPipe) id: number): Promise<
-    ApiResponse<{
-      customers: any[];
-      users: any[];
-    }>
-  > {
-    const participants = await this.conversationsService.getParticipants(id);
+  @Get(':id/tags')
+  @ApiOperation({ summary: 'Get tags of a conversation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Tags retrieved successfully',
+  })
+  async getTags(@Param('id', ParseIntPipe) id: number) {
+    const tags = await this.conversationsService.getTags(id);
     return {
-      message: 'Participants retrieved successfully',
-      data: participants,
-    };
-  }
-
-  // Add a test endpoint without auth to verify Swagger works
-  @Get('test/public')
-  @ApiOperation({ summary: 'Public test endpoint - no auth required' })
-  @ApiResponse({ status: 200, description: 'Test successful' })
-  // Remove @ApiBearerAuth() and @UseGuards() for this endpoint
-  async testPublic() {
-    return {
-      message: 'Public endpoint working',
-      timestamp: new Date().toISOString(),
-    };
-  }
-}
-
-@Controller('auth')
-export class AuthController {
-  @Post('test-token')
-  @ApiOperation({ summary: 'Generate test JWT token for development' })
-  @ApiResponse({ status: 200, description: 'Test token generated' })
-  generateTestToken() {
-    const payload = {
-      shop_id: '0f2faa9a-2eda-4b32-81ee-e6bdb7d36fe3',
-      user_id: 1,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours
-    };
-
-    const token = jwt.sign(payload, process.env.JWT_SECRET_KEY, {
-      algorithm: (process.env.JWT_ALGORITHM || 'HS256') as jwt.Algorithm,
-    });
-
-    return {
-      access_token: token,
-      token_type: 'bearer',
-      expires_in: 86400,
+      message: 'Tags retrieved successfully',
+      data: tags,
     };
   }
 }

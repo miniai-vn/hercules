@@ -4,6 +4,8 @@ import {
   ConflictException,
   BadRequestException,
   InternalServerErrorException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindManyOptions } from 'typeorm';
@@ -17,6 +19,7 @@ import {
   CustomerListQueryDto,
   CustomerListResponseDto,
 } from './customers.dto';
+import { TagsService } from 'src/tags/tags.service';
 
 @Injectable()
 export class CustomersService {
@@ -24,7 +27,9 @@ export class CustomersService {
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
     private readonly shopService: ShopService,
+    @Inject(forwardRef(() => ChannelsService))
     private readonly channelService: ChannelsService,
+    private readonly tagsService: TagsService,
   ) {}
 
   async create(
@@ -135,99 +140,49 @@ export class CustomersService {
     };
   }
 
-  async findOne(id: number): Promise<CustomerResponseDto> {
+  async findOne(id: string) {
     const customer = await this.customerRepository.findOne({
       where: { id },
-      relations: ['shop', 'channel'],
+      relations: ['shop', 'channel', 'tags'],
     });
 
     if (!customer) {
       throw new NotFoundException(`Customer with ID ${id} not found`);
     }
 
-    return this.mapToResponseDto(customer);
+    return customer;
   }
 
   async update(
-    id: number,
+    id: string,
     updateCustomerDto: UpdateCustomerDto,
   ): Promise<CustomerResponseDto> {
     try {
-      const { platform, externalId, name, shopId, channelId } =
-        updateCustomerDto;
-
+      const { name, address, avatar, phone, note, email } = updateCustomerDto;
       const customer = await this.customerRepository.findOne({
         where: { id },
         relations: ['shop', 'channel'],
       });
 
-      if (!customer) {
-        throw new NotFoundException(`Customer with ID ${id} not found`);
-      }
+      const updatedCustomer = await this.customerRepository.save({
+        ...customer,
+        ...(email && { email }),
+        ...(name && { name }),
+        ...(address && { address }),
+        ...(avatar && { avatar }),
+        ...(phone && { phone }),
+        ...(note && { note }),
+      });
 
-      // Check if shop exists using ShopService (if shopId is provided)
-      if (shopId && shopId !== customer.shop?.id) {
-        try {
-          const shop = await this.shopService.findOne(shopId);
-          customer.shop = shop;
-        } catch (error) {
-          throw new BadRequestException(`Shop with ID ${shopId} not found`);
-        }
-      }
-
-      // Check if channel exists using ChannelService (if channelId is provided)
-      if (channelId && channelId !== customer.channel?.id) {
-        try {
-          const channel = await this.channelService.getOne(channelId);
-          customer.channel = channel;
-        } catch (error) {
-          throw new BadRequestException(
-            `Channel with ID ${channelId} not found`,
-          );
-        }
-      }
-
-      // Check for duplicate platform + externalId (if either is being updated)
-      if (platform || externalId) {
-        const checkPlatform = platform || customer.platform;
-        const checkExternalId = externalId || customer.externalId;
-
-        const existingCustomer = await this.customerRepository.findOne({
-          where: { platform: checkPlatform, externalId: checkExternalId },
-        });
-
-        if (existingCustomer && existingCustomer.id !== id) {
-          throw new ConflictException(
-            `Customer with platform '${checkPlatform}' and external ID '${checkExternalId}' already exists`,
-          );
-        }
-      }
-
-      // Update customer fields
-      if (platform) customer.platform = platform;
-      if (externalId) customer.externalId = externalId;
-      if (name !== undefined) customer.name = name;
-
-      const updatedCustomer = await this.customerRepository.save(customer);
       return this.mapToResponseDto(updatedCustomer);
     } catch (error) {
-      // Re-throw known errors
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException ||
-        error instanceof ConflictException
-      ) {
-        throw error;
-      }
-
-      // Handle unexpected errors
       throw new InternalServerErrorException(
         `Failed to update customer with ID ${id}: ${error.message}`,
       );
     }
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: string): Promise<void> {
     const customer = await this.customerRepository.findOne({
       where: { id },
     });
@@ -295,9 +250,68 @@ export class CustomersService {
     });
   }
 
+  async findOrCreateByExternalId({
+    platform,
+    externalId,
+    name,
+    shopId,
+    channelId,
+  }: {
+    platform: string;
+    externalId: string;
+    name?: string;
+    shopId?: string;
+    channelId?: number;
+  }) {
+    let customer = await this.customerRepository
+      .createQueryBuilder('customer')
+      .leftJoinAndSelect('customer.channel', 'channel')
+      .where('channel.type = :platform', { platform })
+      .andWhere('customer.externalId = :externalId', { externalId })
+      .getOne();
+    if (!customer) {
+      // If customer does not exist, create a new one
+      customer = this.customerRepository.create({
+        platform,
+        externalId,
+        name,
+        shop: shopId ? await this.shopService.findOne(shopId) : null,
+        channel: channelId ? await this.channelService.getOne(channelId) : null,
+      });
+
+      customer = await this.customerRepository.save(customer);
+    }
+
+    return customer;
+  }
+
+  async addTagsToCustomer(
+    customerId: string,
+    tagIds: number[],
+  ): Promise<CustomerResponseDto> {
+    const customer = await this.customerRepository.findOne({
+      where: { id: customerId },
+      relations: ['tags'],
+    });
+
+    if (!customer) {
+      throw new NotFoundException(`Customer with ID ${customerId} not found`);
+    }
+
+    // Fetch tags by IDs
+    const tags = await this.tagsService.findByIds(tagIds);
+
+    // Add tags to customer
+    customer.tags = tags;
+
+    const updatedCustomer = await this.customerRepository.save(customer);
+    return this.mapToResponseDto(updatedCustomer);
+  }
+
   private mapToResponseDto(customer: Customer): CustomerResponseDto {
     return {
       id: customer.id,
+      email: customer.email,
       platform: customer.platform,
       externalId: customer.externalId,
       name: customer.name,

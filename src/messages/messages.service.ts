@@ -1,7 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository } from 'typeorm';
-import { ConversationsService } from '../conversations/conversations.service';
 import {
   BulkCreateMessagesDto,
   CreateMessageDto,
@@ -12,15 +17,22 @@ import {
   MessageWithConversationDto,
   PaginatedMessagesDto,
   RestoreMessageDto,
+  SenderType,
   UpdateMessageDto,
 } from './messages.dto';
 import { Message } from './messages.entity';
+import { ConversationsService } from 'src/conversations/conversations.service';
+import { CustomersService } from 'src/customers/customers.service';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class MessagesService {
   constructor(
     @InjectRepository(Message)
     private readonly messageRepository: Repository<Message>,
+    private readonly customersService: CustomersService,
+    private readonly usersService: UsersService,
+    @Inject(forwardRef(() => ConversationsService))
     private readonly conversationsService: ConversationsService,
   ) {}
 
@@ -44,10 +56,6 @@ export class MessagesService {
   async bulkCreate(
     bulkCreateDto: BulkCreateMessagesDto,
   ): Promise<MessageResponseDto[]> {
-    // Validate conversation exists
-    const conversation = await this.conversationsService.findOne(
-      bulkCreateDto.conversationId,
-    );
     const messages = bulkCreateDto.messages.map((messageDto) =>
       this.messageRepository.create({
         ...messageDto,
@@ -155,10 +163,7 @@ export class MessagesService {
     return messages.map((message) => this.toResponseDto(message));
   }
 
-  async findOne(
-    id: number,
-    includeDeleted: boolean = false,
-  ): Promise<MessageWithConversationDto> {
+  async findOne(id: number, includeDeleted: boolean = false): Promise<Message> {
     const queryBuilder = this.messageRepository
       .createQueryBuilder('message')
       .where('message.id = :id', { id });
@@ -169,16 +174,7 @@ export class MessagesService {
 
     const message = await queryBuilder.getOne();
 
-    if (!message) {
-      throw new NotFoundException(`Message with ID ${id} not found`);
-    }
-
-    // Get conversation details
-    const conversation = await this.conversationsService.findOne(
-      message.conversation.id,
-    );
-
-    return this.toDetailedResponseDto(message, conversation);
+    return message;
   }
 
   async findByConversation(
@@ -416,6 +412,42 @@ export class MessagesService {
     }
 
     return { deletedCount: messages.length };
+  }
+
+  async getInfoSenderMessages(id: number) {
+    try {
+      const message = await this.messageRepository.findOne({
+        where: { id, deletedAt: IsNull() },
+        select: ['senderId', 'senderType'],
+        order: { createdAt: 'DESC' },
+      });
+
+      if (message.senderType === SenderType.customer) {
+        const customer = await this.customersService.findOne(message.senderId);
+        return {
+          id: message.id,
+          senderType: message.senderType,
+          senderId: message.senderId,
+          name: customer.name,
+          avatar: customer?.avatar,
+        };
+      }
+
+      if (message.senderType === SenderType.user) {
+        const user = await this.usersService.getOne(message.senderId);
+        return {
+          id: message.id,
+          senderType: message.senderType,
+          senderId: message.senderId,
+          name: user.name,
+          avatar: user.avatar,
+        };
+      }
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Error retrieving sender info for message ID ${id}: ${error.message}`,
+      );
+    }
   }
 
   private toResponseDto(message: Message): MessageResponseDto {

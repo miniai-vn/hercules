@@ -475,6 +475,11 @@ export class ConversationsService {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
         relations: ['messages', 'members'],
+        order: {
+          messages: {
+            createdAt: 'ASC',
+          },
+        },
       });
 
       const currentMembersId = conversation.members.find(
@@ -572,6 +577,7 @@ export class ConversationsService {
     message: string;
   }) {
     try {
+      let isNewConversation = false;
       let conversation = await this.conversationRepository
         .createQueryBuilder('conversation')
         .leftJoinAndSelect('conversation.members', 'members')
@@ -601,6 +607,12 @@ export class ConversationsService {
           },
           channel,
         );
+
+        conversation = await this.conversationRepository.findOne({
+          where: { id: conversation.id },
+          relations: ['members', 'channel', 'members.user'],
+        });
+        isNewConversation = true;
       }
 
       const messageData = await this.messagesService.create({
@@ -614,10 +626,27 @@ export class ConversationsService {
       return {
         conversation,
         messageData,
+        isNewConversation,
       };
     } catch (error) {
+      console.log(error);
       throw new InternalServerErrorException(
         'Failed to get conversation by channel and customer',
+      );
+    }
+  }
+
+  async getConversationByUserId(userId: string) {
+    try {
+      const conversations = await this.conversationRepository
+        .createQueryBuilder('conversation')
+        .leftJoinAndSelect('conversation.members', 'members')
+        .where('members.userId = :userId', { userId })
+        .getMany();
+      return conversations;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to get conversations by user ID',
       );
     }
   }

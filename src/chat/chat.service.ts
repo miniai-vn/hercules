@@ -39,7 +39,6 @@ export class ChatService {
   constructor(
     private readonly chatGateway: ChatGateway,
     private readonly conversationsService: ConversationsService,
-    private readonly messagesService: MessagesService,
     private readonly channelService: ChannelsService, // Assuming you have a ChannelService to handle channel-related logic
   ) {}
 
@@ -50,12 +49,21 @@ export class ChatService {
       app_id,
     );
 
-    const { conversation, messageData } =
+    const { conversation, messageData, isNewConversation } =
       await this.conversationsService.sendMessageToConversation({
         message: message.text,
         channel: zaloChannel,
         customerId: sender.id,
       });
+
+    if (isNewConversation) {
+      conversation.members.forEach((member) => {
+        this.chatGateway.sendEventJoinConversation(
+          conversation.id,
+          member.userId,
+        );
+      });
+    }
 
     const roomName = `conversation:${conversation.id}`;
     this.chatGateway.server.to(roomName).emit('receiveMessage', {

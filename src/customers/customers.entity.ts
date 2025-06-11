@@ -18,7 +18,7 @@ export class Customer {
   @PrimaryGeneratedColumn('uuid', { name: 'id' })
   id: string;
 
-  @Column({ type: 'varchar', length: 255, unique: true, name: 'platform' })
+  @Column({ type: 'varchar', length: 255, name: 'platform' })
   platform: string;
 
   @Column({ type: 'varchar', length: 255, name: 'external_id' })

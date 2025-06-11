@@ -1,12 +1,17 @@
 import { Type } from 'class-transformer';
 import {
-    IsNotEmpty,
-    IsNumber,
-    IsObject,
-    IsOptional,
-    IsString
+  IsNotEmpty,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
 } from 'class-validator';
 
+export enum SenderType {
+  user = 'user',
+  customer = 'customer',
+  assistant = 'assistant',
+}
 export class CreateMessageDto {
   @IsString()
   senderType: string;
@@ -22,6 +27,10 @@ export class CreateMessageDto {
   @IsNumber()
   @IsNotEmpty()
   conversationId: number;
+
+  @IsString()
+  @IsOptional()
+  senderId?: string;
 
   @IsString()
   @IsOptional()

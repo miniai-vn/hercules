@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
+import * as dotenv from 'dotenv';
 import { ChannelsService } from 'src/channels/channels.service';
+import { ChannelType } from 'src/channels/dto/channel.dto';
 import { ZALO_CONFIG } from './config/zalo.config';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
-import { ChannelType } from 'src/channels/dto/channel.dto';
-import * as dotenv from 'dotenv';
 dotenv.config();
 @Injectable()
 export class ZaloService {
@@ -45,14 +45,10 @@ export class ZaloService {
         infoOa.data.data.oa_id,
       );
       if (channel) {
-        this.logger.log(
-          `Channel already exists for OA ID ${infoOa.data.data.oa_id}. Updating access token.`,
-        );
         await this.channelService.update(channel.id, {
           accessToken: response.data.access_token,
           refreshToken: response.data.refresh_token,
         });
-        return channel;
       } else {
         await this.channelService.create({
           accessToken: response.data.access_token,
@@ -63,7 +59,7 @@ export class ZaloService {
           type: ChannelType.ZALO,
         });
       }
-      return channel;
+      return `http://localhost:3000/dashboard/channels?type=zalo&appId=${infoOa.data.data.oa_id}`;
     } catch (error) {
       this.logger.error('Error getting access token:', error);
     }

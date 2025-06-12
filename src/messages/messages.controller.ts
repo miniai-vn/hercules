@@ -16,7 +16,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/auth.module'; // Adjust path
+import { JwtAuthGuard } from '../auth/auth.guard'; // Adjust path
 import {
   BulkCreateMessagesDto,
   CreateMessageDto,

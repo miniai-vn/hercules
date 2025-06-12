@@ -13,27 +13,37 @@ export class ZaloController {
   @ApiOperation({ summary: 'Zalo webhook verification' })
   @ApiResponse({ status: 200, description: 'Webhook verification file' })
   async zaloWebhookHandler(@Res() res: Response) {
-    console.log('Zalo webhook verification requested');
     // Fix the file path - use forward slashes and relative path
     const filePath = join(
       process.cwd(),
       'public',
       'zalo_verifierGkRa5O6GTXL3ukCJdz5WJa_upMgZZXipCp0u.html',
     );
-    console.log('File path:', filePath);
     return res.sendFile(filePath);
   }
 
   @Get('zalo/webhook/handler')
   @ApiOperation({ summary: 'Zalo webhook handler' })
-  @ApiResponse({ status: 200, description: 'Webhook handler response' })
-  async zaloWebhookHandlerPost(@Query() query: any) {
-    await this.zaloService.getAccessToken(query.oa_id, query.code);
-    return {
-      status: 'success',
-      message: 'Webhook handler called',
-      query: query,
-    };
+  @ApiResponse({ status: 302, description: 'Redirect to dashboard' })
+  async zaloWebhookHandlerPost(@Query() query: any, @Res() res: Response) {
+    try {
+      const url = await this.zaloService.getAccessToken(
+        query.oa_id,
+        query.code,
+      );
+
+      // Redirect to the URL returned by the service
+      return res.redirect(url);
+    } catch (error) {
+      console.error('Error in webhook handler:', error);
+
+      // Redirect to error page or return error response
+      return res.status(500).json({
+        status: 'error',
+        message: 'Failed to process webhook',
+        error: error.message,
+      });
+    }
   }
 
   //    @Get("authorize-tiktok")

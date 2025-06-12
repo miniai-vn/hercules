@@ -24,6 +24,7 @@ import { TagsModule } from './tags/tags.module';
 import { ChatGateway } from './chat/chat.gateway';
 import { ChatModule } from './chat/chat.module';
 import { IntegrationModule } from './integration/integration.module';
+import { AuthModule } from './auth/auth.module';
 @Module({
   imports: [
     ServeStaticModule.forRoot({
@@ -68,6 +69,7 @@ import { IntegrationModule } from './integration/integration.module';
     TagsModule,
     ChatModule,
     IntegrationModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],

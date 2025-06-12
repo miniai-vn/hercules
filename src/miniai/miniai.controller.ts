@@ -1,7 +1,7 @@
 import { Controller, Patch, Body, UseGuards, Request } from '@nestjs/common';
 import { SyncDataShopDto } from './miniai.dto';
 import { MiniaiService } from './miniai.service';
-import { JwtAuthGuard } from 'src/auth/auth.module';
+import { JwtAuthGuard } from '../auth/auth.guard';
 
 @Controller('miniai')
 export class MiniaiController {

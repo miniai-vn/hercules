@@ -992,12 +992,12 @@
     jsonc-parser "3.3.1"
     pluralize "8.0.0"
 
-"@nestjs/serve-static@^4.0.2":
-  version "4.0.2"
-  resolved "https://registry.yarnpkg.com/@nestjs/serve-static/-/serve-static-4.0.2.tgz#f003bbd90922bdc73d0261edacf001dfef174c96"
-  integrity sha512-cT0vdWN5ar7jDI2NKbhf4LcwJzU4vS5sVpMkVrHuyLcltbrz6JdGi1TfIMMatP2pNiq5Ie/uUdPSFDVaZX/URQ==
+"@nestjs/serve-static@^5.0.3":
+  version "5.0.3"
+  resolved "https://registry.yarnpkg.com/@nestjs/serve-static/-/serve-static-5.0.3.tgz#63d8021ce93ab91515fd7dfffaa71d734bddb3f8"
+  integrity sha512-0jFjTlSVSLrI+mot8lfm+h2laXtKzCvgsVStv9T1ZBZTDwS26gM5czIhIESmWAod0PfrbCDFiu9C1MglObL8VA==
   dependencies:
-    path-to-regexp "0.2.5"
+    path-to-regexp "8.2.0"
 
 "@nestjs/swagger@^11.2.0":
   version "11.2.0"
@@ -2157,16 +2157,17 @@ base64-js@^1.3.1, base64-js@^1.5.1:
   resolved "https://registry.yarnpkg.com/base64-js/-/base64-js-1.5.1.tgz#1b1b440160a5bf7ad40b650f095963481903930a"
   integrity sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==
 
+base64id@2.0.0, base64id@~2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/base64id/-/base64id-2.0.0.tgz#2770ac6bc47d312af97a8bf9a634342e0cd25cb6"
+  integrity sha512-lGe34o6EHj9y3Kts9R4ZYs/Gr+6N7MCaMlIFA3F1R2O5/m7K06AxfSeO5530PEERE6/WyEg3lsuyw4GHlPZHog==
+
 bcrypt-pbkdf@^1.0.0:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/bcrypt-pbkdf/-/bcrypt-pbkdf-1.0.2.tgz#a4301d389b6a43f9b67ff3ca11a3f6637e360e9e"
   integrity sha512-qeFIXtP4MSoi6NLqO12WfqARWWuCKi2Rn/9hJLEmtB5yTNr9DqFWkJRCf2qShWzPeAMRnOgCrq0sg/KLv5ES9w==
   dependencies:
     tweetnacl "^0.14.3"
-base64id@2.0.0, base64id@~2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/base64id/-/base64id-2.0.0.tgz#2770ac6bc47d312af97a8bf9a634342e0cd25cb6"
-  integrity sha512-lGe34o6EHj9y3Kts9R4ZYs/Gr+6N7MCaMlIFA3F1R2O5/m7K06AxfSeO5530PEERE6/WyEg3lsuyw4GHlPZHog==
 
 bcrypt@^5.1.1:
   version "5.1.1"
@@ -4745,6 +4746,11 @@ jws@^3.2.2:
     jwa "^1.4.1"
     safe-buffer "^5.0.1"
 
+kafkajs@^2.2.4:
+  version "2.2.4"
+  resolved "https://registry.yarnpkg.com/kafkajs/-/kafkajs-2.2.4.tgz#59e6e16459d87fdf8b64be73970ed5aa42370a5b"
+  integrity sha512-j/YeapB1vfPT2iOIUn/vxdyKEuhuY2PxMBvf5JWux6iSaukAccrMtXEY/Lb7OvavDhOWME589bpLrEdnVHjfjA==
+
 keyv@^4.5.3:
   version "4.5.4"
   resolved "https://registry.yarnpkg.com/keyv/-/keyv-4.5.4.tgz#a879a99e29452f942439f2a405e3af8b31d4de93"
@@ -5572,11 +5578,6 @@ path-to-regexp@0.1.12:
   version "0.1.12"
   resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-0.1.12.tgz#d5e1a12e478a976d432ef3c58d534b9923164bb7"
   integrity sha512-RA1GjUVMnvYFxuqovrEqZoxxW5NUZqbwKtYz/Tt7nXerk0LbLblQmrsgdeOxV5SFHf0UDggjS/bSeOZwt1pmEQ==
-
-path-to-regexp@0.2.5:
-  version "0.2.5"
-  resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-0.2.5.tgz#0b426991e387fc4c675de23557f358715eb66fb0"
-  integrity sha512-l6qtdDPIkmAmzEO6egquYDfqQGPMRNGjYtrU13HAXb3YSRrt7HSb1sJY0pKp6o2bAa86tSB6iwaW2JbthPKr7Q==
 
 path-to-regexp@3.3.0:
   version "3.3.0"

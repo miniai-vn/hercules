@@ -25,6 +25,10 @@ export class CreateChannelDto {
   @IsNotEmpty()
   name: string;
 
+  @IsString()
+  @IsOptional()
+  avatar?: string;
+
   @IsEnum(ChannelType)
   @IsNotEmpty()
   type: ChannelType;
@@ -44,11 +48,7 @@ export class CreateChannelDto {
 
   @IsString()
   @IsOptional()
-  apiKey?: string;
-
-  @IsString()
-  @IsOptional()
-  apiSecret?: string;
+  appId: string;
 
   @IsString()
   @IsOptional()

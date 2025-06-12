@@ -23,8 +23,13 @@ import { UsersModule } from './users/users.module';
 import { TagsModule } from './tags/tags.module';
 import { ChatGateway } from './chat/chat.gateway';
 import { ChatModule } from './chat/chat.module';
+import { IntegrationModule } from './integration/integration.module';
+import { AuthModule } from './auth/auth.module';
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'), // path to index.html
+    }),
     BullModule.forRoot({
       connection: {
         host: 'redis-10293.c82.us-east-1-2.ec2.cloud.redislabs.com',
@@ -63,6 +68,8 @@ import { ChatModule } from './chat/chat.module';
     ConversationMembersModule,
     TagsModule,
     ChatModule,
+    IntegrationModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],

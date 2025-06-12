@@ -7,11 +7,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConversationsService } from 'src/conversations/conversations.service';
 import { Repository } from 'typeorm';
 import { Department } from '../departments/departments.entity';
 import { DepartmentsService } from '../departments/departments.service';
+import { UsersService } from '../users/users.service';
 import { Channel } from './channels.entity';
-import { User } from '../users/users.entity';
 import {
   ChannelBulkDeleteDto,
   ChannelQueryParamsDto,
@@ -22,8 +23,7 @@ import {
   UpdateChannelStatusDto,
 } from './dto/channel.dto';
 import { OAService } from './oa/oa.service';
-import { ConversationsService } from 'src/conversations/conversations.service';
-import { UsersService } from '../users/users.service';
+import { Shop } from 'src/shops/shops.entity';
 
 @Injectable()
 export class ChannelsService {
@@ -92,51 +92,34 @@ export class ChannelsService {
 
   async update(id: number, data: UpdateChannelDto): Promise<Channel> {
     try {
-      const channel = await this.getOne(id);
-
-      let department: Department | undefined | null = channel.department;
-      if (data.departmentId && data.departmentId !== channel.department.id) {
-        department = await this.departmentsService.findOne(data.departmentId);
-        if (!department) {
-          throw new NotFoundException(
-            `Department with ID ${data.departmentId} not found`,
-          );
-        }
-      } else if (data.departmentId === null) {
-        department = null;
-      }
-
-      const updatedChannelData = {
-        ...channel,
-        ...data,
-        department: department === undefined ? channel.department : department,
-      };
-
-      const { departmentId, ...restOfData } = data;
-
-      await this.channelRepository.update(id, {
-        ...restOfData,
-        department: department === undefined ? channel.department : department,
-      });
-      const updatedChannel = await this.getOne(id);
-
-      if (
-        updatedChannel.type === ChannelType.ZALO &&
-        updatedChannel.extraData
-      ) {
-        await this.oaService.sendChannelIdForMiniapp({
-          id: updatedChannel.department.id,
-          appId: (updatedChannel.extraData as any)?.app_id,
-          oaId: (updatedChannel.extraData as any)?.oa_id,
-        });
-      }
-      return updatedChannel;
+      await this.channelRepository.update(id, data);
+      return await this.getOne(id);
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to update channel ${id}`,
         error.message,
       );
     }
+  }
+
+  async updateShopIdAllChannels(shopId: string): Promise<number> {
+    return 0;
+    // try {
+    //   const result = await this.channelRepository.update(
+    //     {},
+    //     { shopId }, // Update all channels with the new shopId
+    //   );
+    //   return result.affected || 0; // Return number of affected rows
+    // } catch (error) {
+    //   this.logger.error(
+    //     `Failed to update shopId for all channels: ${error.message}`,
+    //     error.stack,
+    //   );
+    //   throw new InternalServerErrorException(
+    //     'Failed to update shopId for all channels',
+    //     error.message,
+    //   );
+    // }
   }
 
   async delete(id: number): Promise<void> {
@@ -179,15 +162,6 @@ export class ChannelsService {
       deletedCount,
       notFoundCount: dto.channelIds.length - deletedCount,
     };
-  }
-
-  async getAll(): Promise<Channel[]> {
-    // Python: stmt = select(Channel).join(Department).order_by(Department.name)
-    return this.channelRepository
-      .createQueryBuilder('channel')
-      .leftJoinAndSelect('channel.department', 'department')
-      .orderBy('department.name', 'ASC') // Assuming Department entity has 'name'
-      .getMany();
   }
 
   async query(params: ChannelQueryParamsDto): Promise<Channel[]> {
@@ -250,31 +224,33 @@ export class ChannelsService {
     shopId: string,
     page: number = 1,
     perPage: number = 20,
-    search: string = '',
   ): Promise<PaginatedChannelsDto> {
     const offset = (page - 1) * perPage;
 
     const queryBuilder = this.channelRepository
       .createQueryBuilder('channel')
-      .leftJoin('channel.department', 'department') // Join department
-      .where('department.shop_id = :shopId', { shopId }); // Filter by shopId on department
-
-    if (search && search.trim()) {
-      queryBuilder.andWhere('channel.name ILIKE :search', {
-        search: `%${search.trim()}%`,
-      });
-    }
+      .leftJoin('channel.department', 'department')
+      .where('channel.shop_id = :shopId', { shopId });
 
     const totalCount = await queryBuilder.getCount();
 
     const channels = await queryBuilder
-      .select('channel') // Select only channel fields to avoid issues with distinct if not needed
-      .addSelect(['department.id', 'department.name']) // Explicitly select department fields needed
-      .orderBy('channel.id', 'DESC') // Add some default ordering
+      .select([
+        'channel.id',
+        'channel.name',
+        'channel.type',
+        'channel.status',
+        'channel.createdAt',
+        'channel.updatedAt',
+        'channel.avatar',
+      ])
+      .leftJoinAndSelect('channel.users', 'users')
+      .orderBy('channel.id', 'DESC')
+      .where('channel.shop_id = :shopId', { shopId })
+
       .offset(offset)
       .limit(perPage)
       .getMany();
-    // .getRawAndEntities(); // If you need raw data too or have complex selections
 
     const totalPages = Math.ceil(totalCount / perPage);
 
@@ -294,13 +270,11 @@ export class ChannelsService {
     dto: UpdateChannelStatusDto,
   ): Promise<Channel> {
     try {
-      const channel = await this.getOne(id); // Ensures channel exists
+      const channel = await this.getOne(id);
 
-      channel.status = dto.status; // Update the status field
+      channel.status = dto.status;
       const updatedChannel = await this.channelRepository.save(channel);
-
       if (updatedChannel.department.id) {
-        // Check if departmentId exists
         await this.oaService.sendStatusChannel({
           id: updatedChannel.department.id,
           status: updatedChannel.status,
@@ -459,5 +433,20 @@ export class ChannelsService {
       where: { type, appId },
       relations: ['shop'],
     });
+  }
+
+  async updateShopId(shop: Shop, appId: string): Promise<Channel> {
+    const channel = await this.channelRepository.findOne({
+      where: { appId },
+    });
+
+    if (!channel) {
+      throw new NotFoundException(`Channel with appId ${appId} not found`);
+    }
+    channel.shop = shop; // Update the shop for the channel
+
+    await this.channelRepository.save(channel);
+
+    return channel;
   }
 }

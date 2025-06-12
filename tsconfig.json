@@ -11,14 +11,15 @@
     "outDir": "./dist",
     "baseUrl": "./src", // <--- Set baseUrl to src
     "paths": {
-      "src/*": ["./*"]
+      "src/*": ["./*"],
+      "tiktok_nodejs_sdk": ["./node_modules/tiktok_nodejs_sdk"]
     },
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
-    "forceConsistentCasingInFileNames": false,
+    "forceConsistentCasingInFileNames": false,"esModuleInterop": true,
     "noFallthroughCasesInSwitch": false
   }
 }

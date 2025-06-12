@@ -15,15 +15,19 @@ import {
 import { Channel } from '../channels.entity'; // Assuming Channel entity for PaginatedChannelsDto
 
 export enum ChannelType {
-  ZALO = 'Zalo',
-  FACEBOOK = 'Facebook',
-  TIKTOK = 'TikTok',
+  ZALO = 'zalo',
+  FACEBOOK = 'facebook',
+  TIKTOK = 'tikTok',
 }
 
 export class CreateChannelDto {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @IsString()
+  @IsOptional()
+  avatar?: string;
 
   @IsEnum(ChannelType)
   @IsNotEmpty()
@@ -44,11 +48,7 @@ export class CreateChannelDto {
 
   @IsString()
   @IsOptional()
-  apiKey?: string;
-
-  @IsString()
-  @IsOptional()
-  apiSecret?: string;
+  appId: string;
 
   @IsString()
   @IsOptional()
@@ -89,31 +89,6 @@ export class UpdateChannelDto {
   @IsNotEmpty()
   name?: string;
 
-  @IsEnum(ChannelType)
-  @IsOptional()
-  type?: ChannelType;
-
-  @IsString()
-  @IsOptional()
-  url?: string;
-
-  @IsInt()
-  @IsOptional()
-  @Min(0)
-  audienceSize?: number;
-
-  @IsString()
-  @IsOptional()
-  description?: string;
-
-  @IsString()
-  @IsOptional()
-  apiKey?: string;
-
-  @IsString()
-  @IsOptional()
-  apiSecret?: string;
-
   @IsString()
   @IsOptional()
   accessToken?: string;
@@ -145,6 +120,10 @@ export class UpdateChannelDto {
   @IsBoolean()
   @IsOptional()
   isUseProductFromMiniapp?: boolean;
+
+  @IsString()
+  @IsOptional()
+  shopId?: string;
 }
 
 export class ChannelQueryParamsDto {
@@ -189,6 +168,7 @@ export class PaginatedChannelsDto {
   totalPages: number;
   hasNext: boolean;
   hasPrev: boolean;
+  search?: string;
 }
 
 export class UpdateChannelStatusDto {

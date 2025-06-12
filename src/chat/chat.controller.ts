@@ -15,7 +15,7 @@ import {
 } from '@nestjs/swagger';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 import { ChatService } from './chat.service';
-import { JwtAuthGuard } from 'src/auth/auth.module';
+import { JwtAuthGuard } from '../auth/auth.guard';
 
 @ApiTags('chat')
 @Controller('chat')

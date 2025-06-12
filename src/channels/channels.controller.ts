@@ -1,39 +1,33 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
-  Param,
-  ParseIntPipe,
-  Post,
-  Put,
-  Request,
-  UseGuards,
-  Query,
-  Patch,
-  DefaultValuePipe,
   HttpCode,
   HttpStatus,
-  Req,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Put,
+  Query,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/auth.guard'; // Ensure this path is correct
 import { Channel } from './channels.entity';
 import { ChannelsService } from './channels.service';
-import { JwtAuthGuard } from '../auth/auth.module'; // Ensure this path is correct
-import {
-  CreateChannelDto,
-  UpdateChannelDto,
-  ChannelQueryParamsDto,
-  UpdateChannelStatusDto,
-  ChannelBulkDeleteDto,
-  PaginatedChannelsDto,
-} from './dto/channel.dto';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiQuery,
-  ApiResponse,
-} from '@nestjs/swagger';
 import { ChannelUserIdsDto } from './dto/channel-user-ids.dto';
+import {
+  ChannelBulkDeleteDto,
+  ChannelQueryParamsDto,
+  CreateChannelDto,
+  PaginatedChannelsDto,
+  UpdateChannelDto,
+  UpdateChannelStatusDto,
+} from './dto/channel.dto';
 
 interface ApiResponse<T> {
   message: string;
@@ -64,14 +58,12 @@ export class ChannelsController {
     @Request() req,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number, // Changed from perPage for consistency if desired
-    @Query('search', new DefaultValuePipe('')) search: string,
   ): Promise<ApiResponse<PaginatedChannelsDto>> {
     const shopId = req.user.shop_id; // Assuming req.user.shop_id is the correct way to get shop ID
     const paginatedChannels = await this.channelsService.getByShopId(
       shopId,
       page,
       limit,
-      search,
     );
     return {
       message: 'Channels retrieved successfully',
@@ -102,26 +94,6 @@ export class ChannelsController {
     return {
       message: 'Channels queried successfully',
       data: channels,
-    };
-  }
-
-  @Get('get-by-shop-id')
-  async getByShopIdRoute(
-    @Request() req,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-    @Query('search', new DefaultValuePipe('')) search?: string,
-  ): Promise<ApiResponse<PaginatedChannelsDto>> {
-    const shopId = req.user.shop_id; // Corrected from req.user.shop_id
-    const data = await this.channelsService.getByShopId(
-      shopId,
-      page,
-      limit,
-      search,
-    );
-    return {
-      message: 'Channels for shop retrieved successfully',
-      data,
     };
   }
 
@@ -232,6 +204,24 @@ export class ChannelsController {
     return {
       message: 'Users removed from channel',
       data: channel,
+    };
+  }
+
+  @Patch('update-shop')
+  @ApiOperation({ summary: 'Update shop ID for a channel' })
+  @ApiResponse({ status: 200, description: 'Shop ID updated successfully' })
+  async updateShopId(
+    @Request() req,
+    @Body('appId') appId: string,
+  ): Promise<ApiResponse<Channel>> {
+    const shop = req.shop; // Assuming req.user.shop_id is the correct way to get shop ID
+    const updatedChannels = await this.channelsService.updateShopId(
+      shop,
+      appId,
+    );
+    return {
+      message: 'Shop ID updated successfully',
+      data: updatedChannels,
     };
   }
 }

@@ -124,6 +124,10 @@ export class UpdateChannelDto {
   @IsString()
   @IsOptional()
   shopId?: string;
+
+  @IsString()
+  @IsOptional()
+  avatar?: string;
 }
 
 export class ChannelQueryParamsDto {

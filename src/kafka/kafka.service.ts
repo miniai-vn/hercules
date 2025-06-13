@@ -12,9 +12,9 @@ export class KafkaService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      this.kafkaClient.subscribeToResponseOf(
-        this.configService.get<string>('KAFKA_ZALO_MESSAGE_CONSUMER'),
-      );
+      // this.kafkaClient.subscribeToResponseOf(
+      //   this.configService.get<string>('KAFKA_ZALO_MESSAGE_CONSUMER'),
+      // );
 
       await this.kafkaClient.connect();
       console.log('✅ Kafka client connected successfully');

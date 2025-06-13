@@ -45,6 +45,10 @@ async function bootstrap() {
         clientId: 'kafka-app',
         brokers: ['103.42.59.43:29092'],
       },
+      producer: {
+        allowAutoTopicCreation: true,
+        idempotent: false,
+      },
       consumer: {
         groupId: 'zalo-message', // Unique group ID for this consumer
       },

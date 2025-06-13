@@ -15,21 +15,11 @@ import { KafkaController } from './kafka.controller';
           transport: Transport.KAFKA,
           options: {
             client: {
-              clientId: configService.get<string>(
-                'KAFKA_CLIENT_ID',
-                'hercules-producer',
-              ),
-              brokers: [
-                configService.get<string>(
-                  'KAFKA_BROKERS',
-                  '103.42.59.43:29092',
-                ),
-              ],
+              clientId: configService.get<string>('KAFKA_CLIENT_ID'),
+              brokers: [configService.get<string>('KAFKA_BROKERS')],
             },
-            producer: {
-              allowAutoTopicCreation: true,
-              idempotent: false,
-            },
+
+            producerOnlyMode: true, // Use producer only mode if you don't need to consume messages
           },
         }),
         inject: [ConfigService],

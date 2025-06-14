@@ -27,6 +27,10 @@ export class CreateConversationDto {
   @IsOptional()
   content?: string;
 
+  @IsString()
+  @IsOptional()
+  avatar?: string;
+
   @IsNumber()
   @IsOptional()
   channelId?: number;
@@ -227,6 +231,7 @@ export class ConversationResponseDto {
   name: string;
   type: ConversationType;
   content?: string;
+  avatar?: string; // Optional: avatar URL for the conversation
   createdAt: Date;
   updatedAt: Date;
   messages?: {

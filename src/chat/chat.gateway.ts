@@ -22,25 +22,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  // Store active conversation rooms
   private activeConversations = new Map<
     number,
     { conversationId: number; participants: Set<string>; userIds: Set<string> }
   >();
 
-  // Store user ID to client ID mapping (ensure one client per user)
   private userToClient = new Map<string, string>();
 
-  constructor(
-    private readonly conversationsService: ConversationsService, // Replace with actual service
-  ) {}
+  constructor(private readonly conversationsService: ConversationsService) {}
   handleConnection(client: Socket) {
     console.log(`Client connected: ${client.id}`);
     const token = client.handshake.auth.token;
     let userId: string;
     if (token) {
       try {
-        // Replace 'your_jwt_secret' with your actual JWT secret
         const decoded: any = jwt.verify(
           token,
           process.env.JWT_SECRET_KEY || 'your_jwt_secret',
@@ -63,7 +58,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`Client disconnected: ${client.id}`);
     const userId = this.userToClient.get(client.id);
 
-    // Remove user from all conversations they were participating in
     this.activeConversations.forEach((conversation, conversationId) => {
       conversation.participants.delete(client.id);
       if (userId) {
@@ -73,8 +67,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.activeConversations.delete(conversationId);
       }
     });
-
-    // Clean up mappings
   }
 
   @SubscribeMessage('joinAllConversationsWithUserId')
@@ -127,13 +119,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (this.activeConversations.has(conversationId)) {
       return;
     }
-    // Create or get conversation data
+
     this.activeConversations.set(conversationId, {
       conversationId,
       participants: new Set(),
       userIds: new Set(),
     });
-    client.join(roomName);
     console.log(
       `Client ${client.id} joining conversation ${roomName} with userId ${userId}`,
     );
@@ -158,7 +149,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    // Verify client is participant in conversation
     if (!conversationData.participants.has(client.id)) {
       client.emit('error', {
         message: 'Client not a participant in this conversation',
@@ -166,7 +156,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    // Send message to all users in the conversation
     this.server.to(roomName).emit('receiveMessage', {
       message: data.message,
       userId: data.userId,
@@ -176,7 +165,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  // Mark messages as read
   @SubscribeMessage('markAsRead')
   handleMarkAsRead(
     @MessageBody()

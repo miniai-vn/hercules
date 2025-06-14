@@ -190,15 +190,46 @@ export class ZaloService {
   /**
    * Get user profile from Zalo
    */
-  async getUserProfile(
-    accessToken: string,
-    userId: string,
-  ): Promise<AxiosResponse> {
+  async getListUser({
+    offset,
+    count,
+    accessToken,
+  }: {
+    offset: number;
+    count: number;
+    accessToken: string;
+  }): Promise<AxiosResponse> {
+    const params = {
+      offset,
+      count,
+    };
+
     return this.callZaloAuthenticatedAPI(
-      ZALO_CONFIG.ENDPOINTS.GET_USER_PROFILE,
+      ZALO_CONFIG.ENDPOINTS.GET_USER_LIST,
       accessToken,
-      Method.GET,
-      { user_id: userId },
+      'GET',
+      params,
+    );
+  }
+
+  async getUserProfile({
+    accessToken,
+    userId,
+  }: {
+    accessToken: string;
+    userId: string;
+  }): Promise<AxiosResponse> {
+    const params = {
+      data: JSON.stringify({
+        user_id: userId,
+      }),
+    };
+
+    return this.callZaloAuthenticatedAPI(
+      ZALO_CONFIG.ENDPOINTS.GET_USER_INFO,
+      accessToken,
+      'GET',
+      params,
     );
   }
 

@@ -33,7 +33,6 @@ export class ConversationsService {
     private readonly conversationMembersService: ConversationMembersService,
     private readonly messagesService: MessagesService,
     private readonly tagsService: TagsService,
-    private readonly customerService: CustomersService,
     private readonly userService: UsersService, // Assuming you have a UsersService to handle user-related logic
   ) {}
 
@@ -576,14 +575,18 @@ export class ConversationsService {
     }
   }
 
-  async sendMessageToConversation({
+  async sendZaloMessageToConversation({
     channel,
     customerId,
     message = '',
+    avatar = '',
+    name = '',
   }: {
     channel: Channel;
     customerId: string;
     message: string;
+    avatar?: string;
+    name?: string;
   }) {
     try {
       let isNewConversation = false;
@@ -596,22 +599,17 @@ export class ConversationsService {
         .andWhere('channel.id = :channelId', { channelId: channel.id })
         .getOne();
 
-      const customer = await this.customerService.findOrCreateByExternalId({
-        externalId: customerId,
-        shopId: channel.shop.id,
-        platform: ChannelType.ZALO,
-        channelId: channel.id,
-      });
       if (!conversation) {
         const adminChannels = await this.userService.findAdminChannel(
           channel.id,
         );
         conversation = await this.create(
           {
-            name: 'New Conversation',
+            name: name,
+            avatar: avatar,
             type: ConversationType.DIRECT,
             content: '',
-            customerParticipantIds: [customer.id],
+            customerParticipantIds: [customerId],
             userParticipantIds: adminChannels.map((user) => user.id),
           },
           channel,
@@ -629,7 +627,7 @@ export class ConversationsService {
         content: message,
         contentType: 'text',
         senderType: SenderType.customer,
-        senderId: customer.id,
+        senderId: customerId,
       });
 
       return {
@@ -667,6 +665,7 @@ export class ConversationsService {
       content: conversation?.content,
       createdAt: conversation?.createdAt,
       updatedAt: conversation?.updatedAt,
+      avatar: conversation?.avatar,
       messages: conversation?.messages?.map((message) => ({
         id: message.id,
         content: message.content,

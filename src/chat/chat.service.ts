@@ -74,5 +74,4 @@ export class ChatService {
   }
 
   async sendMessagePlatformToZalo(data: SendMessageData): Promise<void> {}
-
 }

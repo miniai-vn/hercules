@@ -107,11 +107,8 @@ export class ZaloService {
         response.data.access_token,
       );
 
-      const expiresInSeconds = response.data.expires_in || 90 * 24 * 60 * 60;
-      const expiresInHours = expiresInSeconds / 3600;
-      const expireTokenTime = new Date(
-        Date.now() + expiresInHours * 60 * 60 * 1000,
-      );
+      const expiresInSeconds = response.data.expires_in;
+      const expireTokenTime = new Date(Date.now() + expiresInSeconds * 1000);
 
       const channel = await this.channelService.getByTypeAndAppId(
         ChannelType.ZALO,
@@ -152,16 +149,13 @@ export class ZaloService {
 
       // Use common OAuth API method
       const response = await this.callZaloOAuthAPI(
-        ZALO_CONFIG.OAUTH_ENDPOINTS.REFRESH_TOKEN,
+        ZALO_CONFIG.OAUTH_ENDPOINTS.ACCESS_TOKEN,
         requestData,
       );
 
       if (response.data.access_token) {
-        const expiresInSeconds = response.data.expires_in || 90 * 24 * 60 * 60;
-        const expiresInHours = expiresInSeconds / 3600;
-        const expireTokenTime = new Date(
-          Date.now() + expiresInHours * 60 * 60 * 1000,
-        );
+        const expiresInSeconds = response.data.expires_in;
+        const expireTokenTime = new Date(Date.now() + expiresInSeconds * 1000);
 
         await this.channelService.update(channel.id, {
           accessToken: response.data.access_token,
@@ -220,11 +214,10 @@ export class ZaloService {
     );
   }
 
-  private needsTokenRefresh(channel: any): boolean {
+  private needsTokenRefresh(channel: Channel): boolean {
     if (!channel.expireTokenTime) {
       return false;
     }
-
     const now = new Date();
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
@@ -237,7 +230,6 @@ export class ZaloService {
       const zaloChannels = await this.channelService.findByType(
         ChannelType.ZALO,
       );
-
       if (!zaloChannels || zaloChannels.length === 0) {
         return;
       }

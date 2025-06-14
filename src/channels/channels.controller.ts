@@ -102,7 +102,7 @@ export class ChannelsController {
     @Request() req,
     @Param('id', ParseIntPipe) id: number,
   ): Promise<ApiResponse<Channel>> {
-    const channel = await this.channelsService.getOne(id);
+    const channel = await this.channelsService.findOne(id);
     return {
       message: 'Channel retrieved successfully',
       data: channel,

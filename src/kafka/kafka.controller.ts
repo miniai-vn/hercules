@@ -10,7 +10,7 @@ export class KafkaController {
   async testKafka() {
     try {
       const message = { text: 'Hello from Kafka!' };
-      await this.kafkaService.sendMessage('test-topic', message);
+      await this.kafkaService.emitMessage('test-topic', message);
       return { status: 'success', message: 'Message sent to Kafka' };
     } catch (error) {
       console.error('Error sending message to Kafka:', error);

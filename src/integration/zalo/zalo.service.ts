@@ -7,7 +7,7 @@ import { ZALO_CONFIG } from './config/zalo.config';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
 import { KafkaService } from 'src/kafka/kafka.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Channel } from 'src/channels/channels.entity';
+import { Channel, ChannelSyncState } from 'src/channels/channels.entity';
 import { Method } from 'src/common/enum';
 
 dotenv.config();
@@ -245,7 +245,7 @@ export class ZaloService {
     );
   }
 
-  private needsTokenRefresh(channel: Channel): boolean {
+  needsTokenRefresh(channel: Channel): boolean {
     if (!channel.expireTokenTime) {
       return false;
     }
@@ -255,31 +255,11 @@ export class ZaloService {
     return channel.expireTokenTime <= twoHoursFromNow;
   }
 
-  @Cron(CronExpression.EVERY_HOUR)
-  async checkAndRefreshTokens(): Promise<void> {
-    try {
-      const zaloChannels = await this.channelService.findByType(
-        ChannelType.ZALO,
-      );
-      if (!zaloChannels || zaloChannels.length === 0) {
-        return;
-      }
-
-      for (const channel of zaloChannels) {
-        if (this.needsTokenRefresh(channel)) {
-          await this.refreshAccessToken(channel);
-        }
-      }
-    } catch (error) {
-      // Silent fail
-    }
-  }
-
   async manualTokenRefresh(
     channelId: number,
   ): Promise<{ success: boolean; message: string }> {
     try {
-      const channel = await this.channelService.getOne(channelId);
+      const channel = await this.channelService.findOne(channelId);
 
       const success = await this.refreshAccessToken(channel);
 
@@ -310,7 +290,26 @@ export class ZaloService {
     }
   }
 
+  async getUserListAndPublishToKafka(channel: Channel & ChannelSyncState) {
+    try {
+      const response = await this.getListUser({
+        accessToken: channel.accessToken,
+        offset: channel.lastOffset || 0,
+        count: 50,
+      });
+
+      if (response.data.data.length > 0) {
+        this.kafkaService.emitMessage(this.topic, response.data.data);
+      }
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Handle text message from Zalo webhook
+   */
   private async handleTextMessage(payload: ZaloWebhookDto): Promise<void> {
-    this.kafkaService.sendMessage(this.topic, payload);
+    this.kafkaService.emitMessage(this.topic, payload);
   }
 }

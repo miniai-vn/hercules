@@ -106,4 +106,39 @@ export class Channel {
   })
   @JoinColumn({ name: 'shop_id' })
   shop: Shop;
+
+  @OneToMany(() => ChannelSyncState, (syncState) => syncState.channel, {
+    onDelete: 'CASCADE',
+  })
+  syncStates: ChannelSyncState[];
+}
+
+@Entity('channel_sync_states')
+export class ChannelSyncState {
+  @PrimaryGeneratedColumn({ name: 'id' })
+  id: number;
+
+  @Column({ type: 'varchar', length: 50, name: 'channel_type' })
+  channelType: string; // e.g., Zalo, Facebook, TikTok
+
+  @ManyToOne(() => Channel, (channel) => channel.id, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'channel_id' })
+  channel: Channel;
+
+  @Column({ type: 'boolean', default: false, name: 'is_synced' })
+  isSynced: boolean;
+
+  @Column({ type: 'int', default: 0, name: 'last_offset' })
+  lastOffset: number;
+
+  @Column({ type: 'timestamp', nullable: true, name: 'last_synced_at' })
+  lastSyncedAt?: Date;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
+  updatedAt: Date;
 }

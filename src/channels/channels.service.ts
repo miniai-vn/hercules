@@ -12,7 +12,7 @@ import { Repository } from 'typeorm';
 import { Department } from '../departments/departments.entity';
 import { DepartmentsService } from '../departments/departments.service';
 import { UsersService } from '../users/users.service';
-import { Channel } from './channels.entity';
+import { Channel, ChannelSyncState } from './channels.entity';
 import {
   ChannelBulkDeleteDto,
   ChannelQueryParamsDto,
@@ -32,6 +32,8 @@ export class ChannelsService {
   constructor(
     @InjectRepository(Channel)
     private readonly channelRepository: Repository<Channel>,
+    @InjectRepository(ChannelSyncState)
+    private readonly channelSyncStateRepository: Repository<ChannelSyncState>,
     @Inject(forwardRef(() => DepartmentsService))
     private readonly departmentsService: DepartmentsService,
     private readonly conversationsService: ConversationsService, // Inject ConversationsService if needed
@@ -79,7 +81,7 @@ export class ChannelsService {
     }
   }
 
-  async getOne(id: number): Promise<Channel> {
+  async findOne(id: number): Promise<Channel> {
     const channel = await this.channelRepository.findOne({
       where: { id },
       relations: ['department'],
@@ -93,7 +95,7 @@ export class ChannelsService {
   async update(id: number, data: UpdateChannelDto): Promise<Channel> {
     try {
       await this.channelRepository.update(id, data);
-      return await this.getOne(id);
+      return await this.findOne(id);
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to update channel ${id}`,
@@ -123,7 +125,7 @@ export class ChannelsService {
   }
 
   async delete(id: number): Promise<void> {
-    const channel = await this.getOne(id); // Ensures channel exists
+    const channel = await this.findOne(id); // Ensures channel exists
     if (channel.department.id) {
       // Check if departmentId exists before sending
       await this.oaService.sendStatusChannel({
@@ -270,7 +272,7 @@ export class ChannelsService {
     dto: UpdateChannelStatusDto,
   ): Promise<Channel> {
     try {
-      const channel = await this.getOne(id);
+      const channel = await this.findOne(id);
 
       channel.status = dto.status;
       const updatedChannel = await this.channelRepository.save(channel);
@@ -453,6 +455,16 @@ export class ChannelsService {
   async findByType(type: ChannelType): Promise<Channel[]> {
     return this.channelRepository.find({
       where: { type },
+    });
+  }
+
+  async getChannelSyncState(
+    channelId: number,
+  ): Promise<ChannelSyncState | null> {
+    return this.channelSyncStateRepository.findOne({
+      where: {
+        channel: { id: channelId },
+      },
     });
   }
 }

@@ -50,7 +50,7 @@ export class CustomersService {
       // Check if channel exists using ChannelService
       let channel;
       try {
-        channel = await this.channelService.getOne(channelId);
+        channel = await this.channelService.findOne(channelId);
       } catch (error) {
         throw new BadRequestException(`Channel with ID ${channelId} not found`);
       }
@@ -109,7 +109,7 @@ export class CustomersService {
 
     if (channelId) {
       // Validate channel exists using ChannelService
-      await this.channelService.getOne(channelId);
+      await this.channelService.findOne(channelId);
       whereConditions.channel = { id: channelId };
     }
 
@@ -233,7 +233,7 @@ export class CustomersService {
 
   async findByChannelId(channelId: number): Promise<Customer[]> {
     // Validate channel exists using ChannelService
-    await this.channelService.getOne(channelId);
+    await this.channelService.findOne(channelId);
 
     return this.customerRepository.find({
       where: { channel: { id: channelId } },
@@ -276,7 +276,7 @@ export class CustomersService {
         externalId,
         name,
         shop: shopId ? await this.shopService.findOne(shopId) : null,
-        channel: channelId ? await this.channelService.getOne(channelId) : null,
+        channel: channelId ? await this.channelService.findOne(channelId) : null,
       });
 
       customer = await this.customerRepository.save(customer);

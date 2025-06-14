@@ -10,7 +10,7 @@ import { Category } from 'src/categories/categories.entity';
 import { Item } from 'src/items/items.entity';
 import { Skus } from 'src/items/sku.entity';
 import { Department } from 'src/departments/departments.entity';
-import { Channel } from 'src/channels/channels.entity';
+import { Channel, ChannelSyncState } from 'src/channels/channels.entity';
 import { Customer } from 'src/customers/customers.entity';
 import { Conversation } from 'src/conversations/conversations.entity';
 import { Message } from 'src/messages/messages.entity';
@@ -42,6 +42,7 @@ export const getDatabaseConfig = (
       User,
       ConversationMember,
       Tag,
+      ChannelSyncState,
     ],
     migrations: [
       isProduction
@@ -72,6 +73,7 @@ export const dataSourceOptions: DataSourceOptions = {
     User,
     ConversationMember,
     Tag,
+    ChannelSyncState,
   ],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,

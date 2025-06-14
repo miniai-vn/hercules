@@ -1,12 +1,10 @@
 // kafka/kafka.service.ts
-import { Injectable, OnModuleInit, Inject } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { ClientKafka } from '@nestjs/microservices';
 
 @Injectable()
 export class KafkaService implements OnModuleInit {
   constructor(
-    private readonly configService: ConfigService,
     @Inject('KAFKA_SERVICE') private readonly kafkaClient: ClientKafka,
   ) {}
 
@@ -15,7 +13,7 @@ export class KafkaService implements OnModuleInit {
       // this.kafkaClient.subscribeToResponseOf(
       //   this.configService.get<string>('KAFKA_ZALO_MESSAGE_CONSUMER'),
       // );
-
+      console.log(this.kafkaClient.producer);
       await this.kafkaClient.connect();
       console.log('✅ Kafka client connected successfully');
     } catch (error) {
@@ -23,7 +21,15 @@ export class KafkaService implements OnModuleInit {
     }
   }
 
-  sendMessage(topic: string, message: any) {
+  emitMessage(topic: string, message: any) {
     return this.kafkaClient.emit(topic, message);
+  }
+
+  sendMessage(topic: string, message: any) {
+    return this.kafkaClient.send(topic, message);
+  }
+
+  emitBatchMessages(topic: string, messages: any[]) {
+    this.kafkaClient.emit(topic, messages);
   }
 }

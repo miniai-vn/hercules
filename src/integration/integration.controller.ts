@@ -1,9 +1,6 @@
-import { Controller, Get, Post, Body, Res, Query, Param } from '@nestjs/common';
+import { Controller } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { IntegrationService } from './integration.service';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { ZaloService } from './zalo/zalo.service';
-import { Response } from 'express';
-import { join } from 'path';
 
 @ApiTags('Integration')
 @Controller('integration')

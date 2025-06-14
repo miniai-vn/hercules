@@ -7,24 +7,27 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ChannelsModule } from './channels/channels.module';
 import { OAModule } from './channels/oa/oa.module';
+import { ChatGateway } from './chat/chat.gateway';
+import { ChatModule } from './chat/chat.module';
 import { ConversationMembersModule } from './conversation-members/conversation-members.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { CustomersModule } from './customers/customers.module';
 import { getDatabaseConfig } from './database/database.config';
 import { DepartmentsModule } from './departments/departments.module';
+import { IntegrationModule } from './integration/integration.module';
 import { ItemsModule } from './items/items.module';
 import { MessagesModule } from './messages/messages.module';
 import { MiniaiModule } from './miniai/miniai.module';
 import { ShopsModule } from './shops/shops.module';
-import { UsersModule } from './users/users.module';
 import { TagsModule } from './tags/tags.module';
-import { ChatGateway } from './chat/chat.gateway';
-import { ChatModule } from './chat/chat.module';
-import { IntegrationModule } from './integration/integration.module';
-import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { KafkaModule } from './kafka/kafka.module';
+import { KafkaService } from './kafka/kafka.service';
+
 @Module({
   imports: [
     ServeStaticModule.forRoot({
@@ -70,6 +73,7 @@ import { AuthModule } from './auth/auth.module';
     ChatModule,
     IntegrationModule,
     AuthModule,
+    KafkaModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],

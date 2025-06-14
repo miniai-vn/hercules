@@ -3,6 +3,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsDate,
   IsDateString,
   IsEnum,
   IsInt,
@@ -33,14 +34,6 @@ export class CreateChannelDto {
   @IsNotEmpty()
   type: ChannelType;
 
-  @IsString()
-  @IsOptional()
-  url?: string;
-
-  @IsInt()
-  @IsOptional()
-  @Min(0)
-  audienceSize?: number;
 
   @IsString()
   @IsOptional()
@@ -58,18 +51,6 @@ export class CreateChannelDto {
   @IsOptional()
   refreshToken?: string;
 
-  @IsObject()
-  @IsOptional()
-  authCredentials?: Record<string, any>;
-
-  @IsObject()
-  @IsOptional()
-  extraData?: Record<string, any>; // e.g., { app_id: string, oa_id: string }
-
-  @IsString()
-  @IsOptional()
-  apiStatus?: string;
-
   @IsInt()
   @IsOptional()
   departmentId?: number;
@@ -81,6 +62,11 @@ export class CreateChannelDto {
   @IsBoolean()
   @IsOptional()
   isUseProductFromMiniapp?: boolean;
+
+  @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  expireTokenTime?: Date;
 }
 
 export class UpdateChannelDto {
@@ -99,15 +85,7 @@ export class UpdateChannelDto {
 
   @IsObject()
   @IsOptional()
-  authCredentials?: Record<string, any>;
-
-  @IsObject()
-  @IsOptional()
   extraData?: Record<string, any>;
-
-  @IsString()
-  @IsOptional()
-  apiStatus?: string;
 
   @IsInt()
   @IsOptional()
@@ -128,6 +106,11 @@ export class UpdateChannelDto {
   @IsString()
   @IsOptional()
   avatar?: string;
+
+  @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  expireTokenTime?: Date;
 }
 
 export class ChannelQueryParamsDto {

@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  HttpCode,
   HttpStatus,
   Post,
   Query,
@@ -27,7 +26,7 @@ export class ZaloController {
     const filePath = join(
       process.cwd(),
       'public',
-      'zalo_verifierKFEN9BNO3JymwObasvy3Rnozfstmmt8nD34.html',
+      'zalo_verifierGkRa5O6GTXL3ukCJdz5WJa_upMgZZXipCp0u.html',
     );
     return res.sendFile(filePath);
   }
@@ -46,6 +45,8 @@ export class ZaloController {
       return res.redirect(url);
     } catch (error) {
       console.error('Error in webhook handler:', error);
+
+      // Redirect to error page or return error response
       return res.status(500).json({
         status: 'error',
         message: 'Failed to process webhook',
@@ -53,7 +54,6 @@ export class ZaloController {
       });
     }
   }
-
   @Post('zalo/webhook/receive')
   @ApiOperation({ summary: 'Receive Zalo webhook events' })
   @ApiResponse({ status: 200, description: 'Webhook event received' })
@@ -63,8 +63,6 @@ export class ZaloController {
     @Body() body: ZaloWebhookDto,
   ) {
     try {
-      console.log('Received Zalo webhook event:', query);
-      console.log('Request body:', body);
       res.status(HttpStatus.OK).json({});
       await this.zaloService.handleWebhook(body);
     } catch (error) {

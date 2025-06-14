@@ -48,6 +48,9 @@ export class Channel {
   @Column({ type: 'text', nullable: true, name: 'refresh_token' })
   refreshToken?: string;
 
+  @Column({ type: 'timestamp', nullable: true, name: 'expire_token_time' })
+  expireTokenTime?: Date;
+
   @Column({ type: 'json', nullable: true, name: 'extra_data' })
   extraData?: Record<string, any>;
 
@@ -75,6 +78,7 @@ export class Channel {
     inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
   })
   users: User[];
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;
 

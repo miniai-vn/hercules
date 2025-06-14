@@ -41,7 +41,7 @@ export class ChatService {
     private readonly conversationsService: ConversationsService,
     private readonly channelService: ChannelsService, // Assuming you have a ChannelService to handle channel-related logic
   ) {}
-  async sendMessages(@Payload() data: ZaloWebhookDto) {
+  async sendMessagesZaloToPlatform(@Payload() data: ZaloWebhookDto) {
     const { message, app_id, sender } = data;
     console.log('Received message from Zalo:', data);
     const zaloChannel = await this.channelService.getByTypeAndAppId(
@@ -72,4 +72,6 @@ export class ChatService {
       channelType: ChannelType.ZALO,
     });
   }
+
+  async sendMessagePlatformToZalo(data: SendMessageData): Promise<void> {}
 }

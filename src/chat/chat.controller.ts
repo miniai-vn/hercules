@@ -12,6 +12,7 @@ export class ChatController {
   @EventPattern(process.env.KAFKA_ZALO_MESSAGE_CONSUMER)
   async sendMessage(@Payload() data: any) {
     console.log('Received message from Zalo:', data);
+    this.chatService.sendMessagesZaloToPlatform(data);
     return {
       status: 'success',
       message: 'Authenticated message sent successfully',

@@ -43,7 +43,6 @@ export class JwtAuthGuard implements CanActivate {
       if (!shop) {
         throw new UnauthorizedException('Shop not found');
       }
-      console.log('Shop found:', shop);
       // Attach user and shop to request object
       request['user'] = payload;
       request['shop'] = shop;

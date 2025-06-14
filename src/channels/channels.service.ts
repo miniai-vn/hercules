@@ -449,4 +449,10 @@ export class ChannelsService {
 
     return channel;
   }
+
+  async findByType(type: ChannelType): Promise<Channel[]> {
+    return this.channelRepository.find({
+      where: { type },
+    });
+  }
 }

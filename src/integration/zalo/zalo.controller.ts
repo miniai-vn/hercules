@@ -1,8 +1,18 @@
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { join } from 'path';
 import { ZaloService } from './zalo.service';
+import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
 
 @ApiTags('Integration')
 @Controller('integration')
@@ -17,7 +27,7 @@ export class ZaloController {
     const filePath = join(
       process.cwd(),
       'public',
-      'zalo_verifierGkRa5O6GTXL3ukCJdz5WJa_upMgZZXipCp0u.html',
+      'zalo_verifierKFEN9BNO3JymwObasvy3Rnozfstmmt8nD34.html',
     );
     return res.sendFile(filePath);
   }
@@ -36,13 +46,30 @@ export class ZaloController {
       return res.redirect(url);
     } catch (error) {
       console.error('Error in webhook handler:', error);
-
-      // Redirect to error page or return error response
       return res.status(500).json({
         status: 'error',
         message: 'Failed to process webhook',
         error: error.message,
       });
+    }
+  }
+
+  @Post('zalo/webhook/receive')
+  @ApiOperation({ summary: 'Receive Zalo webhook events' })
+  @ApiResponse({ status: 200, description: 'Webhook event received' })
+  async receiveZaloWebhook(
+    @Query() query: any,
+    @Res() res: Response,
+    @Body() body: ZaloWebhookDto,
+  ) {
+    try {
+      console.log('Received Zalo webhook event:', query);
+      console.log('Request body:', body);
+      res.status(HttpStatus.OK).json({});
+      await this.zaloService.handleWebhook(body);
+    } catch (error) {
+      console.error('Error processing webhook event:', error);
+      return { status: 'error', message: error.message };
     }
   }
 

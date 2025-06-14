@@ -24,30 +24,6 @@ export class KafkaService implements OnModuleInit {
   }
 
   sendMessage(topic: string, message: any) {
-    return this.kafkaClient.emit(
-      this.configService.get<string>('KAFKA_ZALO_MESSAGE_CONSUMER'),
-      {
-        app_id: '431280473888958120',
-        user_id_by_app: '3106990734015032864',
-        event_name: 'user_send_link',
-        timestamp: '1749526513984',
-        sender: {
-          id: '5400804943472463766',
-        },
-        recipient: {
-          id: '579745863508352884',
-        },
-        message: {
-          msg_id: 'This is message id',
-          text: 'This is testing message',
-          attachments: [
-            {
-              type: 'link',
-              payload: 'string',
-            },
-          ],
-        },
-      },
-    );
+    return this.kafkaClient.emit(topic, message);
   }
 }

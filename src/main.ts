@@ -42,15 +42,15 @@ async function bootstrap() {
     transport: Transport.KAFKA,
     options: {
       client: {
-        clientId: 'kafka-app',
-        brokers: ['103.42.59.43:29092'],
+        clientId: process.env.KAFKA_CLIENT_ID,
+        brokers: [process.env.KAFKA_BROKERS],
       },
       producer: {
         allowAutoTopicCreation: true,
         idempotent: false,
       },
       consumer: {
-        groupId: 'zalo-message', // Unique group ID for this consumer
+        groupId: process.env.KAFKA_ZALO_MESSAGE_CONSUMER,
       },
     },
   });

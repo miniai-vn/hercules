@@ -1,45 +1,115 @@
-import { Injectable, Logger } from '@nestjs/common';
-import axios from 'axios';
+import { Injectable } from '@nestjs/common';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import * as dotenv from 'dotenv';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
 import { ZALO_CONFIG } from './config/zalo.config';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
+import { KafkaService } from 'src/kafka/kafka.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { Channel } from 'src/channels/channels.entity';
+import { Method } from 'src/common/enum';
+
 dotenv.config();
+
 @Injectable()
 export class ZaloService {
-  private readonly logger = new Logger(ZaloService.name);
-  private readonly accessToken: string;
-  private readonly baseUrl: string;
+  private readonly topic = process.env.KAFKA_ZALO_MESSAGE_TOPIC;
 
-  constructor(private readonly channelService: ChannelsService) {}
+  constructor(
+    private readonly channelService: ChannelsService,
+    private readonly kafkaService: KafkaService,
+  ) {}
 
-  async getAccessToken(oa_id: string, code: string) {
+  /**
+   * Common method to handle Zalo API calls
+   */
+  private async callZaloAPI(
+    endpoint: string,
+    method: 'GET' | 'POST' = 'POST',
+    data?: any,
+    headers?: Record<string, string>,
+    baseUrl: string = ZALO_CONFIG.BASE_URL,
+  ): Promise<AxiosResponse> {
     try {
-      const config = {
+      const config: AxiosRequestConfig = {
+        method,
+        url: `${baseUrl}${endpoint}`,
         headers: {
-          secret_key: process.env.ZALO_APP_SECRET,
           'Content-Type': 'application/x-www-form-urlencoded',
+          ...headers,
         },
       };
 
+      if (method === 'POST' && data) {
+        config.data = data;
+      } else if (method === 'GET' && data) {
+        config.params = data;
+      }
+
+      return await axios(config);
+    } catch (error) {
+      throw new Error(`Zalo API call failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Common method for OAuth API calls
+   */
+  private async callZaloOAuthAPI(
+    endpoint: string,
+    data: any,
+  ): Promise<AxiosResponse> {
+    const headers = {
+      secret_key: process.env.ZALO_APP_SECRET,
+    };
+
+    return this.callZaloAPI(
+      endpoint,
+      'POST',
+      data,
+      headers,
+      ZALO_CONFIG.OAUTH_BASE_URL,
+    );
+  }
+
+  /**
+   * Common method for API calls with access token
+   */
+  private async callZaloAuthenticatedAPI(
+    endpoint: string,
+    accessToken: string,
+    method: 'GET' | 'POST' = 'GET',
+    data?: any,
+  ): Promise<AxiosResponse> {
+    const headers = {
+      access_token: accessToken,
+    };
+
+    return this.callZaloAPI(endpoint, method, data, headers);
+  }
+
+  async getAccessToken(oa_id: string, code: string) {
+    try {
       const requestData = {
         code,
         app_id: process.env.ZALO_APP_ID,
         grant_type: 'authorization_code',
       };
 
-      const response = await axios.post(
-        'https://oauth.zaloapp.com/v4/oa/access_token',
+      const response = await this.callZaloOAuthAPI(
+        ZALO_CONFIG.OAUTH_ENDPOINTS.ACCESS_TOKEN,
         requestData,
-        config,
       );
 
-      const infoOa = await axios.get('https://openapi.zalo.me/v2.0/oa/getoa', {
-        headers: {
-          access_token: response.data.access_token,
-        },
-      });
+      const infoOa = await this.callZaloAuthenticatedAPI(
+        ZALO_CONFIG.ENDPOINTS.GET_OA_INFO,
+        response.data.access_token,
+      );
+
+      const expiresInSeconds = response.data.expires_in;
+      const expireTokenTime = new Date(Date.now() + expiresInSeconds * 1000);
+
       const channel = await this.channelService.getByTypeAndAppId(
         ChannelType.ZALO,
         infoOa.data.data.oa_id,
@@ -48,6 +118,7 @@ export class ZaloService {
         await this.channelService.update(channel.id, {
           accessToken: response.data.access_token,
           refreshToken: response.data.refresh_token,
+          expireTokenTime: expireTokenTime,
         });
       } else {
         await this.channelService.create({
@@ -57,57 +128,157 @@ export class ZaloService {
           avatar: infoOa.data.data.avatar,
           name: infoOa.data.data.name,
           type: ChannelType.ZALO,
+          expireTokenTime: expireTokenTime,
         });
       }
-      return `http://localhost:3000/dashboard/channels?type=zalo&appId=${infoOa.data.data.oa_id}`;
+
+      return `${process.env.DASHBOARD_BASE_URL}/dashboard/channels?type=zalo&appId=${infoOa.data.data.oa_id}`;
     } catch (error) {
-      this.logger.error('Error getting access token:', error);
+      throw error;
+    }
+  }
+
+  async refreshAccessToken(channel: Channel): Promise<boolean> {
+    try {
+      const requestData = {
+        refresh_token: channel.refreshToken,
+        app_id: process.env.ZALO_APP_ID,
+        grant_type: 'refresh_token',
+      };
+
+      // Use common OAuth API method
+      const response = await this.callZaloOAuthAPI(
+        ZALO_CONFIG.OAUTH_ENDPOINTS.ACCESS_TOKEN,
+        requestData,
+      );
+
+      if (response.data.access_token) {
+        const expiresInSeconds = response.data.expires_in;
+        const expireTokenTime = new Date(Date.now() + expiresInSeconds * 1000);
+
+        await this.channelService.update(channel.id, {
+          accessToken: response.data.access_token,
+          refreshToken: response.data.refresh_token || channel.refreshToken,
+          expireTokenTime: expireTokenTime,
+        });
+
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Send message to Zalo user
+   */
+  async sendMessage(
+    accessToken: string,
+    messageData: any,
+  ): Promise<AxiosResponse> {
+    return this.callZaloAuthenticatedAPI(
+      ZALO_CONFIG.ENDPOINTS.SEND_MESSAGE,
+      accessToken,
+      Method.POST,
+      messageData,
+    );
+  }
+
+  /**
+   * Get user profile from Zalo
+   */
+  async getUserProfile(
+    accessToken: string,
+    userId: string,
+  ): Promise<AxiosResponse> {
+    return this.callZaloAuthenticatedAPI(
+      ZALO_CONFIG.ENDPOINTS.GET_USER_PROFILE,
+      accessToken,
+      Method.GET,
+      { user_id: userId },
+    );
+  }
+
+  async getConversations(
+    accessToken: string,
+    params?: any,
+  ): Promise<AxiosResponse> {
+    return this.callZaloAuthenticatedAPI(
+      ZALO_CONFIG.ENDPOINTS.GET_CONVERSATIONS,
+      accessToken,
+      'GET',
+      params,
+    );
+  }
+
+  private needsTokenRefresh(channel: Channel): boolean {
+    if (!channel.expireTokenTime) {
+      return false;
+    }
+    const now = new Date();
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+    return channel.expireTokenTime <= twoHoursFromNow;
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async checkAndRefreshTokens(): Promise<void> {
+    try {
+      const zaloChannels = await this.channelService.findByType(
+        ChannelType.ZALO,
+      );
+      if (!zaloChannels || zaloChannels.length === 0) {
+        return;
+      }
+
+      for (const channel of zaloChannels) {
+        if (this.needsTokenRefresh(channel)) {
+          await this.refreshAccessToken(channel);
+        }
+      }
+    } catch (error) {
+      // Silent fail
+    }
+  }
+
+  async manualTokenRefresh(
+    channelId: number,
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const channel = await this.channelService.getOne(channelId);
+
+      const success = await this.refreshAccessToken(channel);
+
+      return {
+        success,
+        message: success
+          ? 'Token refreshed successfully'
+          : 'Failed to refresh token',
+      };
+    } catch (error) {
+      return { success: false, message: error.message };
     }
   }
 
   async handleWebhook(payload: ZaloWebhookDto): Promise<void> {
-    this.logger.log('Zalo webhook received:', JSON.stringify(payload, null, 2));
-
     try {
       switch (payload.event_name) {
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
           await this.handleTextMessage(payload);
           break;
-        case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_IMAGE:
-          await this.handleImageMessage(payload);
-          break;
-        case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_FILE:
-          await this.handleFileMessage(payload);
-          break;
-        case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_STICKER:
-          await this.handleStickerMessage(payload);
-          break;
+
         default:
-          this.logger.warn(`Unhandled event type: ${payload.event_name}`);
+          // Silent ignore
+          break;
       }
     } catch (error) {
-      this.logger.error('Error handling webhook:', error);
       throw error;
     }
   }
 
   private async handleTextMessage(payload: ZaloWebhookDto): Promise<void> {
-    this.logger.log(`Processing text message: ${payload.message?.text}`);
-    // Add your text message processing logic here
-  }
-
-  private async handleImageMessage(payload: ZaloWebhookDto): Promise<void> {
-    this.logger.log('Processing image message');
-    // Add your image message processing logic here
-  }
-
-  private async handleFileMessage(payload: ZaloWebhookDto): Promise<void> {
-    this.logger.log('Processing file message');
-    // Add your file message processing logic here
-  }
-
-  private async handleStickerMessage(payload: ZaloWebhookDto): Promise<void> {
-    this.logger.log('Processing sticker message');
-    // Add your sticker message processing logic here
+    this.kafkaService.sendMessage(this.topic, payload);
   }
 }

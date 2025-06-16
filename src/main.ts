@@ -1,14 +1,14 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-
+import { AppModule } from './app.module';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { ConfigService } from '@nestjs/config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
+  const configService = app.get(ConfigService);
   // Set global prefix first
   app.setGlobalPrefix('api');
 
-  // Explicit Bearer auth configuration for Swagger
   const config = new DocumentBuilder()
     .setTitle('MiniAI API')
     .setDescription('API documentation for mi9.io')
@@ -38,6 +38,29 @@ async function bootstrap() {
     origin: true,
   });
 
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.KAFKA,
+    options: {
+      client: {
+        clientId: process.env.KAFKA_CLIENT_ID,
+        brokers: [process.env.KAFKA_BROKERS],
+      },
+      producer: {
+        allowAutoTopicCreation: true,
+        idempotent: false,
+      },
+      consumer: {
+        groupId: process.env.KAFKA_ZALO_MESSAGE_CONSUMER,
+      },
+    },
+  });
+
+  try {
+    await app.startAllMicroservices();
+    console.log('✅ Kafka microservice started successfully1231231');
+  } catch (error) {
+    console.error('❌ Failed to start Kafka microservice:', error);
+  }
   await app.listen(process.env.PORT || 8080);
   console.log('Server is running on port:', process.env.PORT || 8080);
   console.log(

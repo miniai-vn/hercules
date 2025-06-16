@@ -114,7 +114,6 @@ export class ZaloService {
         ChannelType.ZALO,
         infoOa.data.data.oa_id,
       );
-
       if (channel) {
         await this.channelService.update(channel.id, {
           accessToken: response.data.access_token,

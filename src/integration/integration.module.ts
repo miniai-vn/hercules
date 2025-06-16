@@ -1,9 +1,8 @@
-import { forwardRef, Module } from '@nestjs/common';
-import { IntegrationService } from './integration.service';
-import { IntegrationController } from './integration.controller';
-import { ZaloModule } from './zalo/zalo.module';
-import { ChannelsModule } from 'src/channels/channels.module';
+import { Module } from '@nestjs/common';
 import { FacebookModule } from './facebook/facebook.module';
+import { IntegrationController } from './integration.controller';
+import { IntegrationService } from './integration.service';
+import { ZaloModule } from './zalo/zalo.module';
 
 @Module({
   imports: [ZaloModule, FacebookModule],

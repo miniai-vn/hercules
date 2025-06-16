@@ -87,7 +87,7 @@ export class FacebookService {
         return page.id;
       });
 
-      return `http://localhost:3000/dashboard/channels?type=facebook&appId=${idPage}`;
+      return `${process.env.DASHBOARD_BASE_URL}/dashboard/channels?type=facebook&appId=${idPage}`;
     } catch (err) {
       throw new BadRequestException(err);
     }

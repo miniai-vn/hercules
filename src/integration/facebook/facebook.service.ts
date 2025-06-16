@@ -51,7 +51,7 @@ export class FacebookService {
     }
 
     try {
-      const tokenUser = await this.getTokenUser(code);
+      const tokenUser = await this.getLongLiveTokenUser(code);
 
       const pages = await this.getTokenPages(tokenUser);
 
@@ -65,7 +65,6 @@ export class FacebookService {
       });
 
       for (const page of tokenPage) {
-        console.log(` page:: `, page);
         const existingChannel = await this.channelService.getByTypeAndAppId(
           ChannelType.FACEBOOK,
           page.id,
@@ -101,7 +100,7 @@ export class FacebookService {
     }
   }
 
-  private async getTokenUser(code: string): Promise<string> {
+  private async getLongLiveTokenUser(code: string): Promise<string> {
     const tokenUrl = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}${FACEBOOK_CONFIG.ENDPOINT.OAUTH_ACCESS_TOKEN}`;
     const params = {
       client_id: FACEBOOK_CONFIG.APP.ID,

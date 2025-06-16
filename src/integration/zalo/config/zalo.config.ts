@@ -1,10 +1,16 @@
 export const ZALO_CONFIG = {
   BASE_URL: 'https://openapi.zalo.me',
+  OAUTH_BASE_URL: 'https://oauth.zaloapp.com',
   ENDPOINTS: {
     SEND_MESSAGE: '/v2.0/oa/message',
     GET_USER_PROFILE: '/v2.0/oa/getprofile',
     UPLOAD_FILE: '/v2.0/oa/upload',
     GET_CONVERSATIONS: '/v2.0/oa/conversation',
+    GET_OA_INFO: '/v2.0/oa/getoa',
+  },
+  OAUTH_ENDPOINTS: {
+    ACCESS_TOKEN: '/v4/oa/access_token',
+    REFRESH_TOKEN: '/v4/oa/refresh_token',
   },
   WEBHOOK_EVENTS: {
     USER_SEND_TEXT: 'user_send_text',

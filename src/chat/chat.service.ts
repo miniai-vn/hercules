@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
 import { ConversationsService } from '../conversations/conversations.service';
-import { MessagesService } from '../messages/messages.service';
 import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
+import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices';
 
 export interface SendMessageData {
   conversationId: number;
@@ -41,9 +41,9 @@ export class ChatService {
     private readonly conversationsService: ConversationsService,
     private readonly channelService: ChannelsService, // Assuming you have a ChannelService to handle channel-related logic
   ) {}
-
-  async sendMessages(data: ZaloWebhookDto) {
+  async sendMessagesZaloToPlatform(@Payload() data: ZaloWebhookDto) {
     const { message, app_id, sender } = data;
+    console.log('Received message from Zalo:', data);
     const zaloChannel = await this.channelService.getByTypeAndAppId(
       ChannelType.ZALO,
       app_id,
@@ -72,4 +72,6 @@ export class ChatService {
       channelType: ChannelType.ZALO,
     });
   }
+
+  async sendMessagePlatformToZalo(data: SendMessageData): Promise<void> {}
 }

@@ -1,14 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import * as dotenv from 'dotenv';
+import { Channel, ChannelSyncState } from 'src/channels/channels.entity';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
+import { Method } from 'src/common/enum';
+import { KafkaService } from 'src/kafka/kafka.service';
 import { ZALO_CONFIG } from './config/zalo.config';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
-import { KafkaService } from 'src/kafka/kafka.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { Channel, ChannelSyncState } from 'src/channels/channels.entity';
-import { Method } from 'src/common/enum';
 
 dotenv.config();
 
@@ -260,7 +259,6 @@ export class ZaloService {
   ): Promise<{ success: boolean; message: string }> {
     try {
       const channel = await this.channelService.findOne(channelId);
-
       const success = await this.refreshAccessToken(channel);
 
       return {

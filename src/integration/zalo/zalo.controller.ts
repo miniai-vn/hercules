@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpStatus,
+  InternalServerErrorException,
   Post,
   Query,
   Res,
@@ -22,7 +23,6 @@ export class ZaloController {
   @ApiOperation({ summary: 'Zalo webhook verification' })
   @ApiResponse({ status: 200, description: 'Webhook verification file' })
   async zaloWebhookHandler(@Res() res: Response) {
-    // Fix the file path - use forward slashes and relative path
     const filePath = join(
       process.cwd(),
       'public',
@@ -44,30 +44,24 @@ export class ZaloController {
       // Redirect to the URL returned by the service
       return res.redirect(url);
     } catch (error) {
-      console.error('Error in webhook handler:', error);
-
-      // Redirect to error page or return error response
-      return res.status(500).json({
-        status: 'error',
-        message: 'Failed to process webhook',
-        error: error.message,
-      });
+      throw new InternalServerErrorException(
+        'Failed to handle Zalo webhook',
+        error.message,
+      );
     }
   }
   @Post('zalo/webhook/receive')
   @ApiOperation({ summary: 'Receive Zalo webhook events' })
   @ApiResponse({ status: 200, description: 'Webhook event received' })
-  async receiveZaloWebhook(
-    @Query() query: any,
-    @Res() res: Response,
-    @Body() body: ZaloWebhookDto,
-  ) {
+  async receiveZaloWebhook(@Res() res: Response, @Body() body: ZaloWebhookDto) {
     try {
       res.status(HttpStatus.OK).json({});
       await this.zaloService.handleWebhook(body);
     } catch (error) {
-      console.error('Error processing webhook event:', error);
-      return { status: 'error', message: error.message };
+      throw new InternalServerErrorException(
+        'Failed to process Zalo webhook',
+        error.message,
+      );
     }
   }
 

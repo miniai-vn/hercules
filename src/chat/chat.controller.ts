@@ -10,7 +10,7 @@ import { ChatPlatformDto } from './dto/chat-platform.dto';
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
-  @EventPattern(process.env.KAFKA_ZALO_MESSAGE_CONSUMER)
+  @EventPattern(process.env.KAFKA_ZALO_MESSAGE_TOPIC)
   async sendMessage(@Payload() data: any) {
     try {
       this.chatService.sendMessagesZaloToPlatform(data);

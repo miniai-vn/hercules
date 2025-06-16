@@ -595,7 +595,7 @@ export class ConversationsService {
         .leftJoinAndSelect('conversation.members', 'members')
         .leftJoinAndSelect('conversation.channel', 'channel')
         .leftJoinAndSelect('members.customer', 'customer')
-        .where('customer.external_id = :customerId', { customerId })
+        .where('customer.id = :customerId', { customerId })
         .andWhere('channel.id = :channelId', { channelId: channel.id })
         .getOne();
 

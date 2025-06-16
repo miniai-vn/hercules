@@ -2,14 +2,15 @@ import { FacebookService } from './facebook.service';
 import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
+import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
 @ApiTags('Facebook')
 @Controller('facebook')
 export class FacebookController {
-  constructor(private readonly FacebookService: FacebookService) {}
+  constructor(private readonly facebookService: FacebookService) {}
 
   @Get('connect')
   connectToFacebook(@Res() res: any) {
-    return this.FacebookService.connectToFacebook(res);
+    return this.facebookService.connectToFacebook(res);
   }
 
   @Get('callback')
@@ -19,23 +20,17 @@ export class FacebookController {
     @Res() res: Response,
   ) {
     try {
-      const result = await this.FacebookService.callbackFacebook(code, state);
-      console.log(` result:: `, result);
+      const result = await this.facebookService.callbackFacebook(code, state);
 
       const firstPage = result.tokenPage?.[0];
-      // if (!firstPage) {
-      //   return res.redirect(`http://localhost:3000/error?reason=no-page`);
-      // }
+      if (!firstPage) {
+        return res.redirect(`http://localhost:3000/error?reason=no-page`);
+      }
 
       const redirectUrl = `http://localhost:3000/dashboard/channels?type=facebook&appId=${firstPage.id}`;
       return res.redirect(redirectUrl);
     } catch (error) {}
   }
-
-  // @Get('/access-token-page/:userToken')
-  // async getPageAccessToken(@Param('userToken') userToken: string) {
-  //   return this.FacebookService.getPageAccessToken(userToken);
-  // }
 
   @Get('webhook')
   verifyWebhook(
@@ -43,33 +38,33 @@ export class FacebookController {
     @Query('hub.verify_token') verifyToken: string,
     @Query('hub.challenge') challenge: string,
   ) {
-    return this.FacebookService.verifyWebhook(mode, verifyToken, challenge);
+    return this.facebookService.verifyWebhook(mode, verifyToken, challenge);
   }
 
   // 2. Endpoint để nhận POST event sau khi đã verify
-  @Post('webhook')
-  async receiveWebhook(@Body() body: any): Promise<any> {
+  @Post('webhook/handler')
+  async receiveWebhook(@Body() body: FacebookWebhookDTO): Promise<any> {
     if (body.object === 'page') {
-      for (const entry of body.entry) {
+      for (const entry of body.entry ?? []) {
         console.log(`Received entry for page ${entry.id} at ${entry.time}`);
         for (const event of entry.messaging) {
-          // trong controller, trước khi xử lý
-          console.log('Full event:', JSON.stringify(event, null, 2));
-
-          // Tin nhắn văn bản
           if (event.message?.text) {
-            await this.FacebookService.handleMessage(event);
+            await this.facebookService?.handleMessage(event);
           }
-          // // Postback (nhấn nút)
-          // else if (event.postback) {
-          //   await this.FacebookService.handlePostback(event);
-          // } else {
+          // Postback (nhấn nút)
+          else if (event.postback) {
+            await this.facebookService?.handlePostback(event);
+          }
           console.log('Unknown event type:', JSON.stringify(event));
         }
       }
     }
-    // Trả về đúng chuỗi để Facebook coi là đã nhận
-    return 'EVENT_RECEIVED';
+
+    return {
+      success: true,
+      timestamp: new Date().toISOString(),
+      message: 'Webhook received and processed',
+    };
   }
 
   @Get('/:page_id/conversations/')
@@ -77,13 +72,13 @@ export class FacebookController {
     @Query('acces_token_page') access_token_page: string,
     @Param('page_id') page_id: string,
   ): Promise<string> {
-    return await this.FacebookService.getIdConversations(
+    return await this.facebookService.getIdConversations(
       access_token_page,
       page_id,
     );
   }
 
-  async getPSID(): Promise<string> {
-    return null;
-  }
+  // async getPSID(): Promise<string> {
+  //   return null;
+  // }
 }

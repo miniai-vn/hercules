@@ -83,10 +83,12 @@ export class FacebookService {
         }
       }
 
-      const idPage = tokenPage.map((page) => {
-        return page.id;
-      });
-
+      const idPage = tokenPage
+        .map((page) => {
+          return page.id;
+        })
+        .join(',');
+   
       return `${process.env.DASHBOARD_BASE_URL}/dashboard/channels?type=facebook&appId=${idPage}`;
     } catch (err) {
       throw new BadRequestException(err);

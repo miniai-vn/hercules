@@ -1,22 +1,33 @@
 import {
+  BadRequestException,
   forwardRef,
   HttpException,
   HttpStatus,
   Inject,
   Injectable,
+  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
+<<<<<<< HEAD
 import axios from 'axios';
+=======
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+>>>>>>> integrate-facebook
 import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { FACEBOOK_CONFIG } from './config/facebook.config';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
+<<<<<<< HEAD
+=======
+import { IPageInfo } from './types/page.type';
+import { IConversationPageId } from './types/conversation.type';
+>>>>>>> integrate-facebook
 dotenv.config();
 Injectable();
 export class FacebookService {
   private readonly logger = new Logger(FacebookService.name);
-
+  private readonly hubMode = 'subscribe';
   constructor(
     @Inject(forwardRef(() => ChannelsService))
     private readonly channelService: ChannelsService,
@@ -35,19 +46,19 @@ export class FacebookService {
     fbAuthUrl.searchParams.append('scope', FACEBOOK_CONFIG.SCOPE);
     fbAuthUrl.searchParams.append('state', state);
 
+<<<<<<< HEAD
     this.logger.log(
       `Redirecting to Facebook OAuth URL: ${fbAuthUrl.toString()}`,
     );
 
+=======
+>>>>>>> integrate-facebook
     return res.redirect(fbAuthUrl.toString());
   }
 
-  async callbackFacebook(code: string, state: string): Promise<any> {
+  async callbackFacebook(code: string): Promise<string> {
     if (!code) {
-      throw new HttpException(
-        'Missing code in callback',
-        HttpStatus.BAD_REQUEST,
-      );
+      throw new InternalServerErrorException('Missing code in callback');
     }
 
     try {
@@ -86,17 +97,13 @@ export class FacebookService {
         }
       }
 
-      return {
-        message: 'Successfully connected to Facebook',
-        tokenUser,
-        tokenPage,
-      };
+      const idPage = tokenPage.map((page) => {
+        return page.id;
+      });
+
+      return `http://localhost:3000/dashboard/channels?type=facebook&appId=${idPage}`;
     } catch (err) {
-      // lỗi thì redirect về page lỗi của bạn hoặc trả JSON
-      return {
-        message: 'Failed to exchange code for token',
-        error: err.message,
-      };
+      throw new BadRequestException(err);
     }
   }
 
@@ -136,14 +143,17 @@ export class FacebookService {
 
       return longLivedToken;
     } catch (error) {
-      this.logger.error('Error exchanging code for token:', error);
       throw new Error(
         `Failed to exchange code for token: ${error.message || error}`,
       );
     }
   }
 
+<<<<<<< HEAD
   private async getTokenPages(tokenUser: string): Promise<any[]> {
+=======
+  private async getTokenPages(tokenUser: string): Promise<IPageInfo[]> {
+>>>>>>> integrate-facebook
     const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/me/accounts`;
 
     try {
@@ -156,58 +166,32 @@ export class FacebookService {
 
       return resp.data.data;
     } catch (error) {
-      this.logger.error('Error getting pages:', error);
       throw new Error(`Failed to get pages: ${error.message || error}`);
     }
   }
-
-  // async getPageAccessToken(userToken: string): Promise<string> {
-  //   const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}me/accounts`;
-  //   const headers = {
-  //     Authorization: `Bearer ${userToken}`,
-  //   };
-
-  //   try {
-  //     const response = await axios.get(url, { headers });
-  //     console.log('Response from Facebook getPageAccessToken:', response.data);
-
-  //     // Gán PAGE_ACCESS_TOKEN từ response
-
-  //     // Giả sử bạn muốn lấy access token của trang đầu tiên
-  //     this.PAGE_ACCESS_TOKEN = response.data.data[0].access_token;
-
-  //     console.log('Page Access Token:', this.PAGE_ACCESS_TOKEN);
-
-  //     return response.data.data.map((page: any) => ({
-  //       id: page.id,
-  //       name: page.name,
-  //       access_token: page.access_token,
-  //     }));
-  //   } catch (error) {
-  //     console.error('Failed to get page access token:', error);
-  //     throw error;
-  //   }
-
-  //   // Normally, you would retrieve the page access token from a secure store or environment variable
-  // }
 
   async verifyWebhook(
     mode: string,
     token: string,
     challenge: string,
+<<<<<<< HEAD
   ): Promise<any> {
     if (mode === 'subscribe' && token === FACEBOOK_CONFIG.VERIFY_TOKEN) {
       this.logger.log(
         `Webhook verified with mode: ${mode}, token: ${token}, challenge: ${challenge}`,
       );
 
+=======
+  ): Promise<string> {
+    if (mode === this.hubMode && token === FACEBOOK_CONFIG.VERIFY_TOKEN) {
+>>>>>>> integrate-facebook
       return challenge;
     } else {
       throw new Error('Invalid verification token or mode');
     }
   }
 
-  async handleMessage(event: any) {
+  async handleMessage(event: any): Promise<void> {
     const senderId = event.sender.id;
     const pageId = event.recipient.id; // page gửi/nhận tin
 
@@ -219,8 +203,12 @@ export class FacebookService {
     );
 
     if (!channel?.accessToken) {
+<<<<<<< HEAD
       this.logger.warn(`Không tìm thấy token cho page: ${pageId}`);
       return;
+=======
+      throw new Error('Error accessToken');
+>>>>>>> integrate-facebook
     }
 
     try {
@@ -236,12 +224,16 @@ export class FacebookService {
         },
         { params: { access_token: channel.accessToken } },
       );
+<<<<<<< HEAD
     } catch (error) {
       this.logger.error(
         'Error sending message: ',
         error.response?.data || error.message,
       );
     }
+=======
+    } catch (error) {}
+>>>>>>> integrate-facebook
   }
 
   async handlePostback(event: any): Promise<void> {
@@ -277,10 +269,14 @@ export class FacebookService {
   }
 
   // Get PSID from user sending a message to the Facebook page
+<<<<<<< HEAD
   async getIdConversations(
+=======
+  async getConversationPageId(
+>>>>>>> integrate-facebook
     access_token_page: string,
     page_id: string,
-  ): Promise<any> {
+  ): Promise<IConversationPageId> {
     const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/${page_id}/conversations`;
     const params = {
       access_token: access_token_page,
@@ -288,14 +284,9 @@ export class FacebookService {
 
     try {
       const response = await axios.get(url, { params });
-      console.log(
-        'Response from Facebook getIdConversations:',
-        response.data.data,
-      );
 
       return response.data.data;
     } catch (error) {
-      this.logger.error('Error getting conversations from Facebook:', error);
       throw error;
     }
   }
@@ -303,4 +294,37 @@ export class FacebookService {
   // async getMessage(conversations_id): Promise<any> {
   //   const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/${conversations_id}/messages`;
   // }
+<<<<<<< HEAD
+=======
+
+  private async callFacebookAPI(
+    endpoint: string,
+    method: 'GET' | 'POST' = 'POST',
+    body?: any,
+    headers?: Record<string, string>,
+    baseUrl: string = FACEBOOK_CONFIG.FACEBOOK_PATH ||
+      FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
+  ): Promise<AxiosResponse> {
+    try {
+      const config: AxiosRequestConfig = {
+        method,
+        url: `${baseUrl}${endpoint}`,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          ...headers,
+        },
+      };
+
+      if (method === 'POST' && body) {
+        config.data = body;
+      } else if (method === 'GET' && body) {
+        config.params = body;
+      }
+
+      return await axios(config);
+    } catch (error) {
+      throw new Error(`Facebook API call ${error.message}`);
+    }
+  }
+>>>>>>> integrate-facebook
 }

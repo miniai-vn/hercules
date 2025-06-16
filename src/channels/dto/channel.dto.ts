@@ -34,7 +34,6 @@ export class CreateChannelDto {
   @IsNotEmpty()
   type: ChannelType;
 
-
   @IsString()
   @IsOptional()
   description?: string;

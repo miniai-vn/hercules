@@ -1,4 +1,3 @@
-import { HttpService } from '@nestjs/axios';
 import {
   forwardRef,
   HttpException,
@@ -8,18 +7,14 @@ import {
   Logger,
 } from '@nestjs/common';
 import axios from 'axios';
+import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { FACEBOOK_CONFIG } from './config/facebook.config';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
-
+dotenv.config();
 Injectable();
 export class FacebookService {
-  private PAGE_ACCESS_TOKEN =
-    'EABqzJdl9TjUBO76WoBBuirKxkxZCM73zGvGAH43fQBIZCcBMbHB58fmuJopC5JAlzNHW3ZAarAzhUdRd1uzvO36FYXmIdwsM7flQS41p3O88gMTIYDYey5g64NSbiRQVnCOuV2rETSVeX1CVfhDv0LCUteKGBF8U4HUxRrsccEXmMi4gqJVnXo2NGZCJ3V7WgariDBD8ZCiUOtd9ljo9f4ZBjr';
-  private readonly VERIFY_TOKEN = process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN;
-  private readonly appId = process.env.FACEBOOK_APP_ID;
-  private readonly appSecret = process.env.FACEBOOK_APP_SECRET;
   private readonly logger = new Logger(FacebookService.name);
 
   constructor(
@@ -29,19 +24,16 @@ export class FacebookService {
 
   // Connect to facebook:
   async connectToFacebook(res: any): Promise<string> {
-    const state = uuidv4(); // dùng uuid để tạo state chống giả mạo
+    const state = uuidv4();
 
     const fbAuthUrl = new URL(
       `${FACEBOOK_CONFIG.FACEBOOK_PATH}${FACEBOOK_CONFIG.ENDPOINT.DIALOG_OAUTH}`,
     );
 
     fbAuthUrl.searchParams.append('client_id', FACEBOOK_CONFIG.APP.ID);
-    fbAuthUrl.searchParams.append('redirect_uri', FACEBOOK_CONFIG.REDIRECT_URI);
+    fbAuthUrl.searchParams.append('redirect_uri', FACEBOOK_CONFIG.REDIRECT_URL);
     fbAuthUrl.searchParams.append('scope', FACEBOOK_CONFIG.SCOPE);
     fbAuthUrl.searchParams.append('state', state);
-
-    // res.locals.state = state; // example of how you might store the state in the session or local storage
-    // handle state validation in the callback
 
     this.logger.log(
       `Redirecting to Facebook OAuth URL: ${fbAuthUrl.toString()}`,
@@ -59,13 +51,11 @@ export class FacebookService {
     }
 
     try {
-      const tokenUser = await this.getTokenUser(code);
+      const tokenUser = await this.getLongLiveTokenUser(code);
 
       const pages = await this.getTokenPages(tokenUser);
-      console.log(` pages:: `, pages);
 
       const tokenPage = pages.map((page) => {
-        console.log(` page:: `, page);
         return {
           id: page.id,
           name: page.name,
@@ -110,12 +100,12 @@ export class FacebookService {
     }
   }
 
-  async getTokenUser(code: string): Promise<string> {
+  private async getLongLiveTokenUser(code: string): Promise<string> {
     const tokenUrl = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}${FACEBOOK_CONFIG.ENDPOINT.OAUTH_ACCESS_TOKEN}`;
     const params = {
       client_id: FACEBOOK_CONFIG.APP.ID,
       client_secret: FACEBOOK_CONFIG.APP.SECRET,
-      redirect_uri: FACEBOOK_CONFIG.REDIRECT_URI,
+      redirect_uri: FACEBOOK_CONFIG.REDIRECT_URL,
       code,
     };
 
@@ -138,8 +128,6 @@ export class FacebookService {
         },
       });
 
-      console.log('data access-token: ', longTokenResp.data);
-
       const longLivedToken = longTokenResp.data.access_token;
 
       if (!longLivedToken) {
@@ -155,7 +143,7 @@ export class FacebookService {
     }
   }
 
-  async getTokenPages(tokenUser: string): Promise<any[]> {
+  private async getTokenPages(tokenUser: string): Promise<any[]> {
     const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/me/accounts`;
 
     try {
@@ -208,12 +196,11 @@ export class FacebookService {
     token: string,
     challenge: string,
   ): Promise<any> {
-    if (mode === 'subscribe' && token === this.VERIFY_TOKEN) {
+    if (mode === 'subscribe' && token === FACEBOOK_CONFIG.VERIFY_TOKEN) {
       this.logger.log(
         `Webhook verified with mode: ${mode}, token: ${token}, challenge: ${challenge}`,
       );
 
-      // return challenge to confirm verification
       return challenge;
     } else {
       throw new Error('Invalid verification token or mode');
@@ -222,52 +209,74 @@ export class FacebookService {
 
   async handleMessage(event: any) {
     const senderId = event.sender.id;
-    const text = event.message.text;
-    console.log(`Received message from ${senderId}: ${text}`);
+    const pageId = event.recipient.id; // page gửi/nhận tin
 
-    await axios.post(
-      `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}me/messages`,
-      {
-        recipient: { id: senderId },
-        message: { text: `${'chao ban'}` },
-      },
-      { params: { access_token: this.PAGE_ACCESS_TOKEN } },
+    const text = event.message.text;
+
+    const channel = await this.channelService.getByTypeAndAppId(
+      ChannelType.FACEBOOK,
+      pageId,
     );
+
+    if (!channel?.accessToken) {
+      this.logger.warn(`Không tìm thấy token cho page: ${pageId}`);
+      return;
+    }
+
+    try {
+      await axios.post(
+        `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}me/messages`,
+        {
+          recipient: { id: senderId },
+          message: {
+            text: `${text}`,
+          },
+          // If you want to send message user 24h:
+          tag: 'ACCOUNT_UPDATE',
+        },
+        { params: { access_token: channel.accessToken } },
+      );
+    } catch (error) {
+      this.logger.error(
+        'Error sending message: ',
+        error.response?.data || error.message,
+      );
+    }
   }
 
-  // async handlePostback(event: any): Promise<void> {
-  //   const senderId = event.sender.id;
-  //   const payload = event.postback.payload;
-  //   console.log(`Received postback from ${senderId}: ${payload}`);
+  async handlePostback(event: any): Promise<void> {
+    this.logger.log('This is postback');
+    // const senderId = event.sender.id;
+    // const payload = event.postback.payload;
+    // console.log(`Received postback from ${senderId}: ${payload}`);
+    // // Ví dụ trả về payload
+    // await axios.post('https://graph.facebook.com/v23.0/me/messages', {
+    //   recipient: { id: 'senderId' },
+    //   message: {
+    //     attachment: {
+    //       type: 'template',
+    //       payload: {
+    //         template_type: 'button',
+    //         text: 'Chọn một tùy chọn:',
+    //         buttons: [
+    //           {
+    //             type: 'postback',
+    //             title: 'Xem sản phẩm',
+    //             payload: 'VIEW_PRODUCTS',
+    //           },
+    //           {
+    //             type: 'postback',
+    //             title: 'Liên hệ hỗ trợ',
+    //             payload: 'CONTACT_SUPPORT',
+    //           },
+    //         ],
+    //       },
+    //     },
+    //   },
+    // });
+  }
 
-  //   // Ví dụ trả về payload
-  //   await axios.post('https://graph.facebook.com/v23.0/me/messages', {
-  //     recipient: { id: 'senderId' },
-  //     message: {
-  //       attachment: {
-  //         type: 'template',
-  //         payload: {
-  //           template_type: 'button',
-  //           text: 'Chọn một tùy chọn:',
-  //           buttons: [
-  //             {
-  //               type: 'postback',
-  //               title: 'Xem sản phẩm',
-  //               payload: 'VIEW_PRODUCTS',
-  //             },
-  //             {
-  //               type: 'postback',
-  //               title: 'Liên hệ hỗ trợ',
-  //               payload: 'CONTACT_SUPPORT',
-  //             },
-  //           ],
-  //         },
-  //       },
-  //     },
-  //   });
-  // }
-  // // Get PSID from user sending a message to the Facebook page
-
+  // Get PSID from user sending a message to the Facebook page
   async getIdConversations(
     access_token_page: string,
     page_id: string,
@@ -291,7 +300,7 @@ export class FacebookService {
     }
   }
 
-  async getMessage(conversations_id): Promise<any> {
-    const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/${conversations_id}/messages`;
-  }
+  // async getMessage(conversations_id): Promise<any> {
+  //   const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/${conversations_id}/messages`;
+  // }
 }

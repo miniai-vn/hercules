@@ -8,21 +8,14 @@ import {
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
-<<<<<<< HEAD
-import axios from 'axios';
-=======
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
->>>>>>> integrate-facebook
 import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { FACEBOOK_CONFIG } from './config/facebook.config';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
-<<<<<<< HEAD
-=======
 import { IPageInfo } from './types/page.type';
 import { IConversationPageId } from './types/conversation.type';
->>>>>>> integrate-facebook
 dotenv.config();
 Injectable();
 export class FacebookService {
@@ -46,13 +39,6 @@ export class FacebookService {
     fbAuthUrl.searchParams.append('scope', FACEBOOK_CONFIG.SCOPE);
     fbAuthUrl.searchParams.append('state', state);
 
-<<<<<<< HEAD
-    this.logger.log(
-      `Redirecting to Facebook OAuth URL: ${fbAuthUrl.toString()}`,
-    );
-
-=======
->>>>>>> integrate-facebook
     return res.redirect(fbAuthUrl.toString());
   }
 
@@ -149,11 +135,7 @@ export class FacebookService {
     }
   }
 
-<<<<<<< HEAD
-  private async getTokenPages(tokenUser: string): Promise<any[]> {
-=======
   private async getTokenPages(tokenUser: string): Promise<IPageInfo[]> {
->>>>>>> integrate-facebook
     const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/me/accounts`;
 
     try {
@@ -174,17 +156,8 @@ export class FacebookService {
     mode: string,
     token: string,
     challenge: string,
-<<<<<<< HEAD
-  ): Promise<any> {
-    if (mode === 'subscribe' && token === FACEBOOK_CONFIG.VERIFY_TOKEN) {
-      this.logger.log(
-        `Webhook verified with mode: ${mode}, token: ${token}, challenge: ${challenge}`,
-      );
-
-=======
   ): Promise<string> {
     if (mode === this.hubMode && token === FACEBOOK_CONFIG.VERIFY_TOKEN) {
->>>>>>> integrate-facebook
       return challenge;
     } else {
       throw new Error('Invalid verification token or mode');
@@ -203,12 +176,7 @@ export class FacebookService {
     );
 
     if (!channel?.accessToken) {
-<<<<<<< HEAD
-      this.logger.warn(`Không tìm thấy token cho page: ${pageId}`);
-      return;
-=======
       throw new Error('Error accessToken');
->>>>>>> integrate-facebook
     }
 
     try {
@@ -224,16 +192,7 @@ export class FacebookService {
         },
         { params: { access_token: channel.accessToken } },
       );
-<<<<<<< HEAD
-    } catch (error) {
-      this.logger.error(
-        'Error sending message: ',
-        error.response?.data || error.message,
-      );
-    }
-=======
     } catch (error) {}
->>>>>>> integrate-facebook
   }
 
   async handlePostback(event: any): Promise<void> {
@@ -269,11 +228,7 @@ export class FacebookService {
   }
 
   // Get PSID from user sending a message to the Facebook page
-<<<<<<< HEAD
-  async getIdConversations(
-=======
   async getConversationPageId(
->>>>>>> integrate-facebook
     access_token_page: string,
     page_id: string,
   ): Promise<IConversationPageId> {
@@ -294,8 +249,6 @@ export class FacebookService {
   // async getMessage(conversations_id): Promise<any> {
   //   const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/${conversations_id}/messages`;
   // }
-<<<<<<< HEAD
-=======
 
   private async callFacebookAPI(
     endpoint: string,
@@ -326,5 +279,4 @@ export class FacebookService {
       throw new Error(`Facebook API call ${error.message}`);
     }
   }
->>>>>>> integrate-facebook
 }

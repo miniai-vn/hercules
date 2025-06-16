@@ -36,7 +36,7 @@ export class Channel {
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'app_id' })
   appId?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'avatar' })
+  @Column({ type: 'text', nullable: true, name: 'avatar' })
   avatar?: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'app_secret' })

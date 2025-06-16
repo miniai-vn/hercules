@@ -20,10 +20,8 @@ export class FacebookController {
     @Res() res: Response,
   ) {
     try {
-      const result = await this.facebookService.callbackFacebook(code);
-
-      const redirectUrl = result;
-      return res.redirect(redirectUrl);
+      const url = await this.facebookService.callbackFacebook(code);
+      return res.redirect(url);
     } catch (error) {}
   }
 

@@ -1,14 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import * as dotenv from 'dotenv';
+import { Channel } from 'src/channels/channels.entity';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
+import { HttpMethod } from 'src/common/enum';
+import { KafkaService } from 'src/kafka/kafka.service';
 import { ZALO_CONFIG } from './config/zalo.config';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
-import { KafkaService } from 'src/kafka/kafka.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { Channel, ChannelSyncState } from 'src/channels/channels.entity';
-import { Method } from 'src/common/enum';
 
 dotenv.config();
 
@@ -41,14 +40,20 @@ export class ZaloService {
         },
       };
 
-      if (method === 'POST' && data) {
+      if (data) {
         config.data = data;
-      } else if (method === 'GET' && data) {
+      } else if (method === HttpMethod.GET && data) {
         config.params = data;
       }
 
-      return await axios(config);
+      return await axios({
+        method: config.method,
+        url: config.url,
+        headers: config.headers,
+        data: config.data,
+      });
     } catch (error) {
+      console.error(`Zalo API call failed: ${error.message}`);
       throw new Error(`Zalo API call failed: ${error.message}`);
     }
   }
@@ -182,7 +187,7 @@ export class ZaloService {
     return this.callZaloAuthenticatedAPI(
       ZALO_CONFIG.ENDPOINTS.SEND_MESSAGE,
       accessToken,
-      Method.POST,
+      HttpMethod.POST,
       messageData,
     );
   }
@@ -195,11 +200,11 @@ export class ZaloService {
     count,
     accessToken,
   }: {
-    offset: number;
-    count: number;
+    offset: string;
+    count: string;
     accessToken: string;
   }): Promise<AxiosResponse> {
-    const params = {
+    const body = {
       offset,
       count,
     };
@@ -207,8 +212,8 @@ export class ZaloService {
     return this.callZaloAuthenticatedAPI(
       ZALO_CONFIG.ENDPOINTS.GET_USER_LIST,
       accessToken,
-      'GET',
-      params,
+      HttpMethod.GET,
+      JSON.stringify(body),
     );
   }
 
@@ -290,17 +295,50 @@ export class ZaloService {
     }
   }
 
-  async getUserListAndPublishToKafka(channel: Channel & ChannelSyncState) {
+  async getUserListAndPublishToKafka({
+    channel,
+    lastOffset = '0',
+    count = '50',
+  }: {
+    channel?: Channel;
+    lastOffset: string;
+    count: string;
+  }) {
     try {
-      const response = await this.getListUser({
-        accessToken: channel.accessToken,
-        offset: channel.lastOffset || 0,
-        count: 50,
-      });
+      let total = 50;
+      let nextOffset = Number(lastOffset);
 
-      if (response.data.data.length > 0) {
-        this.kafkaService.emitMessage(this.topic, response.data.data);
+      if (nextOffset < total) {
+        const response = await this.getListUser({
+          accessToken: channel.accessToken,
+          offset: lastOffset,
+          count: count,
+        });
+        total =
+          response?.data?.data.total == total ? response?.data?.data.total : 0;
+        const customers = response?.data?.data.users || [];
+
+        // Delay to avoid hitting rate limits
+        if (customers.length > 0) {
+          await this.kafkaService.emitBatchMessages(
+            this.topic,
+            customers.map((customer) => ({
+              key: customer.user_id,
+              value: JSON.stringify({
+                ...customer,
+                channelId: channel?.id || null,
+              }),
+            })),
+          );
+        }
       }
+
+      return {
+        offset: nextOffset,
+        total,
+        success: true,
+        message: 'User list fetched and published to Kafka successfully',
+      };
     } catch (error) {
       throw error;
     }

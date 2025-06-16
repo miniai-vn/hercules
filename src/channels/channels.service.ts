@@ -12,9 +12,8 @@ import { Repository } from 'typeorm';
 import { Department } from '../departments/departments.entity';
 import { DepartmentsService } from '../departments/departments.service';
 import { UsersService } from '../users/users.service';
-import { Channel, ChannelSyncState } from './channels.entity';
+import { Channel } from './channels.entity';
 import {
-  ChannelBulkDeleteDto,
   ChannelQueryParamsDto,
   ChannelType,
   CreateChannelDto,
@@ -24,6 +23,7 @@ import {
 } from './dto/channel.dto';
 import { OAService } from './oa/oa.service';
 import { Shop } from 'src/shops/shops.entity';
+import { CustomersService } from 'src/customers/customers.service';
 
 @Injectable()
 export class ChannelsService {
@@ -32,13 +32,11 @@ export class ChannelsService {
   constructor(
     @InjectRepository(Channel)
     private readonly channelRepository: Repository<Channel>,
-    @InjectRepository(ChannelSyncState)
-    private readonly channelSyncStateRepository: Repository<ChannelSyncState>,
     @Inject(forwardRef(() => DepartmentsService))
     private readonly departmentsService: DepartmentsService,
-    private readonly conversationsService: ConversationsService, // Inject ConversationsService if needed
-    private readonly oaService: OAService, // Inject OAService
-    private readonly usersService: UsersService, // Use UsersService instead of userRepository
+    private readonly conversationsService: ConversationsService,
+    private readonly oaService: OAService,
+    private readonly usersService: UsersService,
   ) {}
 
   async create(data: CreateChannelDto): Promise<Channel> {
@@ -104,26 +102,6 @@ export class ChannelsService {
     }
   }
 
-  async updateShopIdAllChannels(shopId: string): Promise<number> {
-    return 0;
-    // try {
-    //   const result = await this.channelRepository.update(
-    //     {},
-    //     { shopId }, // Update all channels with the new shopId
-    //   );
-    //   return result.affected || 0; // Return number of affected rows
-    // } catch (error) {
-    //   this.logger.error(
-    //     `Failed to update shopId for all channels: ${error.message}`,
-    //     error.stack,
-    //   );
-    //   throw new InternalServerErrorException(
-    //     'Failed to update shopId for all channels',
-    //     error.message,
-    //   );
-    // }
-  }
-
   async delete(id: number): Promise<void> {
     const channel = await this.findOne(id); // Ensures channel exists
     if (channel.department.id) {
@@ -134,36 +112,6 @@ export class ChannelsService {
       });
     }
     await this.channelRepository.delete(id);
-  }
-
-  async bulkDelete(dto: ChannelBulkDeleteDto): Promise<{
-    totalRequested: number;
-    deletedCount: number;
-    notFoundCount: number;
-  }> {
-    let deletedCount = 0;
-    const notFoundIds: number[] = [];
-
-    for (const channelId of dto.channelIds) {
-      try {
-        await this.delete(channelId); // Leverages the existing delete logic including OA call
-        deletedCount++;
-      } catch (error) {
-        if (error instanceof NotFoundException) {
-          notFoundIds.push(channelId);
-        } else {
-          this.logger.error(
-            `Error deleting channel ${channelId} in bulk: ${error.message}`,
-          );
-          // Decide if one error should stop the whole bulk operation or just skip
-        }
-      }
-    }
-    return {
-      totalRequested: dto.channelIds.length,
-      deletedCount,
-      notFoundCount: dto.channelIds.length - deletedCount,
-    };
   }
 
   async query(params: ChannelQueryParamsDto): Promise<Channel[]> {
@@ -284,11 +232,6 @@ export class ChannelsService {
       }
       return updatedChannel;
     } catch (error) {
-      this.logger.error(
-        `Failed to update status for channel ${id}: ${error.message}`,
-        error.stack,
-      );
-      if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException(
         `Failed to update status for channel ${id}`,
         error.message,
@@ -455,16 +398,6 @@ export class ChannelsService {
   async findByType(type: ChannelType): Promise<Channel[]> {
     return this.channelRepository.find({
       where: { type },
-    });
-  }
-
-  async getChannelSyncState(
-    channelId: number,
-  ): Promise<ChannelSyncState | null> {
-    return this.channelSyncStateRepository.findOne({
-      where: {
-        channel: { id: channelId },
-      },
     });
   }
 }

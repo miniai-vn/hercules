@@ -1,16 +1,17 @@
 import {
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Channel } from 'src/channels/channels.entity';
-import { ChannelType } from 'src/channels/dto/channel.dto';
+import { SenderType } from 'src/common/enum';
 import { AddParticipantDto } from 'src/conversation-members/conversation-members.dto';
-import { CustomersService } from 'src/customers/customers.service';
-import { SenderType } from 'src/messages/messages.dto';
 import { MessagesService } from 'src/messages/messages.service';
 import { TagsService } from 'src/tags/tags.service';
+import { UsersService } from 'src/users/users.service';
 import { Repository } from 'typeorm';
 import { ParticipantType } from '../conversation-members/conversation-members.entity';
 import { ConversationMembersService } from '../conversation-members/conversation-members.service';
@@ -20,10 +21,8 @@ import {
   ConversationQueryParamsDto,
   ConversationResponseDto,
   CreateConversationDto,
-  PaginatedConversationsDto,
   UpdateConversationDto,
 } from './dto/conversation.dto';
-import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class ConversationsService {
@@ -31,6 +30,7 @@ export class ConversationsService {
     @InjectRepository(Conversation)
     private readonly conversationRepository: Repository<Conversation>,
     private readonly conversationMembersService: ConversationMembersService,
+    @Inject(forwardRef(() => MessagesService))
     private readonly messagesService: MessagesService,
     private readonly tagsService: TagsService,
     private readonly userService: UsersService, // Assuming you have a UsersService to handle user-related logic
@@ -60,59 +60,6 @@ export class ConversationsService {
       return savedConversation;
     } catch (error) {
       throw new InternalServerErrorException('Failed to create conversation');
-    }
-  }
-
-  async findAll(
-    page: number,
-    limit: number,
-    search: string,
-    shopId: string,
-  ): Promise<PaginatedConversationsDto> {
-    try {
-      const offset = (page - 1) * limit;
-
-      const queryBuilder = this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoin(
-          'conversation_members',
-          'members',
-          'members.conversation_id = conversation.id',
-        )
-        .leftJoin(
-          'customers',
-          'customers',
-          'customers.id = members.customer_id',
-        )
-        .leftJoin('shops', 'shops', 'shops.id = customers.shop_id')
-        .leftJoin('users', 'users', 'users.id = members.user_id')
-        .where('(shops.id = :shopId OR users.shop_id = :shopId)', { shopId })
-        .andWhere('members.is_active = true');
-
-      if (search) {
-        queryBuilder.andWhere(
-          '(conversation.name ~* :search OR conversation.content ~* :search)',
-          { search: search },
-        );
-      }
-
-      queryBuilder
-        .groupBy('conversation.id')
-        .skip(offset)
-        .take(limit)
-        .orderBy('conversation.updated_at', 'DESC');
-
-      const [conversations, total] = await queryBuilder.getManyAndCount();
-
-      return {
-        conversations: conversations.map((conv) => this.toResponseDto(conv)),
-        total,
-        page,
-        perPage: limit,
-        totalPages: Math.ceil(total / limit),
-      };
-    } catch (error) {
-      throw new InternalServerErrorException('Failed to get conversations');
     }
   }
 
@@ -153,28 +100,6 @@ export class ConversationsService {
         }
 
         const newParticipants: AddParticipantDto[] = [];
-
-        // if (customerParticipantIds && customerParticipantIds.length > 0) {
-        //   const customerParticipants = customerParticipantIds.map(
-        //     (customerId) => ({
-        //       participantType: ParticipantType.CUSTOMER,
-        //       customerId: customerId.toString(),
-        //       role: 'member',
-        //       notificationsEnabled: true,
-        //     }),
-        //   );
-        //   newParticipants.push(...customerParticipants);
-        // }
-
-        // if (userParticipantIds && userParticipantIds.length > 0) {
-        //   const userParticipants = userParticipantIds.map((userId) => ({
-        //     participantType: ParticipantType.USER,
-        //     userId,
-        //     role: 'member',
-        //     notificationsEnabled: true,
-        //   }));
-        //   newParticipants.push(...userParticipants);
-        // }
 
         if (newParticipants.length > 0) {
           await this.conversationMembersService.addMultipleParticipants(id, {
@@ -314,7 +239,7 @@ export class ConversationsService {
       const messages = await Promise.all(
         conversation.messages.map(async (message) => ({
           ...message,
-          sender: await this.messagesService.getInfoSenderMessages(message.id),
+          sender: await this.messagesService.getInfoSenderMessages(message),
         })),
       );
 
@@ -497,9 +422,7 @@ export class ConversationsService {
       const lastMessage = conversation.messages.pop();
       await this.conversationMembersService.updateLastMessage(
         currentMembersId,
-        {
-          messageId: lastMessage.id,
-        },
+        lastMessage,
       );
     } catch (error) {
       throw new InternalServerErrorException(

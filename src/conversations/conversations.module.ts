@@ -15,8 +15,8 @@ import { ConversationsService } from './conversations.service';
     forwardRef(() => MessagesModule),
     forwardRef(() => ConversationMembersModule),
     forwardRef(() => TagsModule),
-    forwardRef(() => CustomersModule), // Prevent circular dependency
     forwardRef(() => UsersModule),
+    CustomersModule,
   ],
   controllers: [ConversationsController],
   providers: [ConversationsService],

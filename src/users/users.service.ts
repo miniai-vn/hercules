@@ -351,22 +351,6 @@ export class UsersService {
     }
   }
 
-  async findByShopId(shopId: string): Promise<UserResponseDto[]> {
-    try {
-      const users = await this.usersRepository.find({
-        where: { shop: { id: shopId } },
-        relations: ['shop'],
-        order: { createdAt: 'DESC' },
-      });
-
-      return users.map((user) => this.toResponseDto(user));
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to get users by shop ID: ${error.message}`,
-      );
-    }
-  }
-
   async findByUsername(username: string): Promise<User | null> {
     try {
       return await this.usersRepository.findOne({

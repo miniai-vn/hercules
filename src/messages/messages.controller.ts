@@ -64,26 +64,6 @@ export class MessagesController {
     };
   }
 
-  @Get()
-  async findAll(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-    @Query('search', new DefaultValuePipe('')) search: string,
-    @Query('includeDeleted', new DefaultValuePipe(false), ParseBoolPipe)
-    includeDeleted: boolean,
-  ): Promise<ApiResponse<PaginatedMessagesDto>> {
-    const messages = await this.messagesService.findAll(
-      page,
-      limit,
-      search,
-      includeDeleted,
-    );
-    return {
-      message: 'Messages retrieved successfully',
-      data: messages,
-    };
-  }
-
   @Get('query')
   async query(
     @Query() queryParams: MessageQueryParamsDto,
@@ -225,6 +205,4 @@ export class MessagesController {
       data: result,
     };
   }
-
-  
 }

@@ -5,27 +5,23 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Message } from 'src/messages/messages.entity';
 import { Repository } from 'typeorm';
-import { CustomersService } from '../customers/customers.service';
-import { UsersService } from '../users/users.service';
 import {
   AddMultipleParticipantsDto,
   AddParticipantDto,
-  UpdateLastMessageDto,
-  UpdateMemberSettingsDto,
+  UpdateMemberSettingsDto
 } from './conversation-members.dto';
 import {
   ConversationMember,
   ParticipantType,
 } from './conversation-members.entity';
-import { MessagesService } from 'src/messages/messages.service';
 
 @Injectable()
 export class ConversationMembersService {
   constructor(
     @InjectRepository(ConversationMember)
     private memberRepository: Repository<ConversationMember>,
-    private readonly messageService: MessagesService,
   ) {}
 
   async addParticipant(
@@ -228,12 +224,11 @@ export class ConversationMembersService {
 
   async updateLastMessage(
     memberId: number,
-    updateDto: UpdateLastMessageDto,
+    lastestMessage: Message,
   ): Promise<ConversationMember> {
     try {
-      const message = await this.messageService.findOne(updateDto.messageId);
       await this.memberRepository.update(memberId, {
-        lastMessage: message,
+        lastMessage: lastestMessage,
       });
       return await this.memberRepository.findOne({
         where: { id: memberId },

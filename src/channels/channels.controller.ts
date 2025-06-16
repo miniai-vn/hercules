@@ -155,24 +155,6 @@ export class ChannelsController {
     };
   }
 
-  @Post('bulk-delete')
-  async bulkDeleteForShop(
-    @Request() req,
-    @Body() bulkDeleteDto: ChannelBulkDeleteDto,
-  ): Promise<
-    ApiResponse<{
-      totalRequested: number;
-      deletedCount: number;
-      notFoundCount: number;
-    }>
-  > {
-    const result = await this.channelsService.bulkDelete(bulkDeleteDto);
-    return {
-      message: 'Bulk delete operation completed',
-      data: result,
-    };
-  }
-
   @Post(':id/add-users')
   @ApiOperation({ summary: 'Add multiple users to a channel' })
   @ApiResponse({ status: 200, description: 'Users added to channel' })

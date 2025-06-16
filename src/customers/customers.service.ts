@@ -219,18 +219,7 @@ export class CustomersService {
       order: { createdAt: 'DESC' },
     });
   }
-
-  async findByShopId(shopId: string): Promise<Customer[]> {
-    // Validate shop exists using ShopService
-    await this.shopService.findOne(shopId);
-
-    return this.customerRepository.find({
-      where: { shop: { id: shopId } },
-      relations: ['shop', 'channel'],
-      order: { createdAt: 'DESC' },
-    });
-  }
-
+  
   async findByChannelId(channelId: number): Promise<Customer[]> {
     // Validate channel exists using ChannelService
     await this.channelService.findOne(channelId);
@@ -276,7 +265,9 @@ export class CustomersService {
         externalId,
         name,
         shop: shopId ? await this.shopService.findOne(shopId) : null,
-        channel: channelId ? await this.channelService.findOne(channelId) : null,
+        channel: channelId
+          ? await this.channelService.findOne(channelId)
+          : null,
       });
 
       customer = await this.customerRepository.save(customer);

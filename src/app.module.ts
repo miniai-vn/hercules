@@ -20,13 +20,12 @@ import { getDatabaseConfig } from './database/database.config';
 import { DepartmentsModule } from './departments/departments.module';
 import { IntegrationModule } from './integration/integration.module';
 import { ItemsModule } from './items/items.module';
+import { KafkaModule } from './kafka/kafka.module';
 import { MessagesModule } from './messages/messages.module';
 import { MiniaiModule } from './miniai/miniai.module';
 import { ShopsModule } from './shops/shops.module';
 import { TagsModule } from './tags/tags.module';
 import { UsersModule } from './users/users.module';
-import { KafkaModule } from './kafka/kafka.module';
-import { KafkaService } from './kafka/kafka.service';
 
 @Module({
   imports: [
@@ -46,10 +45,6 @@ import { KafkaService } from './kafka/kafka.service';
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
-    }),
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '../../', 'uploads'),
-      serveRoot: '/uploads',
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

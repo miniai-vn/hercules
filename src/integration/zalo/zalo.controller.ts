@@ -5,13 +5,13 @@ import {
   HttpStatus,
   Post,
   Query,
-  Res,
+  Res
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { join } from 'path';
-import { ZaloService } from './zalo.service';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
+import { ZaloService } from './zalo.service';
 
 @ApiTags('Integration')
 @Controller('integration')
@@ -22,7 +22,6 @@ export class ZaloController {
   @ApiOperation({ summary: 'Zalo webhook verification' })
   @ApiResponse({ status: 200, description: 'Webhook verification file' })
   async zaloWebhookHandler(@Res() res: Response) {
-    // Fix the file path - use forward slashes and relative path
     const filePath = join(
       process.cwd(),
       'public',
@@ -41,12 +40,10 @@ export class ZaloController {
         query.code,
       );
 
-      // Redirect to the URL returned by the service
       return res.redirect(url);
     } catch (error) {
       console.error('Error in webhook handler:', error);
 
-      // Redirect to error page or return error response
       return res.status(500).json({
         status: 'error',
         message: 'Failed to process webhook',
@@ -54,6 +51,7 @@ export class ZaloController {
       });
     }
   }
+
   @Post('zalo/webhook/receive')
   @ApiOperation({ summary: 'Receive Zalo webhook events' })
   @ApiResponse({ status: 200, description: 'Webhook event received' })
@@ -70,24 +68,4 @@ export class ZaloController {
       return { status: 'error', message: error.message };
     }
   }
-
-  //    @Get("authorize-tiktok")
-  //     async authorizeTikTok() {
-  //         return this.integrationService.authorizeTikTok();
-  //     }
-
-  //     @Get("tiktok/conversations")
-  //     async getConversations() {
-  //         return this.integrationService.getConversations();
-  //     }
-
-  //     @Get("tiktok/shop-info")
-  //     async getShopInfo() {
-  //         return this.integrationService.getAuthorizeShop();
-  //     }
-
-  //     @Get("tiktok/products")
-  //     async getProducts() {
-  //         return this.integrationService.getProducts();
-  //     }
 }

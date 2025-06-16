@@ -1,16 +1,17 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Channel, ChannelSyncState } from './channels.entity';
-import { ChannelsService } from './channels.service';
-import { ChannelsController } from './channels.controller';
-import { DepartmentsModule } from '../departments/departments.module';
-import { OAModule } from './oa/oa.module';
 import { ConversationsModule } from 'src/conversations/conversations.module';
+import { CustomersModule } from 'src/customers/customers.module';
 import { UsersModule } from 'src/users/users.module';
+import { DepartmentsModule } from '../departments/departments.module';
+import { ChannelsController } from './channels.controller';
+import { Channel } from './channels.entity';
+import { ChannelsService } from './channels.service';
+import { OAModule } from './oa/oa.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Channel, ChannelSyncState]),
+    TypeOrmModule.forFeature([Channel]),
     forwardRef(() => DepartmentsModule),
     forwardRef(() => ConversationsModule),
     forwardRef(() => UsersModule),

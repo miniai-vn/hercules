@@ -7,11 +7,6 @@ import {
   IsString,
 } from 'class-validator';
 
-export enum SenderType {
-  user = 'user',
-  customer = 'customer',
-  assistant = 'assistant',
-}
 export class CreateMessageDto {
   @IsString()
   senderType: string;

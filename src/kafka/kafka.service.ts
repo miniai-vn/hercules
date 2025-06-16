@@ -13,8 +13,8 @@ export class KafkaService implements OnModuleInit {
       // this.kafkaClient.subscribeToResponseOf(
       //   this.configService.get<string>('KAFKA_ZALO_MESSAGE_CONSUMER'),
       // );
-      console.log(this.kafkaClient.producer);
       await this.kafkaClient.connect();
+
       console.log('✅ Kafka client connected successfully');
     } catch (error) {
       console.error('❌ Failed to connect Kafka client:', error);

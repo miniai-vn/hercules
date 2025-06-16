@@ -7,7 +7,7 @@ export const ZALO_CONFIG = {
     GET_CONVERSATIONS: '/v2.0/oa/conversation',
     GET_OA_INFO: '/v2.0/oa/getoa',
     GET_USER_INFO: '/v3.0/oa/user/detail',
-    GET_USER_LIST: '/v3.0/oa/getlist',
+    GET_USER_LIST: '/v3.0/oa/user/getlist',
   },
   OAUTH_ENDPOINTS: {
     ACCESS_TOKEN: '/v4/oa/access_token',

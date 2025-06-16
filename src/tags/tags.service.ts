@@ -174,21 +174,6 @@ export class TagsService {
     }
   }
 
-  async findByShopId(shopId: string): Promise<TagResponseDto[]> {
-    try {
-      const shop = await this.shopsService.findOne(shopId);
-
-      const tags = await this.tagRepository.find({
-        where: { shop },
-        order: { createdAt: 'DESC' },
-      });
-      return tags.map((tag) => this.toResponseDto(tag));
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to get tags by shop ID: ${error.message}`,
-      );
-    }
-  }
 
   async findAll(query: TagQueryParamsDto): Promise<TagResponseDto[]> {
     try {

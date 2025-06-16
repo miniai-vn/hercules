@@ -20,13 +20,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
+  AddTagsToCustomerDto,
   CreateCustomerDto,
   CustomerListQueryDto,
   CustomerListResponseDto,
   CustomerResponseDto,
   FindCustomerByExternalIdDto,
   UpdateCustomerDto,
-  AddTagsToCustomerDto,
 } from './customers.dto';
 import { CustomersService } from './customers.service';
 
@@ -227,30 +227,6 @@ export class CustomersController {
     @Query() query: CustomerListQueryDto,
   ): Promise<CustomerListResponseDto> {
     return this.customersService.findAll({ ...query });
-  }
-
-  @Get('search/:searchTerm')
-  @ApiOperation({ summary: 'Search customers by name' })
-  @ApiParam({
-    name: 'searchTerm',
-    description: 'Search term for customer name',
-  })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiResponse({
-    status: 200,
-    description: 'Search results retrieved successfully',
-    type: CustomerListResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - invalid or missing token',
-  })
-  async searchByName(
-    @Param('searchTerm') searchTerm: string,
-    @Query() query: CustomerListQueryDto,
-  ): Promise<CustomerListResponseDto> {
-    return this.customersService.findAll({ ...query, name: searchTerm });
   }
 
   @Post(':id/add-tags')

@@ -5,6 +5,7 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
 import { ChannelsModule } from 'src/channels/channels.module';
 import { KafkaModule } from 'src/kafka/kafka.module';
+import { ZaloSyncService } from './zalo-sync.service';
 
 @Module({
   imports: [
@@ -13,8 +14,8 @@ import { KafkaModule } from 'src/kafka/kafka.module';
     forwardRef(() => ChannelsModule),
     KafkaModule,
   ],
-  providers: [ZaloService],
+  providers: [ZaloService, ZaloSyncService],
   controllers: [ZaloController],
-  exports: [ZaloService],
+  exports: [ZaloService, ZaloSyncService],
 })
 export class ZaloModule {}

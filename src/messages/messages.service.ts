@@ -6,6 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { SenderType } from 'src/common/enum';
+import { ConversationsService } from 'src/conversations/conversations.service';
+import { UsersService } from 'src/users/users.service';
 import { In, IsNull, Not, Repository } from 'typeorm';
 import {
   BulkCreateMessagesDto,
@@ -14,32 +17,27 @@ import {
   MessageQueryParamsDto,
   MessageResponseDto,
   MessageStatsDto,
-  MessageWithConversationDto,
   PaginatedMessagesDto,
   RestoreMessageDto,
-  SenderType,
   UpdateMessageDto,
 } from './messages.dto';
 import { Message } from './messages.entity';
-import { ConversationsService } from 'src/conversations/conversations.service';
 import { CustomersService } from 'src/customers/customers.service';
-import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class MessagesService {
   constructor(
     @InjectRepository(Message)
     private readonly messageRepository: Repository<Message>,
-    private readonly customersService: CustomersService,
     private readonly usersService: UsersService,
     @Inject(forwardRef(() => ConversationsService))
     private readonly conversationsService: ConversationsService,
+    private readonly customersService: CustomersService,
   ) {}
 
   async create(
     createMessageDto: CreateMessageDto,
   ): Promise<MessageResponseDto> {
-    // Validate conversation exists
     const conversation = await this.conversationsService.findOne(
       createMessageDto.conversationId,
     );
@@ -47,7 +45,7 @@ export class MessagesService {
     const message = this.messageRepository.create({
       ...createMessageDto,
       conversation: conversation,
-      senderType: createMessageDto.senderType as any, // Cast to match DeepPartial<SenderType>
+      senderType: createMessageDto.senderType as any,
     });
     const savedMessage = await this.messageRepository.save(message);
     return this.toResponseDto(savedMessage);
@@ -59,47 +57,12 @@ export class MessagesService {
     const messages = bulkCreateDto.messages.map((messageDto) =>
       this.messageRepository.create({
         ...messageDto,
-        senderType: messageDto.senderType as any, // Cast to match DeepPartial<SenderType>
+        senderType: messageDto.senderType as any,
       }),
     );
 
     const savedMessages = await this.messageRepository.save(messages);
     return savedMessages.map((message) => this.toResponseDto(message));
-  }
-
-  async findAll(
-    page: number,
-    limit: number,
-    search: string,
-    includeDeleted: boolean = false,
-  ): Promise<PaginatedMessagesDto> {
-    const offset = (page - 1) * limit;
-    const queryBuilder = this.messageRepository.createQueryBuilder('message');
-
-    if (!includeDeleted) {
-      queryBuilder.where('message.deletedAt IS NULL');
-    }
-
-    if (search) {
-      queryBuilder.andWhere(
-        'message.content ILIKE :search OR message.intent ILIKE :search',
-        { search: `%${search}%` },
-      );
-    }
-
-    const [messages, total] = await queryBuilder
-      .skip(offset)
-      .take(limit)
-      .orderBy('message.createdAt', 'DESC')
-      .getManyAndCount();
-
-    return {
-      messages: messages.map((message) => this.toResponseDto(message)),
-      total,
-      page,
-      perPage: limit,
-      totalPages: Math.ceil(total / limit),
-    };
   }
 
   async query(
@@ -414,14 +377,8 @@ export class MessagesService {
     return { deletedCount: messages.length };
   }
 
-  async getInfoSenderMessages(id: number) {
+  async getInfoSenderMessages(message: Message) {
     try {
-      const message = await this.messageRepository.findOne({
-        where: { id, deletedAt: IsNull() },
-        select: ['senderId', 'senderType'],
-        order: { createdAt: 'DESC' },
-      });
-
       if (message.senderType === SenderType.customer) {
         const customer = await this.customersService.findOne(message.senderId);
         return {
@@ -444,9 +401,7 @@ export class MessagesService {
         };
       }
     } catch (error) {
-      throw new InternalServerErrorException(
-        `Error retrieving sender info for message ID ${id}: ${error.message}`,
-      );
+      throw new InternalServerErrorException(`Error retrieving sender info `);
     }
   }
 
@@ -463,22 +418,6 @@ export class MessagesService {
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
       deletedAt: message.deletedAt,
-    };
-  }
-
-  private toDetailedResponseDto(
-    message: Message,
-    conversation: any,
-  ): MessageWithConversationDto {
-    return {
-      ...this.toResponseDto(message),
-      conversation: {
-        id: conversation.id,
-        name: conversation.name,
-        type: conversation.type,
-        customerParticipants: conversation.customerParticipants,
-        userParticipants: conversation.userParticipants,
-      },
     };
   }
 }

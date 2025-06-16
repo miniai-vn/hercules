@@ -165,49 +165,15 @@ export class ChannelsService {
   }
 
   async query(params: ChannelQueryParamsDto): Promise<Channel[]> {
-    const queryBuilder = this.channelRepository.createQueryBuilder('channel');
-
-    if (params.name) {
-      queryBuilder.andWhere('channel.name ILIKE :name', {
-        name: `%${params.name}%`,
+    const queryBuilder = this.channelRepository
+      .createQueryBuilder('channel')
+      .leftJoinAndSelect('channel.users', 'users')
+      .where('channel.shop_id = :shopId', {
+        shopId: params.shopId,
+      })
+      .andWhere('users.id = :userId', {
+        userId: params.userId,
       });
-    }
-    if (params.type) {
-      queryBuilder.andWhere('channel.type = :type', { type: params.type });
-    }
-    if (params.departmentId) {
-      queryBuilder.andWhere('channel.departmentId = :departmentId', {
-        departmentId: params.departmentId,
-      });
-    }
-    if (params.apiStatus) {
-      queryBuilder.andWhere('channel.apiStatus = :apiStatus', {
-        apiStatus: params.apiStatus,
-      });
-    }
-    // Assuming Channel entity has 'createdAt' field
-    if (params.createdAfter && params.createdBefore) {
-      queryBuilder.andWhere(
-        'channel.createdAt BETWEEN :createdAfter AND :createdBefore',
-        {
-          createdAfter: params.createdAfter,
-          createdBefore: params.createdBefore,
-        },
-      );
-    } else {
-      if (params.createdAfter) {
-        queryBuilder.andWhere('channel.createdAt >= :createdAfter', {
-          createdAfter: params.createdAfter,
-        });
-      }
-      if (params.createdBefore) {
-        queryBuilder.andWhere('channel.createdAt <= :createdBefore', {
-          createdBefore: params.createdBefore,
-        });
-      }
-    }
-    queryBuilder.leftJoinAndSelect('channel.department', 'department'); // Ensure department is loaded
-
     return queryBuilder.getMany();
   }
 

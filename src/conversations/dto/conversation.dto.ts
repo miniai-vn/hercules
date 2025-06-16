@@ -226,6 +226,7 @@ export class ConversationResponseDto {
   id: number;
   name: string;
   type: ConversationType;
+  avatar?: string; // Optional: avatar URL or path
   content?: string;
   createdAt: Date;
   updatedAt: Date;

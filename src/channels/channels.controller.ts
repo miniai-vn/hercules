@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  InternalServerErrorException,
   Param,
   ParseIntPipe,
   Patch,
@@ -90,11 +91,21 @@ export class ChannelsController {
     @Request() req,
     @Query() queryParams: ChannelQueryParamsDto,
   ): Promise<ApiResponse<Channel[]>> {
-    const channels = await this.channelsService.query(queryParams);
-    return {
-      message: 'Channels queried successfully',
-      data: channels,
-    };
+    try {
+      const channels = await this.channelsService.query({
+        ...queryParams,
+        shopId: req.user.shop_id,
+        userId: req.user.user_id,
+      });
+      return {
+        message: 'Channels queried successfully',
+        data: channels,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Error querying channels: ' + error.message,
+      );
+    }
   }
 
   @Get(':id')

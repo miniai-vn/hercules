@@ -128,15 +128,11 @@ export class ChannelQueryParamsDto {
 
   @IsString()
   @IsOptional()
-  apiStatus?: string;
+  shopId?: string;
 
-  @IsDateString()
+  @IsString()
   @IsOptional()
-  createdAfter?: string;
-
-  @IsDateString()
-  @IsOptional()
-  createdBefore?: string;
+  userId?: string;
 }
 
 export class ChannelBulkDeleteDto {

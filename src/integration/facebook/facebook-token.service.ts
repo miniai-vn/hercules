@@ -93,7 +93,7 @@ export class FacebookTokenService {
       const debugData = await this.debugAccessToken(token);
 
       if (!debugData.is_valid) {
-        console.error(
+        console.warn(
           `Token expired - Channel ID: ${channelId}, Token: ${token}`,
         );
         throw new UnauthorizedException('Token expired');

@@ -31,14 +31,17 @@ export class FacebookService {
   ) {}
 
   // Connect to facebook:
-  async connectToFacebook(res: any): Promise<string> {
-    const state = uuidv4();
+  async connectToFacebook(res: any): Promise<void> {
+    const csrf = uuidv4();
+    const statePayload = { csrf };
+    const state = encodeURIComponent(JSON.stringify(statePayload));
 
     const fbAuthUrl = new URL(
       `${FACEBOOK_CONFIG.FACEBOOK_PATH}${FACEBOOK_CONFIG.ENDPOINT.DIALOG_OAUTH}`,
     );
 
     fbAuthUrl.searchParams.append('client_id', FACEBOOK_CONFIG.APP.ID);
+    fbAuthUrl.searchParams.append('display', 'popup');
     fbAuthUrl.searchParams.append('redirect_uri', FACEBOOK_CONFIG.REDIRECT_URL);
     fbAuthUrl.searchParams.append('scope', FACEBOOK_CONFIG.SCOPE);
     fbAuthUrl.searchParams.append('state', state);
@@ -160,7 +163,7 @@ export class FacebookService {
       const resp = await axios.get(url, {
         params: {
           access_token: tokenUser,
-          fields: 'id,name,access_token,picture{url}',
+          fields: 'id,name,access_token,picture{url},tasks',
         },
       });
 
@@ -246,7 +249,7 @@ export class FacebookService {
   }
 
   // Get PSID from user sending a message to the Facebook page
-  async getConversationPageId(
+  async getIdsConversationsPage(
     access_token_page: string,
     page_id: string,
   ): Promise<TConversationPageId> {
@@ -268,41 +271,11 @@ export class FacebookService {
   //   const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/${conversations_id}/messages`;
   // }
 
-  // private async callFacebookAPI(
-  //   endpoint: string,
-  //   method: 'GET' | 'POST' = 'POST',
-  //   body?: any,
-  //   headers?: Record<string, string>,
-  //   baseUrl: string = FACEBOOK_CONFIG.FACEBOOK_PATH ||
-  //     FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
-  // ): Promise<AxiosResponse> {
-  //   try {
-  //     const config: AxiosRequestConfig = {
-  //       method,
-  //       url: `${baseUrl}${endpoint}`,
-  //       headers: {
-  //         'Content-Type': 'application/x-www-form-urlencoded',
-  //         ...headers,
-  //       },
-  //     };
-
-  //     if (method === 'POST' && body) {
-  //       config.data = body;
-  //     } else if (method === 'GET' && body) {
-  //       config.params = body;
-  //     }
-
-  //     return await axios(config);
-  //   } catch (error) {
-  //     throw new Error(`Facebook API call ${error.message}`);
-  //   }
-  // }
-
   /**
    * Chạy mỗi giờ: kiểm tra tất cả token Facebook page trong DB,
    * nếu gần hết hạn thì refresh và update lại.
    */
-  @Cron(CronExpression.EVERY_10_SECONDS)
+  @Cron(CronExpression.EVERY_HOUR)
   async handleTokenExpiryCheck() {
     // 1. Lấy tất cả channel có type FACEBOOK từ DB
     const fbChannels = await this.channelService.findByType(

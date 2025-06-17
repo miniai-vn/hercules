@@ -13,8 +13,9 @@ export const FACEBOOK_CONFIG = {
     ME_ACCOUNTS: 'me/accounts',
     OAUTH_ACCESS_TOKEN: 'oauth/access_token',
     DIALOG_OAUTH: 'dialog/oauth',
+    DEBUG_TOKEN: 'debug_token',
   },
-  SCOPE: 'pages_show_list,pages_messaging',
+  SCOPE: 'pages_show_list,pages_messaging,business_management',
   VERIFY_TOKEN: process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN,
   REDIRECT_URL: process.env.FACEBOOK_REDIRECT_URL,
 } as const;

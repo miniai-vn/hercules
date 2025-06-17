@@ -1,8 +1,7 @@
+import { FacebookHttpService } from './facebook-http.service';
 import {
   BadRequestException,
   forwardRef,
-  HttpException,
-  HttpStatus,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -14,8 +13,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { FACEBOOK_CONFIG } from './config/facebook.config';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
-import { IPageInfo } from './types/page.type';
-import { IConversationPageId } from './types/conversation.type';
+import { TPageInfo } from './types/page.type';
+import { TConversationPageId } from './types/conversation.type';
+import { FacebookTokenService } from './facebook-token.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 dotenv.config();
 Injectable();
 export class FacebookService {
@@ -24,17 +25,23 @@ export class FacebookService {
   constructor(
     @Inject(forwardRef(() => ChannelsService))
     private readonly channelService: ChannelsService,
+
+    private readonly facebookHttpService: FacebookHttpService,
+    private readonly facebookTokenService: FacebookTokenService,
   ) {}
 
   // Connect to facebook:
-  async connectToFacebook(res: any): Promise<string> {
-    const state = uuidv4();
+  async connectToFacebook(res: any): Promise<void> {
+    const csrf = uuidv4();
+    const statePayload = { csrf };
+    const state = encodeURIComponent(JSON.stringify(statePayload));
 
     const fbAuthUrl = new URL(
       `${FACEBOOK_CONFIG.FACEBOOK_PATH}${FACEBOOK_CONFIG.ENDPOINT.DIALOG_OAUTH}`,
     );
 
     fbAuthUrl.searchParams.append('client_id', FACEBOOK_CONFIG.APP.ID);
+    fbAuthUrl.searchParams.append('display', 'popup');
     fbAuthUrl.searchParams.append('redirect_uri', FACEBOOK_CONFIG.REDIRECT_URL);
     fbAuthUrl.searchParams.append('scope', FACEBOOK_CONFIG.SCOPE);
     fbAuthUrl.searchParams.append('state', state);
@@ -88,7 +95,7 @@ export class FacebookService {
           return page.id;
         })
         .join(',');
-   
+
       return `${process.env.DASHBOARD_BASE_URL}/dashboard/channels?type=facebook&appId=${idPage}`;
     } catch (err) {
       throw new BadRequestException(err);
@@ -96,7 +103,7 @@ export class FacebookService {
   }
 
   private async getLongLiveTokenUser(code: string): Promise<string> {
-    const tokenUrl = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}${FACEBOOK_CONFIG.ENDPOINT.OAUTH_ACCESS_TOKEN}`;
+    const endpoint = `${FACEBOOK_CONFIG.ENDPOINT.OAUTH_ACCESS_TOKEN}`;
     const params = {
       client_id: FACEBOOK_CONFIG.APP.ID,
       client_secret: FACEBOOK_CONFIG.APP.SECRET,
@@ -105,7 +112,13 @@ export class FacebookService {
     };
 
     try {
-      const shortTokenResp = await axios.get(tokenUrl, { params });
+      const shortTokenResp = await this.facebookHttpService.callFacebookAPI(
+        endpoint,
+        'GET',
+        params,
+        undefined,
+        FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
+      );
 
       const shortLivedToken = shortTokenResp.data.access_token;
 
@@ -113,15 +126,21 @@ export class FacebookService {
         throw new Error('No short-lived access_token in response');
       }
 
+      const paramsLongLiveToken = {
+        grant_type: 'fb_exchange_token',
+        client_id: FACEBOOK_CONFIG.APP.ID,
+        client_secret: FACEBOOK_CONFIG.APP.SECRET,
+        fb_exchange_token: shortLivedToken,
+      };
+
       // 2. Gọi tiếp để lấy long-lived token
-      const longTokenResp = await axios.get(tokenUrl, {
-        params: {
-          grant_type: 'fb_exchange_token',
-          client_id: FACEBOOK_CONFIG.APP.ID,
-          client_secret: FACEBOOK_CONFIG.APP.SECRET,
-          fb_exchange_token: shortLivedToken,
-        },
-      });
+      const longTokenResp = await this.facebookHttpService.callFacebookAPI(
+        endpoint,
+        'GET',
+        paramsLongLiveToken,
+        undefined,
+        FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
+      );
 
       const longLivedToken = longTokenResp.data.access_token;
 
@@ -137,14 +156,14 @@ export class FacebookService {
     }
   }
 
-  private async getTokenPages(tokenUser: string): Promise<IPageInfo[]> {
+  private async getTokenPages(tokenUser: string): Promise<TPageInfo[]> {
     const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/me/accounts`;
 
     try {
       const resp = await axios.get(url, {
         params: {
           access_token: tokenUser,
-          fields: 'id,name,access_token,picture{url}',
+          fields: 'id,name,access_token,picture{url},tasks',
         },
       });
 
@@ -230,10 +249,10 @@ export class FacebookService {
   }
 
   // Get PSID from user sending a message to the Facebook page
-  async getConversationPageId(
+  async getIdsConversationsPage(
     access_token_page: string,
     page_id: string,
-  ): Promise<IConversationPageId> {
+  ): Promise<TConversationPageId> {
     const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/${page_id}/conversations`;
     const params = {
       access_token: access_token_page,
@@ -252,33 +271,42 @@ export class FacebookService {
   //   const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/${conversations_id}/messages`;
   // }
 
-  private async callFacebookAPI(
-    endpoint: string,
-    method: 'GET' | 'POST' = 'POST',
-    body?: any,
-    headers?: Record<string, string>,
-    baseUrl: string = FACEBOOK_CONFIG.FACEBOOK_PATH ||
-      FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
-  ): Promise<AxiosResponse> {
-    try {
-      const config: AxiosRequestConfig = {
-        method,
-        url: `${baseUrl}${endpoint}`,
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          ...headers,
-        },
-      };
+  /**
+   * Chạy mỗi giờ: kiểm tra tất cả token Facebook page trong DB,
+   * nếu gần hết hạn thì refresh và update lại.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async handleTokenExpiryCheck() {
+    // 1. Lấy tất cả channel có type FACEBOOK từ DB
+    const fbChannels = await this.channelService.findByType(
+      ChannelType.FACEBOOK,
+    );
 
-      if (method === 'POST' && body) {
-        config.data = body;
-      } else if (method === 'GET' && body) {
-        config.params = body;
+    for (const channel of fbChannels) {
+      const { id: channelId, accessToken } = channel;
+      try {
+        // 2. Kiểm tra xem token page có gần hết hạn không
+        const isNearExpiry = await this.facebookTokenService.isTokenNearExpiry(
+          accessToken,
+          channelId,
+        );
+
+        if (isNearExpiry) {
+          // 3. Refresh token và lưu lại DB
+          const newToken =
+            await this.facebookTokenService.refreshLongLivedToken(accessToken);
+
+          await this.channelService.update(channelId, {
+            accessToken: newToken,
+          });
+        }
+      } catch (err) {
+        throw new Error(`Error checking token expiry: ${err.message || err}`);
       }
-
-      return await axios(config);
-    } catch (error) {
-      throw new Error(`Facebook API call ${error.message}`);
     }
+
+    return {
+      messages: 'Facebook page tokens expiry check finished.',
+    };
   }
 }

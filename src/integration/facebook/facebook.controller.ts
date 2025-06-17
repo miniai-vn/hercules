@@ -1,16 +1,25 @@
 import { FacebookService } from './facebook.service';
-import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
-import { IConversationPageId } from './types/conversation.type';
+import { TConversationPageId } from './types/conversation.type';
 @ApiTags('Facebook')
 @Controller('facebook')
 export class FacebookController {
   constructor(private readonly facebookService: FacebookService) {}
 
   @Get('connect')
-  connectToFacebook(@Res() res: any) {
+  connectToFacebook(@Res() res: Response) {
     return this.facebookService.connectToFacebook(res);
   }
 
@@ -56,18 +65,22 @@ export class FacebookController {
     };
   }
 
-  @Get('/:page_id/conversations/')
-  async getIdConversations(
+  @Get('/page/:page_id/conversations')
+  async getIdsConversationsPage(
     @Query('acces_token_page') access_token_page: string,
     @Param('page_id') page_id: string,
-  ): Promise<IConversationPageId> {
-    return await this.facebookService.getConversationPageId(
+  ): Promise<TConversationPageId> {
+    return await this.facebookService.getIdsConversationsPage(
       access_token_page,
       page_id,
     );
   }
 
-  // async getPSID(): Promise<string> {
-  //   return null;
-  // }
+  @Get('/:id/messages-detail')
+  async getMessage(
+    @Query('access_token_page') access_token_page: string,
+    @Query('fields') fields: string,
+  ): Promise<string> {
+    return null;
+  }
 }

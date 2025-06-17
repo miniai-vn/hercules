@@ -3,7 +3,7 @@ import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
-import { IConversationPageId } from './types/conversation.type';
+import { TConversationPageId } from './types/conversation.type';
 @ApiTags('Facebook')
 @Controller('facebook')
 export class FacebookController {
@@ -60,7 +60,7 @@ export class FacebookController {
   async getIdConversations(
     @Query('acces_token_page') access_token_page: string,
     @Param('page_id') page_id: string,
-  ): Promise<IConversationPageId> {
+  ): Promise<TConversationPageId> {
     return await this.facebookService.getConversationPageId(
       access_token_page,
       page_id,

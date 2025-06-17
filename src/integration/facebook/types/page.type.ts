@@ -1,4 +1,4 @@
-export interface IPageInfo {
+export type TPageInfo = {
   id: string;
   name: string;
   access_token: string;
@@ -8,5 +8,4 @@ export interface IPageInfo {
       is_silhouette?: boolean;
     };
   };
-}
-
+};

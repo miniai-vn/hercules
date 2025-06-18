@@ -379,17 +379,19 @@ export class ConversationsService {
     userId: string,
   ): Promise<number> {
     try {
-      const conversation = await this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.messages', 'messages')
-        .leftJoinAndSelect('conversation.members', 'members')
-        .leftJoinAndSelect('members.lastMessage', 'lastMessage')
-        .where('conversation.id = :conversationId', { conversationId })
-        .getOne();
+      const conversation = await this.conversationRepository.findOne({
+        where: { id: conversationId },
+        relations: ['messages', 'members'],
+        order: {
+          messages: {
+            createdAt: 'ASC',
+          },
+        },
+      });
 
-      const lastMessageId =
-        conversation.members.find((member) => member.userId === userId)
-          ?.lastMessage?.id ?? 0;
+      const lastMessageId = conversation.members.find(
+        (member) => member.userId === userId,
+      )?.lastMessage?.id;
 
       const messages = conversation.messages.filter(
         (msg) => msg.id > lastMessageId,

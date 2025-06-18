@@ -139,8 +139,7 @@ export class ChannelsController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard) // Ensure this route is protected
   @HttpCode(HttpStatus.OK) // Or HttpStatus.NO_CONTENT if no body is returned
-  async removeForShop(
-    @Request() req,
+  async delete(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<ApiResponse<null | { id: number }>> {
     await this.channelsService.delete(id);
@@ -163,24 +162,6 @@ export class ChannelsController {
     return {
       message: 'Channel status updated successfully',
       data: updatedChannel,
-    };
-  }
-
-  @Post('bulk-delete')
-  async bulkDeleteForShop(
-    @Request() req,
-    @Body() bulkDeleteDto: ChannelBulkDeleteDto,
-  ): Promise<
-    ApiResponse<{
-      totalRequested: number;
-      deletedCount: number;
-      notFoundCount: number;
-    }>
-  > {
-    const result = await this.channelsService.bulkDelete(bulkDeleteDto);
-    return {
-      message: 'Bulk delete operation completed',
-      data: result,
     };
   }
 
@@ -229,6 +210,7 @@ export class ChannelsController {
     const updatedChannels = await this.channelsService.updateShopId(
       shop,
       appId,
+      req.user.user_id, // Assuming req.user.user_id is the correct way to get user ID
     );
     return {
       message: 'Shop ID updated successfully',

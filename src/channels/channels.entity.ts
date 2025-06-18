@@ -14,6 +14,7 @@ import {
   OneToMany,
   ManyToMany,
   JoinTable,
+  DeleteDateColumn,
 } from 'typeorm';
 
 @Entity('channels')
@@ -71,9 +72,10 @@ export class Channel {
   @ManyToMany(() => User, (user) => user.channels, {
     onDelete: 'SET NULL',
     nullable: true,
+    cascade: true,
   })
   @JoinTable({
-    name: 'channel_users',
+    name: 'user_channels',
     joinColumn: { name: 'channel_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
   })
@@ -106,4 +108,7 @@ export class Channel {
   })
   @JoinColumn({ name: 'shop_id' })
   shop: Shop;
+
+  @DeleteDateColumn()
+  deletedAt?: Date;
 }

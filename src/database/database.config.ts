@@ -14,11 +14,12 @@ import { Channel } from 'src/channels/channels.entity';
 import { Customer } from 'src/customers/customers.entity';
 import { Conversation } from 'src/conversations/conversations.entity';
 import { Message } from 'src/messages/messages.entity';
-import { User } from 'src/users/users.entity';
+import { User } from 'src/users/entities/users.entity';
 import { ConversationMember } from 'src/conversation-members/conversation-members.entity';
 import { Tag } from 'src/tags/tags.entity';
 import { Role } from 'src/roles/roles.entity';
 import { Permission } from 'src/permissions/permissions.entity';
+import { UserDepartmentPermission } from 'src/user-dept-perm/user-dept-perm.entity';
 
 export const getDatabaseConfig = (
   configService: ConfigService,
@@ -46,6 +47,7 @@ export const getDatabaseConfig = (
       Tag,
       Role,
       Permission,
+      UserDepartmentPermission,
     ],
     migrations: [
       isProduction
@@ -78,6 +80,7 @@ export const dataSourceOptions: DataSourceOptions = {
     Tag,
     Role,
     Permission,
+    UserDepartmentPermission,
   ],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,

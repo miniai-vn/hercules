@@ -28,6 +28,7 @@ import { ShopsModule } from './shops/shops.module';
 import { TagsModule } from './tags/tags.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
+import { UserDepartmentPermissionsModule } from './user-dept-perm/user-dept-perm.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { RolesModule } from './roles/roles.module';
     AuthModule,
     KafkaModule,
     PermissionsModule,
+    UserDepartmentPermissionsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],

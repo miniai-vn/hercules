@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { RolesModule } from 'src/roles/roles.module';
 import { ShopsModule } from 'src/shops/shops.module';
+import { AuthService } from './auth.service';
+import { UsersModule } from 'src/users/users.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -12,12 +14,13 @@ import { ShopsModule } from 'src/shops/shops.module';
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '60s' },
+      signOptions: { expiresIn: '24h' },
     }),
     ShopsModule,
     RolesModule,
+    UsersModule,
   ],
-  providers: [],
+  providers: [AuthService],
   exports: [],
 })
 export class AuthModule {}

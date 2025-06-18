@@ -7,13 +7,15 @@ import {
   JoinTable,
   ManyToMany,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { Department } from '../departments/departments.entity';
-import { Shop } from '../shops/shops.entity';
+import { Department } from '../../departments/departments.entity';
+import { Shop } from '../../shops/shops.entity';
 import { Channel } from 'src/channels/channels.entity';
 import { Role } from 'src/roles/roles.entity';
+import { UserDepartmentPermission } from 'src/user-dept-perm/user-dept-perm.entity';
 
 @Entity('users')
 export class User {
@@ -153,4 +155,10 @@ export class User {
     inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
   })
   roles: Role[];
+
+  @OneToMany(() => UserDepartmentPermission, (udp) => udp.user, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  userDepartmentPermissions: UserDepartmentPermission[];
 }

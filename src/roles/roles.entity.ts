@@ -1,6 +1,6 @@
 import { Permission } from 'src/permissions/permissions.entity';
 import { Shop } from 'src/shops/shops.entity';
-import { User } from 'src/users/users.entity';
+import { User } from 'src/users/entities/users.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,

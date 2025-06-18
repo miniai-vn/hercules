@@ -4,7 +4,7 @@ import { Customer } from 'src/customers/customers.entity';
 import { Item } from 'src/items/items.entity';
 import { Role } from 'src/roles/roles.entity';
 import { Tag } from 'src/tags/tags.entity';
-import { User } from 'src/users/users.entity';
+import { User } from 'src/users/entities/users.entity';
 import {
   Column,
   CreateDateColumn,

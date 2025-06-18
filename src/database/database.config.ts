@@ -17,6 +17,8 @@ import { Message } from 'src/messages/messages.entity';
 import { User } from 'src/users/users.entity';
 import { ConversationMember } from 'src/conversation-members/conversation-members.entity';
 import { Tag } from 'src/tags/tags.entity';
+import { Role } from 'src/roles/roles.entity';
+import { Permission } from 'src/permissions/permissions.entity';
 
 export const getDatabaseConfig = (
   configService: ConfigService,
@@ -42,6 +44,8 @@ export const getDatabaseConfig = (
       User,
       ConversationMember,
       Tag,
+      Role,
+      Permission,
     ],
     migrations: [
       isProduction
@@ -72,6 +76,8 @@ export const dataSourceOptions: DataSourceOptions = {
     User,
     ConversationMember,
     Tag,
+    Role,
+    Permission,
   ],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,

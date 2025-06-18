@@ -9,7 +9,6 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 import { Shop } from './shops.entity';
 import { ShopService } from './shops.service';
 
@@ -28,7 +27,6 @@ export class ShopsController {
   }
 
   @Get('me')
-  @UseGuards(JwtAuthGuard)
   async findMyShop(@Request() req) {
     const shopId = req.user.shop_id;
     return {
@@ -43,7 +41,6 @@ export class ShopsController {
   }
 
   @Put('/zalo-id')
-  @UseGuards(JwtAuthGuard)
   async updateZaloId(
     @Request() req,
     @Body('zaloId') zaloId: string,

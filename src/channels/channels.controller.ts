@@ -29,6 +29,9 @@ import {
   UpdateChannelStatusDto,
 } from './dto/channel.dto';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
+import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
+import { PermissionCode } from 'src/common/enums/permission.enum';
+import { PermissionsGuard } from 'src/auth/gaurds/permission.guard';
 
 interface ApiResponse<T> {
   message: string;
@@ -37,11 +40,12 @@ interface ApiResponse<T> {
 
 @Controller('channels')
 @ApiBearerAuth('bearerAuth')
-@UseGuards(JwtAuthGuard) // Apply guard to all routes in this controller
+@UseGuards(JwtAuthGuard, PermissionsGuard) // Apply guard to all routes in this controller
 export class ChannelsController {
   constructor(private readonly channelsService: ChannelsService) {}
 
   @Post()
+  @RequirePermissions(PermissionCode.CHANNEL_CREATE)
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Request() req,
@@ -55,6 +59,7 @@ export class ChannelsController {
   }
 
   @Get()
+  @RequirePermissions(PermissionCode.CHANNEL_READ)
   async findAllForShop(
     @Request() req,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
@@ -73,6 +78,7 @@ export class ChannelsController {
   }
 
   @Get('unread-count')
+  @RequirePermissions(PermissionCode.CHANNEL_READ)
   @ApiOperation({ summary: 'Get unread message count by shopId and userId' })
   async getUnreadCount(@Request() req) {
     const shopId = req.user.shop_id;
@@ -87,6 +93,7 @@ export class ChannelsController {
   }
 
   @Get('query')
+  @RequirePermissions(PermissionCode.CHANNEL_READ)
   async queryChannelsForShop(
     @Request() req,
     @Query() queryParams: ChannelQueryParamsDto,
@@ -109,6 +116,7 @@ export class ChannelsController {
   }
 
   @Get(':id')
+  @RequirePermissions(PermissionCode.CHANNEL_READ)
   async findOneForShop(
     @Request() req,
     @Param('id', ParseIntPipe) id: number,
@@ -121,6 +129,7 @@ export class ChannelsController {
   }
 
   @Put(':id')
+  @RequirePermissions(PermissionCode.CHANNEL_UPDATE)
   async updateForShop(
     @Request() req,
     @Param('id', ParseIntPipe) id: number,
@@ -137,7 +146,7 @@ export class ChannelsController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard) // Ensure this route is protected
+  @RequirePermissions(PermissionCode.CHANNEL_DELETE)
   @HttpCode(HttpStatus.OK) // Or HttpStatus.NO_CONTENT if no body is returned
   async delete(
     @Param('id', ParseIntPipe) id: number,
@@ -150,6 +159,7 @@ export class ChannelsController {
   }
 
   @Patch(':id/update-status')
+  @RequirePermissions(PermissionCode.CHANNEL_UPDATE)
   async updateStatusForShop(
     @Request() req,
     @Param('id', ParseIntPipe) id: number,
@@ -166,6 +176,7 @@ export class ChannelsController {
   }
 
   @Post(':id/add-users')
+  @RequirePermissions(PermissionCode.CHANNEL_UPDATE)
   @ApiOperation({ summary: 'Add multiple users to a channel' })
   @ApiResponse({ status: 200, description: 'Users added to channel' })
   async addUsersToChannel(
@@ -183,6 +194,7 @@ export class ChannelsController {
   }
 
   @Post(':id/remove-users')
+  @RequirePermissions(PermissionCode.CHANNEL_UPDATE)
   @ApiOperation({ summary: 'Remove multiple users from a channel' })
   @ApiResponse({ status: 200, description: 'Users removed from channel' })
   async removeUsersFromChannel(
@@ -200,17 +212,18 @@ export class ChannelsController {
   }
 
   @Patch('update-shop')
+  @RequirePermissions(PermissionCode.CHANNEL_UPDATE)
   @ApiOperation({ summary: 'Update shop ID for a channel' })
   @ApiResponse({ status: 200, description: 'Shop ID updated successfully' })
   async updateShopId(
     @Request() req,
     @Body('appId') appId: string,
   ): Promise<ApiResponse<Channel>> {
-    const shop = req.shop; // Assuming req.user.shop_id is the correct way to get shop ID
+    const shop = req.shop;
     const updatedChannels = await this.channelsService.updateShopId(
       shop,
       appId,
-      req.user.user_id, // Assuming req.user.user_id is the correct way to get user ID
+      req.user.user_id,
     );
     return {
       message: 'Shop ID updated successfully',

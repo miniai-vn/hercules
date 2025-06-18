@@ -13,6 +13,7 @@ import {
 import { Department } from '../departments/departments.entity';
 import { Shop } from '../shops/shops.entity';
 import { Channel } from 'src/channels/channels.entity';
+import { Role } from 'src/roles/roles.entity';
 
 @Entity('users')
 export class User {
@@ -142,4 +143,14 @@ export class User {
     nullable: true,
   })
   deletedAt?: Date;
+
+  @ManyToMany(() => Role, (role) => role.users, {
+    cascade: true,
+  })
+  @JoinTable({
+    name: 'user_role',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  })
+  roles: Role[];
 }

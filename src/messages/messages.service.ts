@@ -8,11 +8,9 @@ import {
   MessageBulkDeleteDto,
   MessageQueryParamsDto,
   MessageResponseDto,
-  MessageStatsDto,
-  MessageWithConversationDto,
   PaginatedMessagesDto,
   RestoreMessageDto,
-  UpdateMessageDto,
+  UpdateMessageDto
 } from './messages.dto';
 import { Message } from './messages.entity';
 

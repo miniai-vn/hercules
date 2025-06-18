@@ -1,9 +1,9 @@
-export interface IConversationPageId {
-  data: IConversationResp[];
-}
+export type TConversationPageId = {
+  data: TConversationResp[];
+};
 
-interface IConversationResp {
+type TConversationResp = {
   id: string;
   link: string;
   updated_time: string;
-}
+};

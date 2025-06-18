@@ -26,7 +26,7 @@ export class CreateMessageDto {
 
   @IsNumber()
   @IsNotEmpty()
-  conversationId: number;
+  conversationId?: number;
 
   @IsString()
   @IsOptional()

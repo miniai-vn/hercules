@@ -123,91 +123,19 @@ export class ChannelsService {
   }
 
   async delete(id: number): Promise<void> {
-    const channel = await this.getOne(id); // Ensures channel exists
-    if (channel.department.id) {
-      // Check if departmentId exists before sending
-      await this.oaService.sendStatusChannel({
-        id: channel.department.id,
-        status: 'inactive', // As per Python code
-      });
-    }
-    await this.channelRepository.delete(id);
-  }
-
-  async bulkDelete(dto: ChannelBulkDeleteDto): Promise<{
-    totalRequested: number;
-    deletedCount: number;
-    notFoundCount: number;
-  }> {
-    let deletedCount = 0;
-    const notFoundIds: number[] = [];
-
-    for (const channelId of dto.channelIds) {
-      try {
-        await this.delete(channelId); // Leverages the existing delete logic including OA call
-        deletedCount++;
-      } catch (error) {
-        if (error instanceof NotFoundException) {
-          notFoundIds.push(channelId);
-        } else {
-          this.logger.error(
-            `Error deleting channel ${channelId} in bulk: ${error.message}`,
-          );
-          // Decide if one error should stop the whole bulk operation or just skip
-        }
-      }
-    }
-    return {
-      totalRequested: dto.channelIds.length,
-      deletedCount,
-      notFoundCount: dto.channelIds.length - deletedCount,
-    };
+    await this.channelRepository.softDelete(id);
   }
 
   async query(params: ChannelQueryParamsDto): Promise<Channel[]> {
-    const queryBuilder = this.channelRepository.createQueryBuilder('channel');
-
-    if (params.name) {
-      queryBuilder.andWhere('channel.name ILIKE :name', {
-        name: `%${params.name}%`,
+    const queryBuilder = this.channelRepository
+      .createQueryBuilder('channel')
+      .leftJoinAndSelect('channel.users', 'users')
+      .where('channel.shop_id = :shopId', {
+        shopId: params.shopId,
+      })
+      .andWhere('users.id = :userId', {
+        userId: params.userId,
       });
-    }
-    if (params.type) {
-      queryBuilder.andWhere('channel.type = :type', { type: params.type });
-    }
-    if (params.departmentId) {
-      queryBuilder.andWhere('channel.departmentId = :departmentId', {
-        departmentId: params.departmentId,
-      });
-    }
-    if (params.apiStatus) {
-      queryBuilder.andWhere('channel.apiStatus = :apiStatus', {
-        apiStatus: params.apiStatus,
-      });
-    }
-    // Assuming Channel entity has 'createdAt' field
-    if (params.createdAfter && params.createdBefore) {
-      queryBuilder.andWhere(
-        'channel.createdAt BETWEEN :createdAfter AND :createdBefore',
-        {
-          createdAfter: params.createdAfter,
-          createdBefore: params.createdBefore,
-        },
-      );
-    } else {
-      if (params.createdAfter) {
-        queryBuilder.andWhere('channel.createdAt >= :createdAfter', {
-          createdAfter: params.createdAfter,
-        });
-      }
-      if (params.createdBefore) {
-        queryBuilder.andWhere('channel.createdAt <= :createdBefore', {
-          createdBefore: params.createdBefore,
-        });
-      }
-    }
-    queryBuilder.leftJoinAndSelect('channel.department', 'department'); // Ensure department is loaded
-
     return queryBuilder.getMany();
   }
 
@@ -297,23 +225,19 @@ export class ChannelsService {
   async getByShopIdAndUserIdAndCountUnreadMessages(
     shopId: string,
     userId?: string,
-  ): Promise<{ type: ChannelType; totalUnreadMessages: number }[]> {
-    const channelQueryBuild = this.channelRepository
-      .createQueryBuilder('channel')
-      .andWhere('channel.shop_id = :shopId', { shopId })
-      .leftJoinAndSelect('channel.conversations', 'conversations')
-      .leftJoinAndSelect('conversations.members', 'members');
+  ) {
+    const channels = await this.channelRepository.find({
+      where: {
+        shop: { id: shopId },
+        ...(userId ? { users: { id: userId } } : {}),
+      },
+      relations: ['conversations'],
+    });
 
-    if (userId) {
-      channelQueryBuild.where('members.userId = :userId', { userId });
-    }
-
-    const channels = await channelQueryBuild.getMany();
     const channelsWithUnreadMessages = channels.map(async (channel) => {
       const conversationsWithUnreadMessages = await Promise.all(
         channel.conversations.map(async (conv) => {
           return {
-            ...conv,
             unreadMessagesCount:
               await this.conversationsService.getUnReadMessagesCount(
                 conv.id,
@@ -338,14 +262,14 @@ export class ChannelsService {
 
     const groupChannelsWithUnreadMessages = {};
     channelsWithUnreadMessagesPromise.forEach((channel) => {
-      if (groupChannelsWithUnreadMessages[channel.id]) {
-        groupChannelsWithUnreadMessages[channel.id] = {
+      if (groupChannelsWithUnreadMessages[channel.type]) {
+        groupChannelsWithUnreadMessages[channel.type] = {
           type: channel.type,
           totalUnreadMessages:
             channel.totalUnreadMessages + channel.totalUnreadMessages,
         };
       } else {
-        groupChannelsWithUnreadMessages[channel.id] = {
+        groupChannelsWithUnreadMessages[channel.type] = {
           type: channel.type,
           totalUnreadMessages: channel.totalUnreadMessages,
         };
@@ -353,10 +277,7 @@ export class ChannelsService {
     });
 
     // Convert the object to an array if needed
-    const result: {
-      type: ChannelType;
-      totalUnreadMessages: number;
-    }[] = Object.values(groupChannelsWithUnreadMessages);
+    const result = Object.values(groupChannelsWithUnreadMessages);
     return result;
   }
 
@@ -435,19 +356,24 @@ export class ChannelsService {
     });
   }
 
-  async updateShopId(shop: Shop, appId: string): Promise<Channel> {
+  async updateShopId(
+    shop: Shop,
+    appId: string,
+    userId: string,
+  ): Promise<Channel> {
     const channel = await this.channelRepository.findOne({
       where: { appId },
+      relations: ['users'],
     });
 
-    if (!channel) {
-      throw new NotFoundException(`Channel with appId ${appId} not found`);
+    const userExists = channel.users.some((user) => user.id === userId);
+    if (!userExists) {
+      const user = await this.usersService.getOne(userId);
+      channel.users = [user];
     }
-    channel.shop = shop; // Update the shop for the channel
+    channel.shop = shop;
 
-    await this.channelRepository.save(channel);
-
-    return channel;
+    return this.channelRepository.save(channel);
   }
 
   async findByType(type: ChannelType): Promise<Channel[]> {

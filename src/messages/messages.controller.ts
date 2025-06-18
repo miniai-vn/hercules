@@ -45,10 +45,9 @@ export class MessagesController {
   async create(
     @Body() createMessageDto: CreateMessageDto,
   ): Promise<ApiResponse<MessageResponseDto>> {
-    const message = await this.messagesService.create(createMessageDto);
+    // const message = await this.messagesService.create(createMessageDto);
     return {
       message: 'Message created successfully',
-      data: message,
     };
   }
 
@@ -92,15 +91,6 @@ export class MessagesController {
     return {
       message: 'Messages queried successfully',
       data: messages,
-    };
-  }
-
-  @Get('stats')
-  async getStats(): Promise<ApiResponse<MessageStatsDto>> {
-    const stats = await this.messagesService.getStats();
-    return {
-      message: 'Message statistics retrieved successfully',
-      data: stats,
     };
   }
 
@@ -201,18 +191,6 @@ export class MessagesController {
     };
   }
 
-  @Get('conversation/:conversationId/stats')
-  async getConversationStats(
-    @Param('conversationId', ParseIntPipe) conversationId: number,
-  ): Promise<ApiResponse<MessageStatsDto>> {
-    const stats =
-      await this.messagesService.getConversationStats(conversationId);
-    return {
-      message: 'Conversation message statistics retrieved successfully',
-      data: stats,
-    };
-  }
-
   @Delete('conversation/:conversationId')
   @HttpCode(HttpStatus.OK)
   async deleteAllInConversation(
@@ -225,6 +203,4 @@ export class MessagesController {
       data: result,
     };
   }
-
-  
 }

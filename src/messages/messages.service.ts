@@ -1,11 +1,6 @@
-import {
-  forwardRef,
-  Inject,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Conversation } from 'src/conversations/conversations.entity';
 import { In, IsNull, Not, Repository } from 'typeorm';
 import {
   BulkCreateMessagesDto,
@@ -17,33 +12,21 @@ import {
   MessageWithConversationDto,
   PaginatedMessagesDto,
   RestoreMessageDto,
-  SenderType,
   UpdateMessageDto,
 } from './messages.dto';
 import { Message } from './messages.entity';
-import { ConversationsService } from 'src/conversations/conversations.service';
-import { CustomersService } from 'src/customers/customers.service';
-import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class MessagesService {
   constructor(
     @InjectRepository(Message)
     private readonly messageRepository: Repository<Message>,
-    private readonly customersService: CustomersService,
-    private readonly usersService: UsersService,
-    @Inject(forwardRef(() => ConversationsService))
-    private readonly conversationsService: ConversationsService,
   ) {}
 
   async create(
     createMessageDto: CreateMessageDto,
+    conversation: Conversation,
   ): Promise<MessageResponseDto> {
-    // Validate conversation exists
-    const conversation = await this.conversationsService.findOne(
-      createMessageDto.conversationId,
-    );
-
     const message = this.messageRepository.create({
       ...createMessageDto,
       conversation: conversation,
@@ -183,9 +166,6 @@ export class MessagesService {
     limit: number,
     includeDeleted: boolean = false,
   ): Promise<PaginatedMessagesDto> {
-    // Validate conversation exists
-    await this.conversationsService.findOne(conversationId);
-
     const offset = (page - 1) * limit;
     const queryBuilder = this.messageRepository
       .createQueryBuilder('message')
@@ -325,84 +305,9 @@ export class MessagesService {
     return this.toResponseDto(restoredMessage);
   }
 
-  async getStats(): Promise<MessageStatsDto> {
-    const totalMessages = await this.messageRepository.count({
-      where: { deletedAt: IsNull() },
-    });
-
-    // Get messages by content type
-    const messagesByType = await this.messageRepository
-      .createQueryBuilder('message')
-      .select('message.contentType', 'contentType')
-      .addSelect('COUNT(*)', 'count')
-      .where('message.deletedAt IS NULL')
-      .groupBy('message.contentType')
-      .getRawMany();
-
-    // Get messages by sender type
-    const messagesBySender = await this.messageRepository
-      .createQueryBuilder('message')
-      .select('message.senderType', 'senderType')
-      .addSelect('COUNT(*)', 'count')
-      .where('message.deletedAt IS NULL')
-      .groupBy('message.senderType')
-      .getRawMany();
-
-    return {
-      totalMessages,
-      messagesByType: messagesByType.reduce((acc, item) => {
-        acc[item.contentType] = parseInt(item.count);
-        return acc;
-      }, {}),
-      messagesBySender: messagesBySender.reduce((acc, item) => {
-        acc[item.senderType] = parseInt(item.count);
-        return acc;
-      }, {}),
-    };
-  }
-
-  async getConversationStats(conversationId: number): Promise<MessageStatsDto> {
-    const totalMessages = await this.messageRepository.count({
-      where: { conversation: { id: conversationId }, deletedAt: IsNull() },
-    });
-
-    const messagesByType = await this.messageRepository
-      .createQueryBuilder('message')
-      .select('message.contentType', 'contentType')
-      .addSelect('COUNT(*)', 'count')
-      .where('message.conversationId = :conversationId', { conversationId })
-      .andWhere('message.deletedAt IS NULL')
-      .groupBy('message.contentType')
-      .getRawMany();
-
-    const messagesBySender = await this.messageRepository
-      .createQueryBuilder('message')
-      .select('message.senderType', 'senderType')
-      .addSelect('COUNT(*)', 'count')
-      .where('message.conversationId = :conversationId', { conversationId })
-      .andWhere('message.deletedAt IS NULL')
-      .groupBy('message.senderType')
-      .getRawMany();
-
-    return {
-      totalMessages,
-      messagesByType: messagesByType.reduce((acc, item) => {
-        acc[item.contentType] = parseInt(item.count);
-        return acc;
-      }, {}),
-      messagesBySender: messagesBySender.reduce((acc, item) => {
-        acc[item.senderType] = parseInt(item.count);
-        return acc;
-      }, {}),
-    };
-  }
-
   async deleteAllInConversation(
     conversationId: number,
   ): Promise<{ deletedCount: number }> {
-    // Validate conversation exists
-    await this.conversationsService.findOne(conversationId);
-
     const messages = await this.messageRepository.find({
       where: { conversation: { id: conversationId }, deletedAt: IsNull() },
     });
@@ -412,42 +317,6 @@ export class MessagesService {
     }
 
     return { deletedCount: messages.length };
-  }
-
-  async getInfoSenderMessages(id: number) {
-    try {
-      const message = await this.messageRepository.findOne({
-        where: { id, deletedAt: IsNull() },
-        select: ['senderId', 'senderType'],
-        order: { createdAt: 'DESC' },
-      });
-
-      if (message.senderType === SenderType.customer) {
-        const customer = await this.customersService.findOne(message.senderId);
-        return {
-          id: message.id,
-          senderType: message.senderType,
-          senderId: message.senderId,
-          name: customer.name,
-          avatar: customer?.avatar,
-        };
-      }
-
-      if (message.senderType === SenderType.user) {
-        const user = await this.usersService.getOne(message.senderId);
-        return {
-          id: message.id,
-          senderType: message.senderType,
-          senderId: message.senderId,
-          name: user.name,
-          avatar: user.avatar,
-        };
-      }
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Error retrieving sender info for message ID ${id}: ${error.message}`,
-      );
-    }
   }
 
   private toResponseDto(message: Message): MessageResponseDto {
@@ -463,22 +332,6 @@ export class MessagesService {
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
       deletedAt: message.deletedAt,
-    };
-  }
-
-  private toDetailedResponseDto(
-    message: Message,
-    conversation: any,
-  ): MessageWithConversationDto {
-    return {
-      ...this.toResponseDto(message),
-      conversation: {
-        id: conversation.id,
-        name: conversation.name,
-        type: conversation.type,
-        customerParticipants: conversation.customerParticipants,
-        userParticipants: conversation.userParticipants,
-      },
     };
   }
 }

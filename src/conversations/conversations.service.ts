@@ -24,6 +24,7 @@ import {
   UpdateConversationDto,
 } from './dto/conversation.dto';
 import { UsersService } from 'src/users/users.service';
+import { Message } from 'src/messages/messages.entity';
 
 @Injectable()
 export class ConversationsService {
@@ -64,62 +65,8 @@ export class ConversationsService {
     }
   }
 
-  async findAll(
-    page: number,
-    limit: number,
-    search: string,
-    shopId: string,
-  ): Promise<PaginatedConversationsDto> {
-    try {
-      const offset = (page - 1) * limit;
-
-      const queryBuilder = this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoin(
-          'conversation_members',
-          'members',
-          'members.conversation_id = conversation.id',
-        )
-        .leftJoin(
-          'customers',
-          'customers',
-          'customers.id = members.customer_id',
-        )
-        .leftJoin('shops', 'shops', 'shops.id = customers.shop_id')
-        .leftJoin('users', 'users', 'users.id = members.user_id')
-        .where('(shops.id = :shopId OR users.shop_id = :shopId)', { shopId })
-        .andWhere('members.is_active = true');
-
-      if (search) {
-        queryBuilder.andWhere(
-          '(conversation.name ~* :search OR conversation.content ~* :search)',
-          { search: search },
-        );
-      }
-
-      queryBuilder
-        .groupBy('conversation.id')
-        .skip(offset)
-        .take(limit)
-        .orderBy('conversation.updated_at', 'DESC');
-
-      const [conversations, total] = await queryBuilder.getManyAndCount();
-
-      return {
-        conversations: conversations.map((conv) => this.toResponseDto(conv)),
-        total,
-        page,
-        perPage: limit,
-        totalPages: Math.ceil(total / limit),
-      };
-    } catch (error) {
-      throw new InternalServerErrorException('Failed to get conversations');
-    }
-  }
-
   async findOne(id: number): Promise<ConversationResponseDto> {
     try {
-      // Verify the conversation belongs to the shop through its members
       const conversation = await this.conversationRepository
         .createQueryBuilder('conversation')
         .leftJoinAndSelect('conversation.members', 'members')
@@ -154,28 +101,6 @@ export class ConversationsService {
         }
 
         const newParticipants: AddParticipantDto[] = [];
-
-        // if (customerParticipantIds && customerParticipantIds.length > 0) {
-        //   const customerParticipants = customerParticipantIds.map(
-        //     (customerId) => ({
-        //       participantType: ParticipantType.CUSTOMER,
-        //       customerId: customerId.toString(),
-        //       role: 'member',
-        //       notificationsEnabled: true,
-        //     }),
-        //   );
-        //   newParticipants.push(...customerParticipants);
-        // }
-
-        // if (userParticipantIds && userParticipantIds.length > 0) {
-        //   const userParticipants = userParticipantIds.map((userId) => ({
-        //     participantType: ParticipantType.USER,
-        //     userId,
-        //     role: 'member',
-        //     notificationsEnabled: true,
-        //   }));
-        //   newParticipants.push(...userParticipants);
-        // }
 
         if (newParticipants.length > 0) {
           await this.conversationMembersService.addMultipleParticipants(id, {
@@ -257,9 +182,6 @@ export class ConversationsService {
 
       return this.toResponseDto(conversation);
     } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
       throw new InternalServerErrorException('Failed to add participants');
     }
   }
@@ -315,7 +237,7 @@ export class ConversationsService {
       const messages = await Promise.all(
         conversation.messages.map(async (message) => ({
           ...message,
-          sender: await this.messagesService.getInfoSenderMessages(message.id),
+          sender: await this.getInfoSenderMessages(message),
         })),
       );
 
@@ -345,19 +267,23 @@ export class ConversationsService {
         .leftJoinAndSelect('conversation.members', 'members')
         .leftJoinAndSelect('members.customer', 'customer')
         .leftJoinAndSelect('members.user', 'user')
+        .leftJoinAndSelect('conversation.channel', 'channel')
         .leftJoinAndSelect('conversation.tags', 'tags')
+        .where('channel.shop_id = :shopId', {
+          shopId: queryParams.shopId,
+        })
         .orderBy('conversation.createdAt', 'DESC');
 
-      if (queryParams.tagId) {
-        queryBuilder.andWhere('tags.id = :tagId', { tagId: queryParams.tagId });
+      if (queryParams.channelType) {
+        queryBuilder.andWhere('channel.type = :channelType', {
+          channelType: queryParams.channelType.toLocaleLowerCase(),
+        });
       }
 
-      if (queryParams.channelType) {
-        queryBuilder
-          .leftJoinAndSelect('conversation.channel', 'channel')
-          .where('channel.type = :channelType', {
-            channelType: queryParams.channelType.toLocaleLowerCase(),
-          });
+      if (queryParams.tagId) {
+        queryBuilder.andWhere('tags.id = :tagId', {
+          tagId: Number(queryParams.tagId),
+        });
       }
 
       if (queryParams.userId) {
@@ -423,6 +349,7 @@ export class ConversationsService {
           return {
             ...this.toResponseDto(conv),
             tags: conv.tags,
+            channel: conv.channel,
             unreadMessagesCount: countMessagesUnread,
             isRead: countMessagesUnread === 0,
             lastestMessage,
@@ -452,17 +379,19 @@ export class ConversationsService {
     userId: string,
   ): Promise<number> {
     try {
-      const conversation = await this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.messages', 'messages')
-        .leftJoinAndSelect('conversation.members', 'members')
-        .leftJoinAndSelect('members.lastMessage', 'lastMessage')
-        .where('conversation.id = :conversationId', { conversationId })
-        .getOne();
+      const conversation = await this.conversationRepository.findOne({
+        where: { id: conversationId },
+        relations: ['messages', 'members'],
+        order: {
+          messages: {
+            createdAt: 'ASC',
+          },
+        },
+      });
 
-      const lastMessageId =
-        conversation.members.find((member) => member.userId === userId)
-          ?.lastMessage?.id ?? 0;
+      const lastMessageId = conversation.members.find(
+        (member) => member.userId === userId,
+      )?.lastMessage?.id;
 
       const messages = conversation.messages.filter(
         (msg) => msg.id > lastMessageId,
@@ -498,9 +427,7 @@ export class ConversationsService {
       const lastMessage = conversation.messages.pop();
       await this.conversationMembersService.updateLastMessage(
         currentMembersId,
-        {
-          messageId: lastMessage.id,
-        },
+        lastMessage,
       );
     } catch (error) {
       throw new InternalServerErrorException(
@@ -624,13 +551,15 @@ export class ConversationsService {
         isNewConversation = true;
       }
 
-      const messageData = await this.messagesService.create({
-        conversationId: conversation.id,
-        content: message,
-        contentType: 'text',
-        senderType: SenderType.customer,
-        senderId: customer.id,
-      });
+      const messageData = await this.messagesService.create(
+        {
+          content: message,
+          contentType: 'text',
+          senderType: SenderType.customer,
+          senderId: customer.id,
+        },
+        conversation,
+      );
 
       return {
         conversation,
@@ -638,10 +567,33 @@ export class ConversationsService {
         isNewConversation,
       };
     } catch (error) {
-      console.log(error);
       throw new InternalServerErrorException(
         'Failed to get conversation by channel and customer',
       );
+    }
+  }
+
+  async getInfoSenderMessages(message: Message) {
+    if (message.senderType === SenderType.customer) {
+      const customer = await this.customerService.findOne(message.senderId);
+      return {
+        id: message.id,
+        senderType: message.senderType,
+        senderId: message.senderId,
+        name: customer.name,
+        avatar: customer?.avatar,
+      };
+    }
+
+    if (message.senderType === SenderType.user) {
+      const user = await this.userService.getOne(message.senderId);
+      return {
+        id: message.id,
+        senderType: message.senderType,
+        senderId: message.senderId,
+        name: user.name,
+        avatar: user.avatar,
+      };
     }
   }
 
@@ -663,6 +615,7 @@ export class ConversationsService {
     return {
       id: conversation.id,
       name: conversation?.name,
+      avatar: conversation?.avatar,
       type: conversation?.type,
       content: conversation?.content,
       createdAt: conversation?.createdAt,

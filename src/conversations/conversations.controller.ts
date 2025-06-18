@@ -22,7 +22,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/auth.guard';
+import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 import { ConversationsService } from './conversations.service';
 import {
   AddParticipantsDto,

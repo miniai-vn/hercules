@@ -2,7 +2,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { ShopsModule } from 'src/shops/shops.module';
-import { JwtAuthGuard } from './auth.guard';
+import { JwtAuthGuard } from './gaurds/jwt-auth.guard';
 @Module({
   imports: [
     ConfigModule.forRoot({

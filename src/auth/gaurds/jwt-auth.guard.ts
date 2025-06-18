@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
-import { ShopService } from '../shops/shops.service';
+import { ShopService } from 'src/shops/shops.service';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {

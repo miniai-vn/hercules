@@ -9,7 +9,7 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/auth.guard';
+import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 import { Shop } from './shops.entity';
 import { ShopService } from './shops.service';
 

@@ -17,7 +17,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/auth.guard'; // Ensure this path is correct
 import { Channel } from './channels.entity';
 import { ChannelsService } from './channels.service';
 import { ChannelUserIdsDto } from './dto/channel-user-ids.dto';
@@ -29,6 +28,7 @@ import {
   UpdateChannelDto,
   UpdateChannelStatusDto,
 } from './dto/channel.dto';
+import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 
 interface ApiResponse<T> {
   message: string;

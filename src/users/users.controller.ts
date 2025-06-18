@@ -30,7 +30,7 @@ import {
   ChangePasswordDto,
   PaginatedUsersDto,
 } from './dto/user.dto';
-import { JwtAuthGuard } from '../auth/auth.guard';
+import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 
 @ApiTags('Users')
 @Controller('users')

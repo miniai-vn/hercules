@@ -1,19 +1,20 @@
-// auth/auth.guard.ts
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
+  Injectable,
   UnauthorizedException,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
 import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
-import { ShopService } from '../shops/shops.service';
+import { RolesService } from 'src/roles/roles.service';
+import { ShopService } from 'src/shops/shops.service';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly shopService: ShopService) {}
+  constructor(
+    private readonly shopService: ShopService,
+    private readonly rolesService: RolesService, // Assuming RolesService is used elsewhere
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
@@ -24,12 +25,10 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      // Verify and decode the token created by Python
       const payload = jwt.verify(token, process.env.JWT_SECRET_KEY, {
         algorithms: [(process.env.JWT_ALGORITHM || 'HS256') as jwt.Algorithm],
       });
 
-      // Ensure payload is an object and has shop_id
       if (
         typeof payload !== 'object' ||
         payload === null ||
@@ -37,16 +36,24 @@ export class JwtAuthGuard implements CanActivate {
       ) {
         throw new UnauthorizedException('Invalid token payload');
       }
+      const roles = await this.rolesService.findByUserId(
+        (payload as any).user_id, // Assuming user_id is in the payload
+      );
+      const permissionsUniqueCode = new Set<string>();
+      roles.forEach((role) => {
+        role.permissions.forEach((permission) => {
+          permissionsUniqueCode.add(permission.code);
+        });
+      });
 
-      // Fetch shop using ShopService
       const shop = await this.shopService.findOne((payload as any).shop_id);
       if (!shop) {
         throw new UnauthorizedException('Shop not found');
       }
-      // Attach user and shop to request object
+
       request['user'] = payload;
       request['shop'] = shop;
-      // console.log('Associated shop:', request['shop']);
+      request['permissions'] = Array.from(permissionsUniqueCode);
       return true;
     } catch (error) {
       if (error.name === 'TokenExpiredError') {

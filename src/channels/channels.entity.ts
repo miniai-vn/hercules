@@ -2,7 +2,7 @@ import { Conversation } from 'src/conversations/conversations.entity';
 import { Customer } from 'src/customers/customers.entity';
 import { Department } from 'src/departments/departments.entity';
 import { Shop } from 'src/shops/shops.entity';
-import { User } from 'src/users/users.entity';
+import { User } from 'src/users/entities/users.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,

@@ -1,22 +1,26 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
+import { RolesModule } from 'src/roles/roles.module';
 import { ShopsModule } from 'src/shops/shops.module';
-import { JwtAuthGuard } from './auth.guard';
+import { AuthService } from './auth.service';
+import { UsersModule } from 'src/users/users.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true, // Makes config available globally
-      envFilePath: '.env', // Path to your .env file
+      isGlobal: true,
+      envFilePath: '.env',
     }),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '60s' },
+      signOptions: { expiresIn: '24h' },
     }),
-    forwardRef(() => ShopsModule), // Importing ShopsModule for shop-related functionalities
+    ShopsModule,
+    RolesModule,
+    UsersModule,
   ],
-  providers: [JwtAuthGuard],
-  exports: [JwtAuthGuard],
+  providers: [AuthService],
+  exports: [],
 })
 export class AuthModule {}

@@ -11,7 +11,7 @@ import {
 } from 'typeorm';
 import { Conversation } from '../conversations/conversations.entity';
 import { Customer } from '../customers/customers.entity';
-import { User } from '../users/users.entity';
+import { User } from '../users/entities/users.entity';
 import { Message } from 'src/messages/messages.entity';
 
 export enum ParticipantType {

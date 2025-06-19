@@ -1,14 +1,16 @@
 import { Channel } from 'src/channels/channels.entity';
+import { Resource } from 'src/resources/resources.entity';
 import { Shop } from 'src/shops/shops.entity';
-import { User } from 'src/users/users.entity';
+import { UserDepartment } from 'src/users/entities/user-department.entity';
+import { User } from 'src/users/entities/users.entity';
 import {
   Column,
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
   JoinColumn,
-  ManyToMany,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -45,6 +47,12 @@ export class Department {
 
   channels: Channel[];
 
-  @ManyToMany(() => User, (user) => user.departments)
+  @OneToMany(
+    () => UserDepartment,
+    (userDepartment) => userDepartment.department,
+  )
   users: User[];
+
+  @OneToMany(() => Resource, (resource) => resource.department)
+  resources: Resource[];
 }

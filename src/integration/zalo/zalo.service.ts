@@ -8,7 +8,7 @@ import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
 import { KafkaService } from 'src/kafka/kafka.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { Channel } from 'src/channels/channels.entity';
-import { Method } from 'src/common/enum';
+import { HttpMethod } from 'src/common/enums/http-method.enum';
 
 dotenv.config();
 
@@ -181,7 +181,7 @@ export class ZaloService {
     return this.callZaloAuthenticatedAPI(
       ZALO_CONFIG.ENDPOINTS.SEND_MESSAGE,
       accessToken,
-      Method.POST,
+      HttpMethod.POST,
       messageData,
     );
   }
@@ -196,7 +196,7 @@ export class ZaloService {
     return this.callZaloAuthenticatedAPI(
       ZALO_CONFIG.ENDPOINTS.GET_USER_PROFILE,
       accessToken,
-      Method.GET,
+      HttpMethod.GET,
       { user_id: userId },
     );
   }

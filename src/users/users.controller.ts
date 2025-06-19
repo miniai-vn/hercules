@@ -1,36 +1,28 @@
 import {
+  Body,
   Controller,
   Get,
   Post,
-  Put,
-  Delete,
-  Body,
-  Param,
   Query,
-  UseGuards,
   Req,
-  ParseUUIDPipe,
+  UseGuards
 } from '@nestjs/common';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-  ApiBody,
-  ApiQuery,
   ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags
 } from '@nestjs/swagger';
-import { UsersService } from './users.service';
+import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 import {
   CreateUserDto,
-  UpdateUserDto,
-  UserResponseDto,
-  UserPaginationQueryDto,
-  UserBulkDeleteDto,
-  ChangePasswordDto,
   PaginatedUsersDto,
+  UserPaginationQueryDto,
+  UserResponseDto
 } from './dto/user.dto';
-import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
+import { UsersService } from './users.service';
 
 @ApiTags('Users')
 @Controller('users')

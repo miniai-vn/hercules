@@ -9,13 +9,15 @@ import {
 } from 'typeorm';
 import { Resource } from './resources.entity';
 import { PaginatedResult } from 'src/common/types/reponse.type';
-import { ResourceQueryDto } from './dto/resources.dto';
+import { CreateResourceDto, ResourceQueryDto } from './dto/resources.dto';
+import { DepartmentsService } from 'src/departments/departments.service';
 
 @Injectable()
 export class ResourcesService {
   constructor(
     @InjectRepository(Resource)
     private readonly resourceRepository: Repository<Resource>,
+    private readonly departmentService: DepartmentsService,
   ) {}
 
   async query(query: ResourceQueryDto): Promise<PaginatedResult<Resource>> {
@@ -74,9 +76,14 @@ export class ResourcesService {
     };
   }
 
-  async create(data: Partial<Resource>): Promise<Resource> {
+  async create(data: CreateResourceDto): Promise<Resource> {
     try {
-      const resource = this.resourceRepository.create(data);
+      const resource = this.resourceRepository.create({
+        ...data,
+        department: data.departmentId
+          ? await this.departmentService.findOne(data.departmentId)
+          : null,
+      });
       return await this.resourceRepository.save(resource);
     } catch (error) {
       throw new InternalServerErrorException(

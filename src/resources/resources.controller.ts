@@ -61,10 +61,11 @@ export class ResourcesController {
   @Post()
   @ApiOperation({ summary: 'Create a new resource' })
   @HttpCode(HttpStatus.CREATED)
-  async create(
-    @Body() createResourceDto: CreateResourceDto,
-  ): Promise<Resource> {
-    return this.resourcesService.create(createResourceDto);
+  async create(@Body() createResourceDto: CreateResourceDto) {
+    return {
+      data: await this.resourcesService.create(createResourceDto),
+      message: 'Resource created successfully',
+    };
   }
 
   @Put(':id')

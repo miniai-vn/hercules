@@ -30,6 +30,7 @@ import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { UserDepartmentPermissionsModule } from './user-dept-perm/user-dept-perm.module';
 import { ResourceModule } from './resources/resources.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { ResourceModule } from './resources/resources.module';
     PermissionsModule,
     UserDepartmentPermissionsModule,
     ResourceModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],

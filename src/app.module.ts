@@ -29,6 +29,7 @@ import { TagsModule } from './tags/tags.module';
 import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { UserDepartmentPermissionsModule } from './user-dept-perm/user-dept-perm.module';
+import { ResourceModule } from './resources/resources.module';
 
 @Module({
   imports: [
@@ -59,7 +60,7 @@ import { UserDepartmentPermissionsModule } from './user-dept-perm/user-dept-perm
         getDatabaseConfig(configService),
       inject: [ConfigService],
     }),
-    // RolesModule,
+    RolesModule,
     ItemsModule,
     CategoriesModule,
     ShopsModule,
@@ -79,6 +80,7 @@ import { UserDepartmentPermissionsModule } from './user-dept-perm/user-dept-perm
     KafkaModule,
     PermissionsModule,
     UserDepartmentPermissionsModule,
+    ResourceModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],

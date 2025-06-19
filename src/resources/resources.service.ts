@@ -7,31 +7,32 @@ import {
   MoreThanOrEqual,
   LessThanOrEqual,
 } from 'typeorm';
-import { Department } from './departments.entity';
-import { DepartmentPaginationQueryDto } from './dto/departments.dto';
+import { Resource } from './resources.entity';
 import { PaginatedResult } from 'src/common/types/reponse.type';
+import { ResourceQueryDto } from './dto/resources.dto';
 
 @Injectable()
-export class DepartmentsService {
+export class ResourcesService {
   constructor(
-    @InjectRepository(Department)
-    private readonly departmentRepository: Repository<Department>,
+    @InjectRepository(Resource)
+    private readonly resourceRepository: Repository<Resource>,
   ) {}
 
-  async query(
-    query: DepartmentPaginationQueryDto,
-  ): Promise<PaginatedResult<Department>> {
+  async query(query: ResourceQueryDto): Promise<PaginatedResult<Resource>> {
     const {
       createdAfter,
       createdBefore,
       search,
+      type,
+      status,
+      isActive,
+      departmentId,
       page = 1,
       limit = 20,
       includeDeleted = false,
-      shopId,
-      userId,
     } = query;
-    const filter: FindManyOptions<Department> = {
+
+    const filter: FindManyOptions<Resource> = {
       where: {
         ...(createdAfter && {
           createdAt: MoreThanOrEqual(new Date(createdAfter)),
@@ -42,18 +43,24 @@ export class DepartmentsService {
         ...(search && {
           name: ILike(`%${search}%`),
         }),
-        ...(shopId && { shopId }),
-        ...(userId && { userId }),
+        ...(type && { type }),
+        ...(status && { status }),
+        ...(isActive !== undefined && { isActive }),
+        ...(departmentId && { department: { id: departmentId } }),
       },
       relations: {
-        shop: true,
-        users: true,
+        department: true,
       },
       take: limit,
       skip: (page - 1) * limit,
       withDeleted: includeDeleted,
+      order: {
+        createdAt: 'DESC',
+      },
     };
-    const [data, total] = await this.departmentRepository.findAndCount(filter);
+
+    const [data, total] = await this.resourceRepository.findAndCount(filter);
+
     return {
       data,
       meta: {
@@ -67,42 +74,36 @@ export class DepartmentsService {
     };
   }
 
-  async create(data: Partial<Department>): Promise<Department> {
+  async create(data: Partial<Resource>): Promise<Resource> {
     try {
-      const department = this.departmentRepository.create(data);
-      return await this.departmentRepository.save(department);
+      const resource = this.resourceRepository.create(data);
+      return await this.resourceRepository.save(resource);
     } catch (error) {
       throw new InternalServerErrorException(
-        'Failed to create department',
+        'Failed to create resource',
         error.message,
       );
     }
   }
 
-  async findAll(): Promise<Department[]> {
-    return this.departmentRepository.find();
+  async findOne(id: number): Promise<Resource | null> {
+    return this.resourceRepository.findOne({
+      where: { id },
+      relations: {
+        department: true,
+      },
+    });
   }
 
-  async findOne(id: number): Promise<Department | null> {
-    return this.departmentRepository.findOne({ where: { id } });
-  }
-
-  async update(
-    id: number,
-    data: Partial<Department>,
-  ): Promise<Department | null> {
+  async update(id: number, data: Partial<Resource>): Promise<Resource | null> {
     try {
-      await this.departmentRepository.update(id, data);
+      await this.resourceRepository.update(id, data);
       return this.findOne(id);
     } catch (error) {
       throw new InternalServerErrorException(
-        'Failed to update department',
+        'Failed to update resource',
         error.message,
       );
     }
-  }
-
-  async remove(id: number): Promise<void> {
-    await this.departmentRepository.softDelete(id);
   }
 }

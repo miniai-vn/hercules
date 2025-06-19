@@ -20,6 +20,8 @@ import { Tag } from 'src/tags/tags.entity';
 import { Role } from 'src/roles/roles.entity';
 import { Permission } from 'src/permissions/permissions.entity';
 import { UserDepartmentPermission } from 'src/user-dept-perm/user-dept-perm.entity';
+import { UserDepartment } from 'src/users/entities/user-department.entity';
+import { Resource } from 'src/resources/resources.entity';
 
 export const getDatabaseConfig = (
   configService: ConfigService,
@@ -48,6 +50,8 @@ export const getDatabaseConfig = (
       Role,
       Permission,
       UserDepartmentPermission,
+      UserDepartment,
+      Resource,
     ],
     migrations: [
       isProduction
@@ -81,6 +85,8 @@ export const dataSourceOptions: DataSourceOptions = {
     Role,
     Permission,
     UserDepartmentPermission,
+    UserDepartment,
+    Resource,
   ],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,

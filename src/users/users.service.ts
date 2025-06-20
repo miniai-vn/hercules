@@ -404,7 +404,7 @@ export class UsersService {
 
         relations: ['shop'],
       });
-      return users.map((user) => this.toResponseDto(user));
+      return users;
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to find admin channel: ${error.message}`,

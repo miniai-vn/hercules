@@ -194,57 +194,9 @@ export class CustomersService {
     await this.customerRepository.remove(customer);
   }
 
-  async findByExternalId(
-    platform: string,
-    externalId: string,
-  ): Promise<CustomerResponseDto> {
-    const customer = await this.customerRepository.findOne({
-      where: { platform, externalId },
-      relations: ['shop', 'channel'],
-    });
-
-    if (!customer) {
-      throw new NotFoundException(
-        `Customer with platform '${platform}' and external ID '${externalId}' not found`,
-      );
-    }
-
-    return this.mapToResponseDto(customer);
-  }
-
   async findByPlatform(platform: string): Promise<Customer[]> {
     return this.customerRepository.find({
       where: { platform },
-      relations: ['shop', 'channel'],
-      order: { createdAt: 'DESC' },
-    });
-  }
-
-  async findByShopId(shopId: string): Promise<Customer[]> {
-    // Validate shop exists using ShopService
-    await this.shopService.findOne(shopId);
-
-    return this.customerRepository.find({
-      where: { shop: { id: shopId } },
-      relations: ['shop', 'channel'],
-      order: { createdAt: 'DESC' },
-    });
-  }
-
-  async findByChannelId(channelId: number): Promise<Customer[]> {
-    // Validate channel exists using ChannelService
-    await this.channelService.getOne(channelId);
-
-    return this.customerRepository.find({
-      where: { channel: { id: channelId } },
-      relations: ['shop', 'channel'],
-      order: { createdAt: 'DESC' },
-    });
-  }
-
-  async searchByName(searchTerm: string): Promise<Customer[]> {
-    return this.customerRepository.find({
-      where: { name: Like(`%${searchTerm}%`) },
       relations: ['shop', 'channel'],
       order: { createdAt: 'DESC' },
     });
@@ -256,33 +208,33 @@ export class CustomersService {
     name,
     shopId,
     channelId,
+    avatar
   }: {
     platform: string;
     externalId: string;
-    name?: string;
+    name: string;
     shopId?: string;
     channelId?: number;
+    avatar?: string;
   }) {
-    let customer = await this.customerRepository
-      .createQueryBuilder('customer')
-      .leftJoinAndSelect('customer.channel', 'channel')
-      .where('channel.type = :platform', { platform })
-      .andWhere('customer.externalId = :externalId', { externalId })
-      .getOne();
-    if (!customer) {
-      // If customer does not exist, create a new one
-      customer = this.customerRepository.create({
+    await this.customerRepository.upsert(
+      {
         platform,
         externalId,
         name,
-        shop: shopId ? await this.shopService.findOne(shopId) : null,
-        channel: channelId ? await this.channelService.getOne(channelId) : null,
-      });
+        avatar,
+        shop: shopId ? { id: shopId } : null,
+        channel: channelId ? { id: channelId } : null,
+      },
+      {
+        conflictPaths: ['externalId'],
+        skipUpdateIfNoValuesChanged: true,
+      },
+    );
 
-      customer = await this.customerRepository.save(customer);
-    }
-
-    return customer;
+    return await this.customerRepository.findOne({
+      where: { platform, externalId },
+    });
   }
 
   async addTagsToCustomer(
@@ -306,6 +258,12 @@ export class CustomersService {
 
     const updatedCustomer = await this.customerRepository.save(customer);
     return this.mapToResponseDto(updatedCustomer);
+  }
+
+  async findByExternalId(platform: string, externalId: string) {
+    return await this.customerRepository.findOne({
+      where: { externalId },
+    });
   }
 
   private mapToResponseDto(customer: Customer): CustomerResponseDto {

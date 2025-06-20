@@ -36,7 +36,6 @@ export class ZaloService {
         method,
         url: `${baseUrl}${endpoint}`,
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
           ...headers,
         },
       };
@@ -200,11 +199,12 @@ export class ZaloService {
     accessToken: string,
     userId: string,
   ): Promise<AxiosResponse> {
+    console.log('Fetching user profile for userId:', userId);
     return this.callZaloAuthenticatedAPI(
       ZALO_CONFIG.ENDPOINTS.GET_USER_PROFILE,
       accessToken,
       HttpMethod.GET,
-      { user_id: userId },
+      { data: JSON.stringify({ user_id: userId }) },
     );
   }
 

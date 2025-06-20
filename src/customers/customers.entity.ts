@@ -21,7 +21,13 @@ export class Customer {
   @Column({ type: 'varchar', length: 255, name: 'platform' })
   platform: string;
 
-  @Column({ type: 'varchar', length: 255, name: 'external_id' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    name: 'external_id',
+    unique: true,
+    nullable: true,
+  })
   externalId: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'avatar' })

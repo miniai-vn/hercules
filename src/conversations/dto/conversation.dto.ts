@@ -25,6 +25,14 @@ export class CreateConversationDto {
 
   @IsString()
   @IsOptional()
+  externalId?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  avatar?: string;
+
+  @IsString()
+  @IsOptional()
   content?: string;
 
   @IsNumber()

@@ -7,6 +7,8 @@ import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 import { ParticipantType } from 'src/conversation-members/conversation-members.entity';
 import { ZaloService } from 'src/integration/zalo/zalo.service';
+import { CustomersService } from 'src/customers/customers.service';
+import { UsersService } from 'src/users/users.service';
 
 export interface SendMessageData {
   conversationId: number;
@@ -42,7 +44,9 @@ export class ChatService {
     private readonly chatGateway: ChatGateway,
     private readonly conversationsService: ConversationsService,
     private readonly channelService: ChannelsService,
-    private readonly zaloService: ZaloService, // Assuming zaloService is used for Zalo-specific operations
+    private readonly zaloService: ZaloService,
+    private readonly customerService: CustomersService,
+    private readonly userService: UsersService,
   ) {}
   async sendMessagesZaloToPlatform(@Payload() data: ZaloWebhookDto) {
     const { message, recipient, sender } = data;
@@ -51,11 +55,31 @@ export class ChatService {
       recipient.id,
     );
 
+    let customer = await this.customerService.findByExternalId(
+      ChannelType.ZALO,
+      sender.id,
+    );
+    console.log('customer', customer);
+    if (!customer) {
+      const metadataCustomerZalo = await this.zaloService.getUserProfile(
+        zaloChannel.accessToken,
+        sender.id,
+      );
+
+      customer = await this.customerService.findOrCreateByExternalId({
+        platform: ChannelType.ZALO,
+        externalId: sender.id,
+        avatar: metadataCustomerZalo.data.data.avatar,
+        name: metadataCustomerZalo.data.data.display_name,
+        channelId: zaloChannel.id,
+      });
+    }
+
     const { conversation, messageData, isNewConversation } =
       await this.conversationsService.sendMessageToConversation({
         message: message.text,
         channel: zaloChannel,
-        customerId: sender.id,
+        customer,
       });
 
     if (isNewConversation) {

@@ -22,8 +22,9 @@ import {
   ConversationQueryParamsDto,
   ConversationResponseDto,
   CreateConversationDto,
-  UpdateConversationDto
+  UpdateConversationDto,
 } from './dto/conversation.dto';
+import { Customer } from 'src/customers/customers.entity';
 
 @Injectable()
 export class ConversationsService {
@@ -495,11 +496,11 @@ export class ConversationsService {
 
   async sendMessageToConversation({
     channel,
-    customerId,
+    customer,
     message = '',
   }: {
     channel: Channel;
-    customerId: string;
+    customer: Customer;
     message: string;
   }) {
     try {
@@ -509,7 +510,7 @@ export class ConversationsService {
         where: {
           members: {
             customer: {
-              externalId: customerId,
+              externalId: customer.id,
             },
           },
           channel: {
@@ -523,22 +524,16 @@ export class ConversationsService {
         },
       });
 
-      const customer = await this.customerService.findOrCreateByExternalId({
-        externalId: customerId,
-        shopId: channel.shop.id,
-        platform: ChannelType.ZALO,
-        channelId: channel.id,
-      });
-
       if (!conversation) {
         const adminChannels = await this.userService.findAdminChannel(
           channel.id,
         );
         conversation = await this.create(
           {
-            name: 'New Conversation',
+            name: customer.name || 'Unknown Customer',
             type: ConversationType.DIRECT,
-            content: '',
+            avatar: customer.avatar || '',
+            externalId: customer.externalId,
             customerParticipantIds: [customer.id],
             userParticipantIds: adminChannels.map((user) => user.id),
           },
@@ -547,7 +542,11 @@ export class ConversationsService {
 
         conversation = await this.conversationRepository.findOne({
           where: { id: conversation.id },
-          relations: ['members', 'channel', 'members.user'],
+          relations: {
+            members: true,
+            channel: true,
+            messages: true,
+          },
         });
         isNewConversation = true;
       }

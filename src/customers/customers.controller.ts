@@ -161,30 +161,6 @@ export class CustomersController {
     return this.customersService.remove(id);
   }
 
-  @Post('find-by-external-id')
-  @ApiOperation({ summary: 'Find customer by external platform ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customer found',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - invalid or missing token',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Customer not found',
-  })
-  async findByExternalId(
-    @Body() findCustomerDto: FindCustomerByExternalIdDto,
-  ): Promise<CustomerResponseDto> {
-    return this.customersService.findByExternalId(
-      findCustomerDto.platform,
-      findCustomerDto.externalId,
-    );
-  }
-
   @Get('platform/:platform')
   @ApiOperation({ summary: 'Get customers by platform' })
   @ApiParam({

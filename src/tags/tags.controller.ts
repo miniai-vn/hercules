@@ -27,7 +27,7 @@ import {
   UpdateTagDto,
 } from './dto/tag.dto';
 import { TagsService } from './tags.service';
-import { JwtAuthGuard } from '../auth/auth.guard';
+import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 
 @ApiTags('Tags')
 @Controller('tags')

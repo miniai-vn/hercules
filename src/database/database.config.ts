@@ -14,9 +14,14 @@ import { Channel } from 'src/channels/channels.entity';
 import { Customer } from 'src/customers/customers.entity';
 import { Conversation } from 'src/conversations/conversations.entity';
 import { Message } from 'src/messages/messages.entity';
-import { User } from 'src/users/users.entity';
+import { User } from 'src/users/entities/users.entity';
 import { ConversationMember } from 'src/conversation-members/conversation-members.entity';
 import { Tag } from 'src/tags/tags.entity';
+import { Role } from 'src/roles/roles.entity';
+import { Permission } from 'src/permissions/permissions.entity';
+import { UserDepartmentPermission } from 'src/user-dept-perm/user-dept-perm.entity';
+import { UserDepartment } from 'src/users/entities/user-department.entity';
+import { Resource } from 'src/resources/resources.entity';
 
 export const getDatabaseConfig = (
   configService: ConfigService,
@@ -42,6 +47,11 @@ export const getDatabaseConfig = (
       User,
       ConversationMember,
       Tag,
+      Role,
+      Permission,
+      UserDepartmentPermission,
+      UserDepartment,
+      Resource,
     ],
     migrations: [
       isProduction
@@ -72,6 +82,11 @@ export const dataSourceOptions: DataSourceOptions = {
     User,
     ConversationMember,
     Tag,
+    Role,
+    Permission,
+    UserDepartmentPermission,
+    UserDepartment,
+    Resource,
   ],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: false,

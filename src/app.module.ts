@@ -20,13 +20,17 @@ import { getDatabaseConfig } from './database/database.config';
 import { DepartmentsModule } from './departments/departments.module';
 import { IntegrationModule } from './integration/integration.module';
 import { ItemsModule } from './items/items.module';
+import { KafkaModule } from './kafka/kafka.module';
 import { MessagesModule } from './messages/messages.module';
 import { MiniaiModule } from './miniai/miniai.module';
+import { PermissionsModule } from './permissions/permissions.module';
 import { ShopsModule } from './shops/shops.module';
 import { TagsModule } from './tags/tags.module';
 import { UsersModule } from './users/users.module';
-import { KafkaModule } from './kafka/kafka.module';
-import { KafkaService } from './kafka/kafka.service';
+import { RolesModule } from './roles/roles.module';
+import { UserDepartmentPermissionsModule } from './user-dept-perm/user-dept-perm.module';
+import { ResourceModule } from './resources/resources.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -57,6 +61,7 @@ import { KafkaService } from './kafka/kafka.service';
         getDatabaseConfig(configService),
       inject: [ConfigService],
     }),
+    RolesModule,
     ItemsModule,
     CategoriesModule,
     ShopsModule,
@@ -74,6 +79,10 @@ import { KafkaService } from './kafka/kafka.service';
     IntegrationModule,
     AuthModule,
     KafkaModule,
+    PermissionsModule,
+    UserDepartmentPermissionsModule,
+    ResourceModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],

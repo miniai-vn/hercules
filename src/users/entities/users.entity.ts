@@ -7,12 +7,16 @@ import {
   JoinTable,
   ManyToMany,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { Department } from '../departments/departments.entity';
-import { Shop } from '../shops/shops.entity';
+import { Department } from '../../departments/departments.entity';
+import { Shop } from '../../shops/shops.entity';
 import { Channel } from 'src/channels/channels.entity';
+import { Role } from 'src/roles/roles.entity';
+import { UserDepartmentPermission } from 'src/user-dept-perm/user-dept-perm.entity';
+import { UserDepartment } from './user-department.entity';
 
 @Entity('users')
 export class User {
@@ -100,18 +104,8 @@ export class User {
   @ManyToMany(() => Department, (department) => department.users, {
     cascade: true,
   })
-  @JoinTable({
-    name: 'user_department',
-    joinColumn: {
-      name: 'user_id',
-      referencedColumnName: 'id',
-    },
-    inverseJoinColumn: {
-      name: 'department_id',
-      referencedColumnName: 'id',
-    },
-  })
-  departments: Department[];
+  @OneToMany(() => UserDepartment, (userDepartment) => userDepartment.user)
+  departments: UserDepartment[];
 
   @ManyToMany(() => Channel, (channel) => channel.users, {
     onDelete: 'SET NULL',
@@ -142,4 +136,20 @@ export class User {
     nullable: true,
   })
   deletedAt?: Date;
+
+  @ManyToMany(() => Role, (role) => role.users, {
+    cascade: true,
+  })
+  @JoinTable({
+    name: 'user_role',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  })
+  roles: Role[];
+
+  @OneToMany(() => UserDepartmentPermission, (udp) => udp.user, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  userDepartmentPermissions: UserDepartmentPermission[];
 }

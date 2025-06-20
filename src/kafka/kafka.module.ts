@@ -18,7 +18,7 @@ import { KafkaController } from './kafka.controller';
               clientId: configService.get<string>('KAFKA_CLIENT_ID'),
               brokers: [configService.get<string>('KAFKA_BROKERS')],
             },
-
+            
             producerOnlyMode: true, // Use producer only mode if you don't need to consume messages
           },
         }),

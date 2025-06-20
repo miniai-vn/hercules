@@ -24,13 +24,21 @@ export class ZaloService {
   /**
    * Common method to handle Zalo API calls
    */
-  private async callZaloAPI(
-    endpoint: string,
-    method: 'GET' | 'POST' = 'POST',
-    data?: any,
-    headers?: Record<string, string>,
-    baseUrl: string = ZALO_CONFIG.BASE_URL,
-  ): Promise<AxiosResponse> {
+  private async callZaloAPI({
+    endpoint,
+    method = 'POST',
+    data,
+    headers = {},
+    baseUrl = ZALO_CONFIG.BASE_URL,
+    params,
+  }: {
+    endpoint: string;
+    method: 'GET' | 'POST';
+    data?: any;
+    headers?: Record<string, string>;
+    baseUrl?: string;
+    params?: any;
+  }): Promise<AxiosResponse> {
     try {
       const config: AxiosRequestConfig = {
         method,
@@ -44,6 +52,8 @@ export class ZaloService {
         config.data = data;
       } else if (method === 'GET' && data) {
         config.params = data;
+      } else if (params && method === 'GET') {
+        config.params = params;
       }
 
       return await axios(config);
@@ -63,13 +73,13 @@ export class ZaloService {
       secret_key: process.env.ZALO_APP_SECRET,
     };
 
-    return this.callZaloAPI(
+    return this.callZaloAPI({
       endpoint,
-      'POST',
+      method: 'POST',
       data,
       headers,
-      ZALO_CONFIG.OAUTH_BASE_URL,
-    );
+      baseUrl: ZALO_CONFIG.OAUTH_BASE_URL,
+    });
   }
 
   /**
@@ -85,7 +95,7 @@ export class ZaloService {
       access_token: accessToken,
     };
 
-    return this.callZaloAPI(endpoint, method, data, headers);
+    return this.callZaloAPI({ endpoint, method, data, headers });
   }
 
   async getAccessToken(oa_id: string, code: string) {
@@ -199,7 +209,6 @@ export class ZaloService {
     accessToken: string,
     userId: string,
   ): Promise<AxiosResponse> {
-    console.log('Fetching user profile for userId:', userId);
     return this.callZaloAuthenticatedAPI(
       ZALO_CONFIG.ENDPOINTS.GET_USER_PROFILE,
       accessToken,
@@ -212,12 +221,30 @@ export class ZaloService {
     accessToken: string,
     params?: any,
   ): Promise<AxiosResponse> {
-    return this.callZaloAuthenticatedAPI(
-      ZALO_CONFIG.ENDPOINTS.GET_CONVERSATIONS,
-      accessToken,
-      'GET',
-      params,
-    );
+    return;
+  }
+
+  async getUserList({
+    accessToken,
+    offset = 0,
+    count = 100,
+  }: {
+    accessToken: string;
+    offset?: number;
+    count?: number;
+  }) {
+    return await this.callZaloAPI({
+      endpoint: ZALO_CONFIG.ENDPOINTS.GET_USER_LIST,
+      method: HttpMethod.GET,
+      headers: {
+        access_token: accessToken,
+      },
+      data: {
+        offset,
+        count,
+      },
+      baseUrl: ZALO_CONFIG.BASE_URL,
+    });
   }
 
   private needsTokenRefresh(channel: Channel): boolean {

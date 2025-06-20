@@ -1,17 +1,23 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/users.entity';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { CreateUserDto } from 'src/users/dto/user.dto';
+import { ShopService } from 'src/shops/shops.service';
 
 export interface JwtPayload {
-  sub: string; // user id
-  username: string;
   email?: string;
+  userId: string;
   shopId: string;
-  platform: string;
   iat?: number;
   exp?: number;
 }
@@ -28,6 +34,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly shopService: ShopService, // Assuming shopService is similar to usersService
   ) {}
 
   // Login user
@@ -38,7 +45,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const tokens = await this.generateTokens(user, loginDto.platform);
+    const tokens = await this.generateTokens(user.shopId, user.id);
 
     return {
       accessToken: tokens.accessToken,
@@ -59,6 +66,66 @@ export class AuthService {
       },
       expiresIn: this.getTokenExpirationTime(),
     };
+  }
+
+  // Register user
+  async register(registerDto: RegisterDto) {
+    try {
+      // Check if user already exists by username
+      const existingUserByUsername = await this.usersService.findByUsername(
+        registerDto.username,
+      );
+      if (existingUserByUsername) {
+        throw new ConflictException('Username already exists');
+      }
+
+      // Hash password
+      const hashedPassword = await this.hashPassword(registerDto.password);
+
+      // Create user data
+      const userData = {
+        ...registerDto,
+        password: hashedPassword,
+        isActive: true, // Set to false if you want email verification
+      };
+
+      // Create user
+
+      const shop = await this.shopService.create({
+        name: 'Default Shop', // Use shopName from registerDto or default
+      });
+      const user = await this.usersService.create(
+        {
+          ...userData,
+          shopId: shop.id, // Assign the created shop ID
+        } as CreateUserDto, // Cast to CreateUserDto
+      );
+
+      // Generate tokens using the full User entity
+      const tokens = await this.generateTokens(shop.id, registerDto.platform);
+
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          phone: user.phone,
+          name: user.name,
+          avatar: user.avatar,
+          platform: user.platform,
+          shopId: user.shopId,
+          createdAt: user.createdAt,
+        },
+        expiresIn: this.getTokenExpirationTime(),
+      };
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException('Registration failed');
+    }
   }
 
   // Validate user credentials
@@ -86,24 +153,15 @@ export class AuthService {
 
   // Generate access and refresh tokens
   async generateTokens(
-    user: User,
-    platform?: string,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+    shopId: string,
+    userId: string,
+  ): Promise<{ accessToken: string; refreshToken?: string }> {
     const payload: JwtPayload = {
-      sub: user.id,
-      username: user.username,
-      email: user.email,
-      shopId: user.shopId,
-      platform: platform || user.platform,
+      userId,
+      shopId,
     };
 
-    const refreshPayload: RefreshTokenPayload = {
-      sub: user.id,
-      username: user.username,
-      tokenType: 'refresh',
-    };
-
-    const [accessToken, refreshToken] = await Promise.all([
+    const [accessToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
         expiresIn: this.configService.get<string>(
@@ -111,16 +169,9 @@ export class AuthService {
           '24h',
         ),
       }),
-      this.jwtService.signAsync(refreshPayload, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.configService.get<string>(
-          'JWT_REFRESH_EXPIRES_IN',
-          '7d',
-        ),
-      }),
     ]);
 
-    return { accessToken, refreshToken };
+    return { accessToken };
   }
 
   // Verify access token
@@ -157,10 +208,6 @@ export class AuthService {
 
   // Logout (invalidate tokens - if you implement token blacklist)
   async logout(userId: string, token: string): Promise<{ message: string }> {
-    // Implement token blacklisting if needed
-    // For now, just return success message
-    // In production, you might want to store invalidated tokens in Redis
-
     return { message: 'Logged out successfully' };
   }
 

@@ -16,10 +16,6 @@ import { ShopService } from './shops.service';
 export class ShopsController {
   constructor(private readonly shopService: ShopService) {}
 
-  @Post()
-  async create(@Body() data: Partial<Shop>): Promise<Shop> {
-    return this.shopService.create(data);
-  }
 
   @Get()
   async findAll(): Promise<Shop[]> {
@@ -40,14 +36,6 @@ export class ShopsController {
     return this.shopService.findOne(id);
   }
 
-  @Put('/zalo-id')
-  async updateZaloId(
-    @Request() req,
-    @Body('zaloId') zaloId: string,
-  ): Promise<Shop | null> {
-    const id = req.user.shop_id; // or req.user.shopId, depending on your JWT payload
-    return this.shopService.updateZaloId(id, zaloId);
-  }
 
   @Put(':id')
   async update(
@@ -62,13 +50,4 @@ export class ShopsController {
     return this.shopService.remove(id);
   }
 
-  @Get('zalo/:zaloId')
-  async findByZaloId(@Param('zaloId') zaloId: string): Promise<Shop | null> {
-    return this.shopService.findByZaloId(zaloId);
-  }
-
-  @Get('has/zalo')
-  async findAllHavingZaloId(): Promise<Shop[]> {
-    return this.shopService.findAllHavingZaloId();
-  }
 }

@@ -58,6 +58,7 @@ export const getDatabaseConfig = (
         ? join(__dirname, '..', '..', 'dist', 'migrations', '*.js')
         : join(__dirname, '../../', 'migrations', '*.ts'),
     ],
+    synchronize: true,
   };
 };
 
@@ -89,7 +90,7 @@ export const dataSourceOptions: DataSourceOptions = {
     Resource,
   ],
   migrations: ['src/database/migrations/*.ts'],
-  synchronize: false,
+  synchronize: true,
   logging: process.env.NODE_ENV !== 'production',
 };
 

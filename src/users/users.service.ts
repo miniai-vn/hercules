@@ -179,7 +179,7 @@ export class UsersService {
       });
 
       const savedUser = await this.usersRepository.save(user);
-      return this.toResponseDto(savedUser);
+      return savedUser;
     } catch (error) {
       if (
         error instanceof NotFoundException ||

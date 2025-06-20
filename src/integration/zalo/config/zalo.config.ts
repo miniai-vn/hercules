@@ -3,6 +3,7 @@ export const ZALO_CONFIG = {
   OAUTH_BASE_URL: 'https://oauth.zaloapp.com',
   ENDPOINTS: {
     SEND_MESSAGE: '/v2.0/oa/message',
+    GET_USER_LIST: '/v3.0/oa/user/getlist',
     GET_USER_PROFILE: '/v3.0/oa/user/detail',
     UPLOAD_FILE: '/v2.0/oa/upload',
     GET_CONVERSATIONS: '/v2.0/oa/conversation',

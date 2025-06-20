@@ -176,13 +176,20 @@ export class ZaloService {
    */
   async sendMessage(
     accessToken: string,
-    messageData: any,
+    message: string,
+    customerId: string,
   ): Promise<AxiosResponse> {
+    const data = {
+      recipient: {
+        user_id: customerId,
+      },
+      message: message,
+    };
     return this.callZaloAuthenticatedAPI(
       ZALO_CONFIG.ENDPOINTS.SEND_MESSAGE,
       accessToken,
       HttpMethod.POST,
-      messageData,
+      JSON.stringify(data),
     );
   }
 

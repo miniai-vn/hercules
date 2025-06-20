@@ -9,8 +9,10 @@ import { ChannelType } from 'src/channels/dto/channel.dto';
 import { AddParticipantDto } from 'src/conversation-members/conversation-members.dto';
 import { CustomersService } from 'src/customers/customers.service';
 import { SenderType } from 'src/messages/messages.dto';
+import { Message } from 'src/messages/messages.entity';
 import { MessagesService } from 'src/messages/messages.service';
 import { TagsService } from 'src/tags/tags.service';
+import { UsersService } from 'src/users/users.service';
 import { Repository } from 'typeorm';
 import { ParticipantType } from '../conversation-members/conversation-members.entity';
 import { ConversationMembersService } from '../conversation-members/conversation-members.service';
@@ -20,11 +22,8 @@ import {
   ConversationQueryParamsDto,
   ConversationResponseDto,
   CreateConversationDto,
-  PaginatedConversationsDto,
-  UpdateConversationDto,
+  UpdateConversationDto
 } from './dto/conversation.dto';
-import { UsersService } from 'src/users/users.service';
-import { Message } from 'src/messages/messages.entity';
 
 @Injectable()
 export class ConversationsService {
@@ -65,15 +64,18 @@ export class ConversationsService {
     }
   }
 
-  async findOne(id: number): Promise<ConversationResponseDto> {
+  async findOne(id: number): Promise<Conversation> {
     try {
-      const conversation = await this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.members', 'members')
-        .leftJoinAndSelect('conversation.messages', 'messages')
-        .where('conversation.id = :id', { id })
-        .getOne();
-      return this.toResponseDto(conversation);
+      const conversation = await this.conversationRepository.findOne({
+        where: { id },
+        relations: {
+          members: true,
+          channel: true,
+          tags: true,
+        },
+      });
+
+      return conversation;
     } catch (error) {
       throw new InternalServerErrorException('Failed to retrieve conversation');
     }
@@ -314,18 +316,6 @@ export class ConversationsService {
         });
       }
 
-      if (queryParams.timeFrom) {
-        queryBuilder.andWhere('conversation.createdAt >= :createdAfter', {
-          createdAfter: new Date(queryParams.timeFrom),
-        });
-      }
-
-      if (queryParams.timeTo) {
-        queryBuilder.andWhere('conversation.createdAt <= :timeTo', {
-          timeTo: new Date(queryParams.timeTo),
-        });
-      }
-
       // Fixed phoneFilter logic
       if (queryParams.phoneFilter) {
         queryBuilder.andWhere(
@@ -514,14 +504,24 @@ export class ConversationsService {
   }) {
     try {
       let isNewConversation = false;
-      let conversation = await this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.members', 'members')
-        .leftJoinAndSelect('conversation.channel', 'channel')
-        .leftJoinAndSelect('members.customer', 'customer')
-        .where('customer.external_id = :customerId', { customerId })
-        .andWhere('channel.id = :channelId', { channelId: channel.id })
-        .getOne();
+
+      let conversation = await this.conversationRepository.findOne({
+        where: {
+          members: {
+            customer: {
+              externalId: customerId,
+            },
+          },
+          channel: {
+            id: channel.id,
+          },
+        },
+        relations: {
+          members: true,
+          channel: true,
+          messages: true,
+        },
+      });
 
       const customer = await this.customerService.findOrCreateByExternalId({
         externalId: customerId,
@@ -529,6 +529,7 @@ export class ConversationsService {
         platform: ChannelType.ZALO,
         channelId: channel.id,
       });
+
       if (!conversation) {
         const adminChannels = await this.userService.findAdminChannel(
           channel.id,
@@ -611,6 +612,48 @@ export class ConversationsService {
       );
     }
   }
+
+  async sendMessageToOtherPlatform({
+    conversationId,
+    message,
+    userId,
+    messageType,
+  }: {
+    conversationId: number;
+    message: string;
+    userId: string;
+    messageType: string;
+  }) {
+    const conversation = await this.findOne(conversationId);
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+    const channel = conversation.channel;
+    if (!channel) {
+      throw new Error('Channel not found for the conversation');
+    }
+    const customerId = conversation.members.find(
+      (member) => member.participantType === ParticipantType.CUSTOMER,
+    )?.customerId;
+
+    const metadataMessage = await this.messagesService.create(
+      {
+        content: message,
+        contentType: messageType,
+        senderType: SenderType.user,
+        senderId: userId,
+      },
+      conversation,
+    );
+    return {
+      accessToken: channel.accessToken,
+      message: metadataMessage,
+      customerId,
+      channelType: channel.type,
+    };
+  }
+
   private toResponseDto(conversation: Conversation): ConversationResponseDto {
     return {
       id: conversation.id,

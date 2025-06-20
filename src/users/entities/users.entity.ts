@@ -107,10 +107,7 @@ export class User {
   @OneToMany(() => UserDepartment, (userDepartment) => userDepartment.user)
   departments: UserDepartment[];
 
-  @ManyToMany(() => Channel, (channel) => channel.users, {
-    onDelete: 'SET NULL',
-    nullable: true,
-  })
+  @ManyToMany(() => Channel, (channel) => channel.users)
   @JoinTable({
     name: 'user_channels',
     joinColumn: { name: 'user_id', referencedColumnName: 'id' },

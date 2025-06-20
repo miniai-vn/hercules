@@ -44,10 +44,7 @@ export class Tag {
   })
   customers: Customer[];
 
-  @ManyToMany(() => Conversation, (conversation) => conversation.tags, {
-    cascade: true,
-    onDelete: 'CASCADE',
-  })
+  @ManyToMany(() => Conversation, (conversation) => conversation.tags)
   @JoinTable({
     name: 'tag_conversations',
     joinColumn: { name: 'tag_id', referencedColumnName: 'id' },

@@ -5,9 +5,10 @@ import { ChatGateway } from './chat.gateway';
 import { ConversationsModule } from '../conversations/conversations.module';
 import { MessagesModule } from '../messages/messages.module';
 import { ChannelsModule } from '../channels/channels.module';
+import { ZaloModule } from 'src/integration/zalo/zalo.module';
 
 @Module({
-  imports: [ConversationsModule, MessagesModule, ChannelsModule],
+  imports: [ConversationsModule, MessagesModule, ChannelsModule, ZaloModule],
   controllers: [ChatController],
   providers: [ChatGateway, ChatService],
   exports: [],

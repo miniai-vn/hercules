@@ -29,7 +29,6 @@ import {
   AddTagsToConversationDto,
   ConversationQueryParamsDto,
   ConversationResponseDto,
-  CreateConversationDto,
   UpdateConversationDto,
 } from './dto/conversation.dto';
 
@@ -155,9 +154,7 @@ export class ConversationsController {
     description: 'Conversation retrieved successfully',
     type: ConversationResponseDto,
   })
-  async findOne(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<ApiResponse<ConversationResponseDto>> {
+  async findOne(@Param('id', ParseIntPipe) id: number) {
     const conversation = await this.conversationsService.findOne(id);
     return {
       message: 'Conversation retrieved successfully',

@@ -4,6 +4,8 @@ import { ShopsModule } from '../shops/shops.module';
 import { UsersController } from './users.controller';
 import { User } from './entities/users.entity';
 import { UsersService } from './users.service';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ResponseInterceptor } from 'src/common/interceptors/response.interceptor';
 
 @Module({
   imports: [
@@ -11,7 +13,13 @@ import { UsersService } from './users.service';
     ShopsModule, // Add this import for ShopService dependency
   ],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [
+    UsersService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseInterceptor,
+    },
+  ],
   exports: [UsersService],
 })
 export class UsersModule {}

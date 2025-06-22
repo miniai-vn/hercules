@@ -1,15 +1,18 @@
 import {
-  Injectable,
-  NotFoundException,
   ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Role } from './roles.entity';
 import { PermissionCode } from 'src/common/enums/permission.enum';
+import { PaginatedResult } from 'src/common/types/reponse.type';
 import { Permission } from 'src/permissions/permissions.entity';
-import { Shop } from 'src/shops/shops.entity';
 import { PermissionsService } from 'src/permissions/permissions.service';
+import { Shop } from 'src/shops/shops.entity';
+import { FindManyOptions, ILike, In, Repository } from 'typeorm';
+import { RoleQueryParamsDto, UpdateRoleDto } from './dto/roles.dto';
+import { Role } from './roles.entity';
 
 export interface DefaultRole {
   name: string;
@@ -143,18 +146,6 @@ export const DEFAULT_ROLES: Record<string, DefaultRole> = {
     ],
   },
 };
-export interface CreateRoleDto {
-  name: string;
-  description?: string;
-  shopId: number;
-  permissionIds?: number[];
-}
-
-export interface UpdateRoleDto {
-  name?: string;
-  description?: string;
-  permissionIds?: number[];
-}
 
 @Injectable()
 export class RolesService {
@@ -167,17 +158,25 @@ export class RolesService {
     name: string,
     description: string,
     shop: Shop,
-    permissions: Permission[],
+    permissionCodes: PermissionCode[],
   ) {
     const newRole = this.roleRepository.create({
       name,
       description,
       shop: shop,
     });
+
+    const permissionPromise = permissionCodes.map(
+      async (code) => await this.permissionService.findByCode(code),
+    );
+
+    const permissions = await Promise.all(permissionPromise);
     try {
       return await this.roleRepository.save({
         ...newRole,
-        permissions: permissions.map((permission) => ({ id: permission.id })),
+        permissions: permissions
+          .filter((p) => !!p)
+          .map((permission) => ({ id: permission.id })),
       });
     } catch (error) {
       if (error.code === '23505') {
@@ -187,21 +186,47 @@ export class RolesService {
     }
   }
 
+  async update(id: number, data: UpdateRoleDto): Promise<Role> {
+    const role = await this.roleRepository.findOne({
+      where: { id },
+      relations: ['shop', 'permissions'],
+    });
+
+    if (!role) {
+      throw new NotFoundException(`Role with ID ${id} not found`);
+    }
+
+    if (data.name) {
+      role.name = data.name;
+    }
+    if (data.description) {
+      role.description = data.description;
+    }
+    if (data.permissionIds && data.permissionIds.length > 0) {
+      const permissions = await this.permissionService.findByIds(
+        data.permissionIds,
+      );
+      role.permissions = permissions;
+    }
+    try {
+      return await this.roleRepository.save(role);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to update role with ID ${id}: ${error.message}`,
+      );
+    }
+  }
+
   async initRoleDefault(shop: Shop): Promise<boolean> {
     try {
       for (const key in DEFAULT_ROLES) {
         const roleData = DEFAULT_ROLES[key];
-        const permissionPromise = roleData.permissions.map(
-          async (code) => await this.permissionService.findByCode(code),
-        );
-
-        const permissions = await Promise.all(permissionPromise);
 
         await this.create(
           roleData.name,
           roleData.description,
           shop,
-          permissions.filter((p) => p != null),
+          roleData.permissions,
         );
       }
       return true;
@@ -210,21 +235,66 @@ export class RolesService {
     }
   }
 
-  async findByUserId(userId: string): Promise<Role[]> {
-    return await this.roleRepository.find({
-      where: { users: { id: userId } },
-      relations: ['shop', 'permissions', 'users'],
-    });
-  }
-
   // Get all roles
-  async findAll(): Promise<Role[]> {
-    return await this.roleRepository.find({
-      relations: ['shop', 'permissions', 'users'],
-    });
+  async query(query: RoleQueryParamsDto): Promise<PaginatedResult<Role>> {
+    try {
+      const {
+        page = 1,
+        limit = 10,
+        sortBy = 'createdAt',
+        sortOrder = 'DESC',
+        search,
+        shopId,
+        name,
+        isActive,
+        isDefault,
+      } = query;
+
+      // Build where conditions
+      const whereConditions = {
+        ...(search && {
+          name: ILike(`%${search}%`),
+        }),
+        ...(shopId && { shop: { id: shopId } }),
+        ...(name && { name: ILike(`%${name}%`) }),
+        ...(isActive !== undefined && { isActive }),
+        ...(isDefault !== undefined && { isDefault }),
+      };
+
+      const findOptions: FindManyOptions<Role> = {
+        where: whereConditions,
+        relations: {
+          shop: true,
+          permissions: true,
+          users: true,
+        },
+        order: {
+          [sortBy]: sortOrder.toUpperCase() as 'ASC' | 'DESC',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      };
+
+      const [roles, total] =
+        await this.roleRepository.findAndCount(findOptions);
+
+      return {
+        data: roles,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+        total: total,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to get roles: ${error.message}`,
+      );
+    }
   }
 
-  // Get role by ID
+  // Update findOne method to use proper return type
   async findOne(id: number): Promise<Role> {
     const role = await this.roleRepository.findOne({
       where: { id },
@@ -238,37 +308,72 @@ export class RolesService {
     return role;
   }
 
-  // Update role
-  async update(id: number, updateRoleDto: UpdateRoleDto): Promise<Role> {
-    const role = await this.findOne(id);
+  async findByIds(ids: number[]): Promise<Role[]> {
+    try {
+      if (!ids || ids.length === 0) {
+        return [];
+      }
 
-    if (updateRoleDto.name) {
-      role.name = updateRoleDto.name;
+      const roles = await this.roleRepository.find({
+        where: { id: In(ids) },
+        relations: {
+          shop: true,
+          permissions: true,
+          users: true,
+        },
+      });
+
+      return roles;
+    } catch (error) {
+      console.error(`Error finding roles by IDs: ${error.message}`);
+    }
+  }
+
+  async findByUserId(userId: string): Promise<Role[]> {
+    const roles = await this.roleRepository.find({
+      where: {
+        users: { id: userId },
+      },
+      relations: {
+        shop: true,
+        permissions: true,
+        users: true,
+      },
+    });
+
+    if (roles.length === 0) {
+      throw new NotFoundException(`No roles found for user ID ${userId}`);
     }
 
-    if (updateRoleDto.description !== undefined) {
-      role.description = updateRoleDto.description;
+    return roles;
+  }
+
+  async delete(id: number): Promise<void> {
+    const role = await this.roleRepository.findOne({
+      where: { id },
+      relations: {
+        shop: true,
+        permissions: true,
+        users: true, // Ensure users relation is loaded to check for conflicts
+      },
+    });
+
+    if (!role) {
+      throw new NotFoundException(`Role with ID ${id} not found`);
     }
 
-    if (updateRoleDto.permissionIds) {
-      role.permissions = updateRoleDto.permissionIds.map(
-        (id) => ({ id }) as any,
+    if (role.users.length > 0) {
+      throw new ConflictException(
+        `Role with ID ${id} cannot be deleted because it is assigned to users`,
       );
     }
 
     try {
-      return await this.roleRepository.save(role);
+      await this.roleRepository.remove(role);
     } catch (error) {
-      if (error.code === '23505') {
-        throw new ConflictException('Role name already exists');
-      }
-      throw error;
+      throw new InternalServerErrorException(
+        `Failed to delete role with ID ${id}: ${error.message}`,
+      );
     }
-  }
-
-  // Delete role
-  async remove(id: number): Promise<void> {
-    const role = await this.findOne(id);
-    await this.roleRepository.remove(role);
   }
 }

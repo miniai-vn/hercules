@@ -11,7 +11,9 @@ import {
   Post,
   Put,
   Query,
+  Req,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -33,6 +35,7 @@ import {
   UserQueryParamsDto,
 } from 'src/users/dto/user.dto';
 import { RegisterDto } from './dto/register.dto';
+import { Response } from 'express';
 
 @ApiTags('Authentication & Users')
 @Controller('auth')
@@ -61,8 +64,20 @@ export class AuthController {
     type: LoginDto,
   })
   @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto) {
-    return await this.authService.login(loginDto);
+  async login(
+    @Res({ passthrough: true }) response: Response,
+    @Body() loginDto: LoginDto,
+  ) {
+    const { accessToken, user } = await this.authService.login(loginDto);
+    response.cookie('accessToken', accessToken);
+
+    return {
+      data: {
+        user: user,
+        accessToken: accessToken,
+      },
+      message: 'Login successful',
+    };
   }
 
   @Post('logout')

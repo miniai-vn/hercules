@@ -18,7 +18,13 @@ export class ShopService {
     });
     const shop = await this.shopRepository.save(medataShop);
     await this.roleService.initRoleDefault(shop);
-    return this.shopRepository.save(shop);
+
+    return this.shopRepository.findOne({
+      where: { id: shop.id },
+      relations: {
+        roles: true,
+      },
+    });
   }
 
   async findAll(): Promise<Shop[]> {

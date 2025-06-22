@@ -1,29 +1,27 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
   Post,
+  Put,
   Query,
   Req,
-  UseGuards
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiQuery,
-  ApiResponse,
-  ApiTags
+  ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
-import {
-  CreateUserDto,
-  PaginatedUsersDto,
-  UserPaginationQueryDto,
-  UserResponseDto
-} from './dto/user.dto';
+import { CreateUserDto, UserPaginationQueryDto } from './dto/user.dto';
 import { UsersService } from './users.service';
 
+// @UseInterceptors(ResponseInterceptor)
 @ApiTags('Users')
 @Controller('users')
 @ApiBearerAuth('bearerAuth')
@@ -34,30 +32,10 @@ export class UsersController {
   @Post()
   @ApiOperation({ summary: 'Create a new user' })
   @ApiBody({ type: CreateUserDto })
-  @ApiResponse({
-    status: 201,
-    description: 'User created successfully',
-    type: UserResponseDto,
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - Username or email already exists',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Shop not found',
-  })
-  async create(
-    @Req() req,
-    @Body() createUserDto: CreateUserDto,
-  ): Promise<{
-    message: string;
-    data: UserResponseDto;
-  }> {
-    const shopId = req.user.shop_id; // Get shopId from authenticated user
+  async create(@Req() req, @Body() createUserDto: CreateUserDto) {
     const user = await this.usersService.create({
       ...createUserDto,
-      shopId, // Override shopId with user's shop
+      shopId: req.shop.id,
     });
     return {
       message: 'User created successfully',
@@ -67,45 +45,38 @@ export class UsersController {
 
   @Get()
   @ApiOperation({ summary: 'Get all users with pagination and filtering' })
-  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @ApiQuery({
-    name: 'sortBy',
+    name: 'query',
     required: false,
-    type: String,
-    example: 'createdAt',
+    type: UserPaginationQueryDto,
   })
-  @ApiQuery({
-    name: 'sortOrder',
-    required: false,
-    enum: ['ASC', 'DESC'],
-    example: 'DESC',
-  })
-  // Remove shopId from query params since it comes from req.user
-  @ApiQuery({ name: 'username', required: false, type: String })
-  @ApiQuery({ name: 'email', required: false, type: String })
-  @ApiQuery({ name: 'platform', required: false, type: String })
-  @ApiQuery({ name: 'name', required: false, type: String })
-  @ApiResponse({
-    status: 200,
-    description: 'Users retrieved successfully',
-    type: PaginatedUsersDto,
-  })
-  async findAll(
-    @Req() req,
-    @Query() query: UserPaginationQueryDto,
-  ): Promise<{
-    message: string;
-    data: PaginatedUsersDto;
-  }> {
-    const shopId = req.user.shop_id; // Get shopId from authenticated user
-    const result = await this.usersService.findAll({
+  async query(@Req() req, @Query() query: UserPaginationQueryDto) {
+    const shopId = req.user.shopId;
+    const result = await this.usersService.query({
       ...query,
-      shopId, // Override shopId with user's shop
+      shopId: query.shopId ?? shopId,
     });
+    return result;
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Update a user by ID' })
+  @ApiBody({ type: CreateUserDto })
+  async update(@Param('id') id: string, @Body() updateUserDto: CreateUserDto) {
+    const user = await this.usersService.update(id, updateUserDto);
     return {
-      message: 'Users retrieved successfully',
-      data: result,
+      message: 'User updated successfully',
+      data: user,
+    };
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a user by ID' })
+  async delete(@Param('id') id: string) {
+    await this.usersService.delete(id);
+    return {
+      message: 'User deleted successfully',
+      data: id,
     };
   }
 }

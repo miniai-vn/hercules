@@ -34,10 +34,9 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-    private readonly shopService: ShopService, // Assuming shopService is similar to usersService
+    private readonly shopService: ShopService,
   ) {}
 
-  // Login user
   async login(loginDto: LoginDto) {
     const user = await this.validateUser(loginDto.username, loginDto.password);
 
@@ -45,7 +44,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const tokens = await this.generateTokens(user.shopId, user.id);
+    const tokens = await this.generateTokens(user.shop.id, user.id);
 
     return {
       accessToken: tokens.accessToken,
@@ -57,9 +56,8 @@ export class AuthService {
         phone: user.phone,
         name: user.name,
         avatar: user.avatar,
-        platform: user.platform,
-        zaloId: user.zaloId,
-        shopId: user.shopId,
+        shopId: user.shop.id,
+        roles: user.roles,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
         deletedAt: user.deletedAt,
@@ -68,10 +66,8 @@ export class AuthService {
     };
   }
 
-  // Register user
   async register(registerDto: RegisterDto) {
     try {
-      // Check if user already exists by username
       const existingUserByUsername = await this.usersService.findByUsername(
         registerDto.username,
       );
@@ -79,29 +75,26 @@ export class AuthService {
         throw new ConflictException('Username already exists');
       }
 
-      // Hash password
       const hashedPassword = await this.hashPassword(registerDto.password);
 
-      // Create user data
       const userData = {
         ...registerDto,
         password: hashedPassword,
-        isActive: true, // Set to false if you want email verification
+        isActive: true,
       };
 
-      // Create user
-
       const shop = await this.shopService.create({
-        name: 'Default Shop', // Use shopName from registerDto or default
+        name: 'Default Shop',
       });
-      const user = await this.usersService.create(
-        {
-          ...userData,
-          shopId: shop.id, // Assign the created shop ID
-        } as CreateUserDto, // Cast to CreateUserDto
-      );
 
-      // Generate tokens using the full User entity
+      const roleAdmin = shop.roles.find((role) => role.name === 'Admin');
+
+      const user = await this.usersService.create({
+        ...userData,
+        shopId: shop.id,
+        roleIds: [roleAdmin.id],
+      } as CreateUserDto);
+
       const tokens = await this.generateTokens(shop.id, registerDto.platform);
 
       return {
@@ -114,32 +107,26 @@ export class AuthService {
           phone: user.phone,
           name: user.name,
           avatar: user.avatar,
-          platform: user.platform,
-          shopId: user.shopId,
+
+          shopId: user.shop.id,
           createdAt: user.createdAt,
         },
         expiresIn: this.getTokenExpirationTime(),
       };
     } catch (error) {
-      if (error instanceof ConflictException) {
-        throw error;
-      }
       throw new BadRequestException('Registration failed');
     }
   }
 
-  // Validate user credentials
   async validateUser(username: string, password: string): Promise<User | null> {
     try {
-      // Try to find user by username or email
       const user = await this.usersService.findByUsername(username);
 
       if (!user) {
         return null;
       }
 
-      // Check if password matches
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+      const isPasswordValid = bcrypt.compare(password, user.password);
 
       if (!isPasswordValid) {
         return null;
@@ -151,7 +138,6 @@ export class AuthService {
     }
   }
 
-  // Generate access and refresh tokens
   async generateTokens(
     shopId: string,
     userId: string,
@@ -160,21 +146,17 @@ export class AuthService {
       userId,
       shopId,
     };
-
+    console.log('Generating tokens for user:', process.env.JWT_SECRET_KEY);
     const [accessToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
-        expiresIn: this.configService.get<string>(
-          'JWT_ACCESS_EXPIRES_IN',
-          '24h',
-        ),
+        secret: process.env.JWT_SECRET_KEY,
+        expiresIn: '24h',
       }),
     ]);
 
     return { accessToken };
   }
 
-  // Verify access token
   async verifyAccessToken(token: string): Promise<JwtPayload> {
     try {
       const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
@@ -186,7 +168,6 @@ export class AuthService {
     }
   }
 
-  // Verify refresh token
   async verifyRefreshToken(token: string): Promise<RefreshTokenPayload> {
     try {
       const payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(
@@ -206,33 +187,27 @@ export class AuthService {
     }
   }
 
-  // Logout (invalidate tokens - if you implement token blacklist)
   async logout(userId: string, token: string): Promise<{ message: string }> {
     return { message: 'Logged out successfully' };
   }
 
-  // Hash password
   async hashPassword(password: string): Promise<string> {
-    const saltRounds = this.configService.get<number>('BCRYPT_SALT_ROUNDS', 10);
-    return bcrypt.hash(password, saltRounds);
+    return bcrypt.hash(password, 10);
   }
 
-  // Compare password
   async comparePassword(
     password: string,
     hashedPassword: string,
   ): Promise<boolean> {
-    return bcrypt.compare(password, hashedPassword);
+    return bcrypt.compareSync(password, hashedPassword);
   }
 
-  // Get token expiration time in seconds
   private getTokenExpirationTime(): number {
     const expiresIn = this.configService.get<string>(
       'JWT_ACCESS_EXPIRES_IN',
       '1h',
     );
 
-    // Convert to seconds
     if (expiresIn.endsWith('h')) {
       return parseInt(expiresIn) * 3600;
     } else if (expiresIn.endsWith('m')) {
@@ -241,15 +216,13 @@ export class AuthService {
       return parseInt(expiresIn) * 86400;
     }
 
-    return 3600; // Default 1 hour
+    return 3600;
   }
 
-  // Decode token without verification (for debugging)
   decodeToken(token: string): any {
     return this.jwtService.decode(token);
   }
 
-  // Check if token is expired
   isTokenExpired(token: string): boolean {
     try {
       const decoded = this.jwtService.decode(token) as any;

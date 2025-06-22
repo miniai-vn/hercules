@@ -1,10 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { 
-  IsString, 
-  IsNotEmpty, 
-  IsEmail, 
-  IsOptional, 
-  MinLength, 
+import {
+  IsString,
+  IsNotEmpty,
+  IsEmail,
+  IsOptional,
+  MinLength,
   MaxLength,
   Matches,
   IsPhoneNumber,
@@ -22,7 +22,8 @@ export class RegisterDto {
   @MinLength(3)
   @MaxLength(50)
   @Matches(/^[a-zA-Z0-9._-]+$/, {
-    message: 'Username can only contain letters, numbers, dots, underscores, and hyphens',
+    message:
+      'Username can only contain letters, numbers, dots, underscores, and hyphens',
   })
   username: string;
 
@@ -35,16 +36,21 @@ export class RegisterDto {
   email: string;
 
   @ApiProperty({
-    description: 'User password (min 8 characters, must contain uppercase, lowercase, number, and special character)',
+    description:
+      'User password (min 8 characters, must contain uppercase, lowercase, number, and special character)',
     example: 'SecurePass123!',
     minLength: 8,
   })
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/, {
-    message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
-  })
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/,
+    {
+      message:
+        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+    },
+  )
   password: string;
 
   @ApiProperty({

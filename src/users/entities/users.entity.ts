@@ -33,8 +33,7 @@ export class User {
   username: string;
 
   @Column({
-    type: 'varchar',
-    length: 256,
+    type: 'text',
     nullable: false,
     name: 'password',
   })
@@ -73,27 +72,6 @@ export class User {
   })
   avatar?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 80,
-    nullable: false,
-    name: 'platform',
-  })
-  platform: string;
-
-  @Column({
-    type: 'varchar',
-    length: 80,
-    nullable: true,
-    name: 'zalo_id',
-  })
-  zaloId?: string;
-
-  // Foreign key to Shop
-  @Column({ type: 'uuid', name: 'shop_id' })
-  shopId: string;
-
-  // Many-to-One relationship with Shop
   @ManyToOne(() => Shop, (shop) => shop.admins, {
     onDelete: 'CASCADE',
   })

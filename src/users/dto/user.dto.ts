@@ -79,26 +79,6 @@ export class CreateUserDto {
   avatar?: string;
 
   @ApiProperty({
-    description: 'Platform type',
-    example: 'web',
-    maxLength: 80,
-  })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(80)
-  platform: string;
-
-  @ApiPropertyOptional({
-    description: 'Zalo ID',
-    example: 'zalo123456',
-    maxLength: 80,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(80)
-  zaloId?: string;
-
-  @ApiProperty({
     description: 'Shop ID',
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
   })
@@ -114,6 +94,19 @@ export class CreateUserDto {
   @IsArray()
   @IsUUID('4', { each: true })
   departmentIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  channelIds?: number[];
+
+  @ApiProperty({
+    description: 'roles of the user',
+  })
+  @IsArray()
+  @IsNotEmpty()
+  @IsNumber({}, { each: true })
+  roleIds: number[];
 }
 
 export class UpdateUserDto {
@@ -126,6 +119,13 @@ export class UpdateUserDto {
   @IsString()
   @MaxLength(80)
   username?: string;
+  @ApiProperty({
+    description: 'roles of the user',
+  })
+  @IsArray()
+  @IsNotEmpty()
+  @IsNumber({}, { each: true })
+  roleIds: number[];
 
   @ApiPropertyOptional({
     description: 'Password',
@@ -247,22 +247,10 @@ export class UserResponseDto {
   avatar?: string;
 
   @ApiProperty({
-    description: 'Platform type',
-    example: 'web',
-  })
-  platform: string;
-
-  @ApiPropertyOptional({
-    description: 'Zalo ID',
-    example: 'zalo123456',
-  })
-  zaloId?: string;
-
-  @ApiProperty({
     description: 'Shop ID',
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
   })
-  shopId: string;
+  shopId?: string;
 
   @ApiProperty({
     description: 'Created at',

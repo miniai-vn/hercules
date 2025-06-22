@@ -113,7 +113,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           message: `You joined conversation ${conversationId}`,
         });
       }
-    } catch (error) {
+    } catch (error) { 
       console.error(error);
     }
   }

@@ -1,37 +1,29 @@
 import {
-  Injectable,
-  NotFoundException,
   BadRequestException,
+  Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, ILike } from 'typeorm';
-import { User } from './entities/users.entity';
+import * as bcrypt from 'bcrypt';
+import { FindManyOptions, ILike, In, Repository } from 'typeorm';
 import { ShopService } from '../shops/shops.service';
 import {
+  ChangePasswordDto,
   CreateUserDto,
   UpdateUserDto,
-  UserResponseDto,
-  UserQueryParamsDto,
   UserBulkDeleteDto,
-  ChangePasswordDto,
+  UserQueryParamsDto,
+  UserResponseDto,
 } from './dto/user.dto';
-import * as bcrypt from 'bcrypt';
-
-// Add pagination DTOs
-export class PaginatedUsersDto {
-  data: UserResponseDto[];
-  currentPage: number;
-  pageSize: number;
-  totalItems: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
+import { User } from './entities/users.entity';
+import { PaginatedResult } from 'src/common/types/reponse.type';
+import { RolesService } from 'src/roles/roles.service';
 
 export class UserPaginationQueryDto extends UserQueryParamsDto {
   page?: number = 1;
   limit?: number = 10;
+  search?: string;
   sortBy?: string = 'createdAt';
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }
@@ -42,6 +34,7 @@ export class UsersService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly shopService: ShopService,
+    private readonly roleService: RolesService, // Assuming RoleService is injected for role management
   ) {}
 
   async getOne(id: string): Promise<User | null> {
@@ -59,7 +52,18 @@ export class UsersService {
     return this.usersRepository.findBy({ id: In(ids) });
   }
 
-  async findAll(query: UserPaginationQueryDto): Promise<PaginatedUsersDto> {
+  async delete(id: string): Promise<string> {
+    try {
+      await this.usersRepository.softDelete(id);
+      return id;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to delete user: ${error.message}`,
+      );
+    }
+  }
+
+  async query(query: UserPaginationQueryDto): Promise<PaginatedResult<User>> {
     try {
       const {
         page = 1,
@@ -70,42 +74,41 @@ export class UsersService {
       } = query;
 
       // Build where conditions
-      const where: any = {};
-      if (filters.shopId) where.shop = { id: filters.shopId };
-      if (filters.username) where.username = ILike(`%${filters.username}%`);
-      if (filters.email) where.email = ILike(`%${filters.email}%`);
-      if (filters.platform) where.platform = ILike(`%${filters.platform}%`);
-      if (filters.name) where.name = ILike(`%${filters.name}%`);
-
-      // Build order object
-      const order: any = {};
-      order[sortBy] = sortOrder;
-
-      // Calculate skip value for pagination
-      const skip = (page - 1) * limit;
-
-      // Execute query with pagination
-      const [users, totalItems] = await this.usersRepository.findAndCount({
-        where,
-        relations: ['shop'],
-        order,
-        skip,
+      const filter: FindManyOptions<User> = {
+        where: {
+          ...(filters.search && {
+            username: ILike(`%${filters.search}%`),
+          }),
+          ...(filters.email && { email: ILike(`%${filters.email}%`) }),
+          ...(filters.platform && {
+            platform: ILike(`%${filters.platform}%`),
+          }),
+          ...(filters.name && { name: ILike(`%${filters.name}%`) }),
+          ...(filters.shopId && { shop: { id: filters.shopId } }),
+        },
+        relations: {
+          shop: true, // Include shop relation
+          roles: true, // Include roles relation
+          channels: true, // Include channels relation
+          departments: true, // Include departments relation
+        },
+        order: {
+          [sortBy]: sortOrder.toUpperCase() as 'ASC' | 'DESC',
+        },
+        skip: (page - 1) * limit,
         take: limit,
-      });
+      };
 
-      // Calculate pagination metadata
-      const totalPages = Math.ceil(totalItems / limit);
-      const hasNextPage = page < totalPages;
-      const hasPrevPage = page > 1;
+      const [users, total] = await this.usersRepository.findAndCount(filter);
 
       return {
-        data: users.map((user) => this.toResponseDto(user)),
-        currentPage: page,
-        pageSize: limit,
-        totalItems,
-        totalPages,
-        hasNextPage,
-        hasPrevPage,
+        data: users,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+        total: total,
       };
     } catch (error) {
       throw new InternalServerErrorException(
@@ -114,18 +117,23 @@ export class UsersService {
     }
   }
 
-  async findOne(id: string): Promise<UserResponseDto> {
+  async findOne(id: string) {
     try {
       const user = await this.usersRepository.findOne({
         where: { id },
-        relations: ['shop'],
+        relations: {
+          shop: true,
+          roles: true,
+          channels: true,
+          departments: true,
+        },
       });
 
       if (!user) {
         throw new NotFoundException('User not found');
       }
 
-      return this.toResponseDto(user);
+      return user;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -136,7 +144,7 @@ export class UsersService {
     }
   }
 
-  async create(createUserDto: CreateUserDto): Promise<UserResponseDto> {
+  async create(createUserDto: CreateUserDto) {
     try {
       // Check if shop exists using ShopService
       const shop = await this.shopService.findOne(createUserDto.shopId);
@@ -150,16 +158,6 @@ export class UsersService {
       });
       if (existingUser) {
         throw new BadRequestException('Username already exists');
-      }
-
-      // Check if email already exists (if provided)
-      if (createUserDto.email) {
-        const existingEmail = await this.usersRepository.findOne({
-          where: { email: createUserDto.email },
-        });
-        if (existingEmail) {
-          throw new BadRequestException('Email already exists');
-        }
       }
 
       // Hash password
@@ -178,18 +176,13 @@ export class UsersService {
         updatedAt: new Date(),
       });
 
-      const savedUser = await this.usersRepository.save(user);
-      return this.toResponseDto(savedUser);
+      const roles = await this.roleService.findByIds(createUserDto.roleIds);
+      const savedUser = await this.usersRepository.save({
+        ...user,
+        roles: roles,
+      });
+      return savedUser;
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      if (error.code === '23505') {
-        throw new BadRequestException('Username or email already exists');
-      }
       throw new InternalServerErrorException(
         `Failed to create user: ${error.message}`,
       );
@@ -203,7 +196,12 @@ export class UsersService {
     try {
       const user = await this.usersRepository.findOne({
         where: { id },
-        relations: ['shop'],
+        relations: {
+          shop: true,
+          roles: true,
+          channels: true,
+          departments: true,
+        },
       });
 
       if (!user) {
@@ -220,16 +218,6 @@ export class UsersService {
         }
       }
 
-      // Check if email already exists (if updating email)
-      if (updateUserDto.email && updateUserDto.email !== user.email) {
-        const existingEmail = await this.usersRepository.findOne({
-          where: { email: updateUserDto.email },
-        });
-        if (existingEmail) {
-          throw new BadRequestException('Email already exists');
-        }
-      }
-
       // Hash password if provided
       if (updateUserDto.password) {
         const saltRounds = 10;
@@ -239,22 +227,10 @@ export class UsersService {
         );
       }
 
-      // Update user fields
-      Object.assign(user, updateUserDto);
-      user.updatedAt = new Date();
-
-      const savedUser = await this.usersRepository.save(user);
-      return this.toResponseDto(savedUser);
+      const roles = await this.roleService.findByIds(updateUserDto.roleIds);
+      user.roles = roles ?? [];
+      return await this.usersRepository.save(user);
     } catch (error) {
-      if (
-        error instanceof NotFoundException ||
-        error instanceof BadRequestException
-      ) {
-        throw error;
-      }
-      if (error.code === '23505') {
-        throw new BadRequestException('Username or email already exists');
-      }
       throw new InternalServerErrorException(
         `Failed to update user: ${error.message}`,
       );
@@ -268,7 +244,7 @@ export class UsersService {
         throw new NotFoundException('User not found');
       }
 
-      await this.usersRepository.remove(user);
+      await this.usersRepository.softDelete(user);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -371,24 +347,11 @@ export class UsersService {
     try {
       return await this.usersRepository.findOne({
         where: { username },
-        relations: ['shop'],
+        relations: ['shop', 'roles'],
       });
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to find user by username: ${error.message}`,
-      );
-    }
-  }
-
-  async findByEmail(email: string): Promise<User | null> {
-    try {
-      return await this.usersRepository.findOne({
-        where: { email },
-        relations: ['shop'],
-      });
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to find user by email: ${error.message}`,
       );
     }
   }
@@ -404,7 +367,7 @@ export class UsersService {
 
         relations: ['shop'],
       });
-      return users.map((user) => this.toResponseDto(user));
+      return users;
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to find admin channel: ${error.message}`,
@@ -420,8 +383,6 @@ export class UsersService {
       phone: user.phone,
       name: user.name,
       avatar: user.avatar,
-      platform: user.platform,
-      zaloId: user.zaloId,
       shopId: user.shop?.id,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,

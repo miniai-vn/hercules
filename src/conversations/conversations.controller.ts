@@ -29,7 +29,6 @@ import {
   AddTagsToConversationDto,
   ConversationQueryParamsDto,
   ConversationResponseDto,
-  CreateConversationDto,
   UpdateConversationDto,
 } from './dto/conversation.dto';
 
@@ -51,80 +50,10 @@ export class ConversationsController {
     status: 200,
     description: 'Conversations queried successfully',
   })
-  @ApiQuery({ name: 'type', required: false, description: 'Conversation type' })
-  @ApiQuery({ name: 'name', required: false, description: 'Conversation name' })
   @ApiQuery({
-    name: 'channelId',
+    type: ConversationResponseDto,
     required: false,
-    type: Number,
-    description: 'Channel ID',
-  })
-  @ApiQuery({
-    name: 'userId',
-    required: false,
-    type: String,
-    description: 'User ID',
-  })
-  @ApiQuery({
-    name: 'search',
-    required: false,
-    type: String,
-    description: 'Search term for conversation name or content',
-  })
-  @ApiQuery({
-    name: 'channelType',
-    required: false,
-    type: String,
-    description: 'Channel type (e.g., Zalo, Facebook)',
-  })
-  @ApiQuery({
-    name: 'tagId',
-    required: false,
-    type: Number,
-    description: 'Filter by tag ID',
-  })
-  @ApiQuery({
-    name: 'timeFrom',
-    required: false,
-    type: String,
-    description:
-      'Filter conversations created from this date (ISO 8601 format)',
-    example: '2024-01-01T00:00:00.000Z',
-  })
-  @ApiQuery({
-    name: 'timeTo',
-    required: false,
-    type: String,
-    description: 'Filter conversations created to this date (ISO 8601 format)',
-    example: '2024-12-31T23:59:59.999Z',
-  })
-  @ApiQuery({
-    name: 'participantUserId',
-    required: false,
-    type: [String],
-    description: 'Filter by participant user ID',
-    isArray: true,
-  })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description: 'Page number',
-    example: 1,
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: 'Items per page',
-    example: 10,
-  })
-  @ApiQuery({
-    name: 'phoneFilter',
-    required: false,
-    type: Boolean,
-    description: 'Filter conversations by phone number',
-    example: true,
+    description: 'Conversation type',
   })
   async query(
     @Req() req,
@@ -155,9 +84,7 @@ export class ConversationsController {
     description: 'Conversation retrieved successfully',
     type: ConversationResponseDto,
   })
-  async findOne(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<ApiResponse<ConversationResponseDto>> {
+  async findOne(@Param('id', ParseIntPipe) id: number) {
     const conversation = await this.conversationsService.findOne(id);
     return {
       message: 'Conversation retrieved successfully',

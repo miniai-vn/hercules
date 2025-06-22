@@ -2,17 +2,29 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { Shop } from './shops.entity';
+import { RolesService } from 'src/roles/roles.service';
 
 @Injectable()
 export class ShopService {
   constructor(
     @InjectRepository(Shop)
     private readonly shopRepository: Repository<Shop>,
+    private readonly roleService: RolesService, // Assuming roleService is similar to shopRepository
   ) {}
 
-  async create(data: Partial<Shop>): Promise<Shop> {
-    const shop = this.shopRepository.create(data);
-    return this.shopRepository.save(shop);
+  async create({ name }: { name: string }): Promise<Shop> {
+    const medataShop = this.shopRepository.create({
+      name,
+    });
+    const shop = await this.shopRepository.save(medataShop);
+    await this.roleService.initRoleDefault(shop);
+
+    return this.shopRepository.findOne({
+      where: { id: shop.id },
+      relations: {
+        roles: true,
+      },
+    });
   }
 
   async findAll(): Promise<Shop[]> {
@@ -30,18 +42,5 @@ export class ShopService {
 
   async remove(id: string): Promise<void> {
     await this.shopRepository.delete(id);
-  }
-
-  async findByZaloId(zaloId: string): Promise<Shop | null> {
-    return this.shopRepository.findOne({ where: { zaloId } });
-  }
-
-  async findAllHavingZaloId(): Promise<Shop[]> {
-    return this.shopRepository.find({ where: { zaloId: Not(IsNull()) } });
-  }
-
-  async updateZaloId(id: string, zaloId: string): Promise<Shop | null> {
-    await this.shopRepository.update(id, { zaloId });
-    return this.findOne(id);
   }
 }

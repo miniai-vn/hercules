@@ -18,12 +18,14 @@ export class Role {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar', length: 50, unique: true })
+  @Column({ type: 'varchar', length: 50 })
   name: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   description: string;
 
+  @Column({ type: 'boolean', name: 'is_global',default: false })
+  isGlobal: boolean;
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -45,10 +47,10 @@ export class Role {
   permissions: Permission[];
 
   @ManyToMany(() => User, (user) => user.roles)
-  @JoinTable({
-    name: 'user_role',
-    joinColumn: { name: 'role_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
-  })
+  // @JoinTable({
+  //   name: 'user_role',
+  //   joinColumn: { name: 'role_id', referencedColumnName: 'id' },
+  //   inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  // })
   users: User[];
 }

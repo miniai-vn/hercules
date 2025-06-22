@@ -1,20 +1,32 @@
 import {
-  Injectable,
-  NotFoundException,
   BadRequestException,
+  Injectable,
   InternalServerErrorException,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, ILike } from 'typeorm';
-import { Permission } from './permissions.entity';
+import { PaginatedResult } from 'src/common/types/reponse.type';
+import { FindManyOptions, ILike, In, Repository } from 'typeorm';
 import {
   CreatePermissionDto,
   PaginatedPermissionsDto,
-  PermissionBulkDeleteDto,
   PermissionPaginationQueryDto,
   PermissionResponseDto,
   UpdatePermissionDto,
 } from './dto/permissions.dto';
+import { Permission } from './permissions.entity';
+
+// Update the query DTO to extend the base pattern
+export class PermissionQueryParamsDto {
+  page?: number = 1;
+  limit?: number = 10;
+  search?: string;
+  name?: string;
+  description?: string;
+  code?: string;
+  sortBy?: string = 'createdAt';
+  sortOrder?: 'ASC' | 'DESC' = 'DESC';
+}
 
 @Injectable()
 export class PermissionsService {
@@ -36,6 +48,219 @@ export class PermissionsService {
     }
 
     return this.permissionsRepository.findBy({ id: In(ids) });
+  }
+
+  // Updated query method based on UsersService pattern
+  async query(
+    query: PermissionQueryParamsDto,
+  ): Promise<PaginatedResult<Permission>> {
+    try {
+      const {
+        page = 1,
+        limit = 10,
+        sortBy = 'createdAt',
+        sortOrder = 'DESC',
+        search,
+        name,
+        description,
+        code,
+      } = query;
+
+      // Build where conditions using the same pattern as UsersService
+      const whereConditions: any = {};
+
+      // Global search functionality (searches across name, description, and code)
+      if (search) {
+        whereConditions.name = ILike(`%${search}%`);
+        // Note: For multiple field search, you'd need to use query builder
+        // This is simplified version searching only in name field
+      }
+
+      // Specific field filters
+      if (name) {
+        whereConditions.name = ILike(`%${name}%`);
+      }
+
+      if (description) {
+        whereConditions.description = ILike(`%${description}%`);
+      }
+
+      if (code) {
+        whereConditions.code = ILike(`%${code}%`);
+      }
+
+      const findOptions: FindManyOptions<Permission> = {
+        where: whereConditions,
+        relations: {
+          roles: true, // Include roles relation
+        },
+        order: {
+          [sortBy]: sortOrder.toUpperCase() as 'ASC' | 'DESC',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+      };
+
+      const [permissions, total] =
+        await this.permissionsRepository.findAndCount(findOptions);
+
+      return {
+        data: permissions,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+        total: total,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to get permissions: ${error.message}`,
+      );
+    }
+  }
+
+  // Advanced search method similar to roles service
+  async searchPermissions(
+    searchTerm: string,
+    query: PermissionQueryParamsDto = {},
+  ): Promise<PaginatedResult<Permission>> {
+    try {
+      const {
+        page = 1,
+        limit = 10,
+        sortBy = 'createdAt',
+        sortOrder = 'DESC',
+      } = query;
+
+      const queryBuilder = this.permissionsRepository
+        .createQueryBuilder('permission')
+        .leftJoinAndSelect('permission.roles', 'roles');
+
+      // Search across multiple fields
+      queryBuilder.where(
+        '(permission.name ILIKE :search OR permission.description ILIKE :search OR permission.code ILIKE :search)',
+        { search: `%${searchTerm}%` },
+      );
+
+      // Add ordering
+      queryBuilder.orderBy(
+        `permission.${sortBy}`,
+        sortOrder.toUpperCase() as 'ASC' | 'DESC',
+      );
+
+      // Add pagination
+      queryBuilder.skip((page - 1) * limit).take(limit);
+
+      const [permissions, total] = await queryBuilder.getManyAndCount();
+
+      return {
+        data: permissions,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+        total: total,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to search permissions: ${error.message}`,
+      );
+    }
+  }
+
+  // Add bulk operations like in UsersService
+  async bulkDelete(permissionIds: number[]): Promise<{ deleted: number }> {
+    try {
+      if (
+        !permissionIds ||
+        !Array.isArray(permissionIds) ||
+        permissionIds.length === 0
+      ) {
+        return { deleted: 0 };
+      }
+
+      const permissions = await this.permissionsRepository.find({
+        where: { id: In(permissionIds) },
+        relations: ['roles'],
+      });
+
+      // Check if any permission is assigned to roles
+      const assignedPermissions = permissions.filter(
+        (permission) => permission.roles && permission.roles.length > 0,
+      );
+
+      if (assignedPermissions.length > 0) {
+        throw new BadRequestException(
+          `Cannot delete permissions that are assigned to roles: ${assignedPermissions.map((p) => p.name).join(', ')}`,
+        );
+      }
+
+      if (!permissions.length) {
+        return { deleted: 0 };
+      }
+
+      await this.permissionsRepository.remove(permissions);
+      return { deleted: permissions.length };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to bulk delete permissions: ${error.message}`,
+      );
+    }
+  }
+
+  // Add filter by assignment status
+  async findByAssignmentStatus(
+    isAssigned: boolean,
+    query: PermissionQueryParamsDto = {},
+  ): Promise<PaginatedResult<Permission>> {
+    try {
+      const {
+        page = 1,
+        limit = 10,
+        sortBy = 'createdAt',
+        sortOrder = 'DESC',
+      } = query;
+
+      const queryBuilder = this.permissionsRepository
+        .createQueryBuilder('permission')
+        .leftJoinAndSelect('permission.roles', 'roles');
+
+      if (isAssigned) {
+        queryBuilder.where('roles.id IS NOT NULL');
+      } else {
+        queryBuilder.where('roles.id IS NULL');
+      }
+
+      // Add ordering
+      queryBuilder.orderBy(
+        `permission.${sortBy}`,
+        sortOrder.toUpperCase() as 'ASC' | 'DESC',
+      );
+
+      // Add pagination
+      queryBuilder.skip((page - 1) * limit).take(limit);
+
+      const [permissions, total] = await queryBuilder.getManyAndCount();
+
+      return {
+        data: permissions,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+        total: total,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to get permissions by assignment status: ${error.message}`,
+      );
+    }
   }
 
   async findAll(
@@ -183,7 +408,7 @@ export class PermissionsService {
         throw new NotFoundException('Permission not found');
       }
 
-      // Check if permission name already exists (if updating name)
+      // Check if name already exists (if updating name)
       if (
         updatePermissionDto.name &&
         updatePermissionDto.name !== permission.name
@@ -196,7 +421,7 @@ export class PermissionsService {
         }
       }
 
-      // Check if permission code already exists (if updating code)
+      // Check if code already exists (if updating code)
       if (
         updatePermissionDto.code &&
         updatePermissionDto.code !== permission.code
@@ -221,15 +446,6 @@ export class PermissionsService {
         error instanceof BadRequestException
       ) {
         throw error;
-      }
-      if (error.code === '23505') {
-        if (error.detail?.includes('name')) {
-          throw new BadRequestException('Permission name already exists');
-        }
-        if (error.detail?.includes('code')) {
-          throw new BadRequestException('Permission code already exists');
-        }
-        throw new BadRequestException('Permission name or code already exists');
       }
       throw new InternalServerErrorException(
         `Failed to update permission: ${error.message}`,
@@ -269,60 +485,6 @@ export class PermissionsService {
     }
   }
 
-  async bulkDelete(dto: PermissionBulkDeleteDto): Promise<{ deleted: number }> {
-    try {
-      if (
-        !dto.permissionIds ||
-        !Array.isArray(dto.permissionIds) ||
-        dto.permissionIds.length === 0
-      ) {
-        return { deleted: 0 };
-      }
-
-      const permissions = await this.permissionsRepository.find({
-        where: { id: In(dto.permissionIds) },
-        relations: ['roles'],
-      });
-
-      if (!permissions.length) {
-        return { deleted: 0 };
-      }
-
-      // Check if any permissions are assigned to roles
-      const permissionsWithRoles = permissions.filter(
-        (permission) => permission.roles && permission.roles.length > 0,
-      );
-      if (permissionsWithRoles.length > 0) {
-        throw new BadRequestException(
-          'Cannot delete permissions that are assigned to roles',
-        );
-      }
-
-      await this.permissionsRepository.remove(permissions);
-      return { deleted: permissions.length };
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      throw new InternalServerErrorException(
-        `Failed to bulk delete permissions: ${error.message}`,
-      );
-    }
-  }
-
-  async findByName(name: string): Promise<Permission | null> {
-    try {
-      return await this.permissionsRepository.findOne({
-        where: { name },
-        relations: ['roles'],
-      });
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to find permission by name: ${error.message}`,
-      );
-    }
-  }
-
   async findByCode(code: string): Promise<Permission | null> {
     try {
       return await this.permissionsRepository.findOne({
@@ -332,63 +494,6 @@ export class PermissionsService {
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to find permission by code: ${error.message}`,
-      );
-    }
-  }
-
-  async findByRoleId(roleId: number): Promise<PermissionResponseDto[]> {
-    try {
-      const permissions = await this.permissionsRepository.find({
-        where: {
-          roles: {
-            id: roleId,
-          },
-        },
-        relations: ['roles'],
-        order: { createdAt: 'DESC' },
-      });
-
-      return permissions.map((permission) => this.toResponseDto(permission));
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to get permissions by role ID: ${error.message}`,
-      );
-    }
-  }
-
-  async findAvailablePermissions(): Promise<PermissionResponseDto[]> {
-    try {
-      const permissions = await this.permissionsRepository.find({
-        relations: ['roles'],
-        order: { name: 'ASC' },
-      });
-
-      return permissions.map((permission) => this.toResponseDto(permission));
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to get available permissions: ${error.message}`,
-      );
-    }
-  }
-
-  async searchPermissions(
-    searchTerm: string,
-  ): Promise<PermissionResponseDto[]> {
-    try {
-      const permissions = await this.permissionsRepository.find({
-        where: [
-          { name: ILike(`%${searchTerm}%`) },
-          { description: ILike(`%${searchTerm}%`) },
-          { code: ILike(`%${searchTerm}%`) },
-        ],
-        relations: ['roles'],
-        order: { name: 'ASC' },
-      });
-
-      return permissions.map((permission) => this.toResponseDto(permission));
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to search permissions: ${error.message}`,
       );
     }
   }

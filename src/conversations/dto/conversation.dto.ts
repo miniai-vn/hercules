@@ -66,12 +66,20 @@ export class UpdateConversationDto {
   @IsArray()
   @IsNumber({}, { each: true })
   @IsOptional()
-  customerParticipantIds?: number[];
+  customerParticipantIds?: string[];
 
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
   userParticipantIds?: string[];
+
+  @IsString()
+  @IsOptional()
+  avatar?: string;
+
+  @IsString()
+  @IsOptional()
+  externalId?: string;
 }
 
 export class ConversationQueryParamsDto {

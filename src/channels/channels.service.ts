@@ -352,7 +352,7 @@ export class ChannelsService {
   async getByTypeAndAppId(type: ChannelType, appId: string): Promise<Channel> {
     return this.channelRepository.findOne({
       where: { type, appId },
-      relations: ['shop'],
+      relations: ['shop', 'users'],
     });
   }
 
@@ -365,14 +365,12 @@ export class ChannelsService {
       where: { appId },
       relations: ['users'],
     });
-
     const userExists = channel.users.some((user) => user.id === userId);
     if (!userExists) {
       const user = await this.usersService.getOne(userId);
       channel.users = [user];
     }
     channel.shop = shop;
-
     return this.channelRepository.save(channel);
   }
 

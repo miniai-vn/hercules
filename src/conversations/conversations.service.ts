@@ -38,6 +38,19 @@ export class ConversationsService {
     private readonly userService: UsersService, // Assuming you have a UsersService to handle user-related logic
   ) {}
 
+  async findByCustomerIdAndChannelId(
+    customerId: string,
+    channelId: number,
+  ): Promise<Conversation | null> {
+    return this.conversationRepository
+      .createQueryBuilder('conversation')
+      .leftJoin('conversation.members', 'members')
+      .leftJoin('conversation.channel', 'channel')
+      .where('members.customerId = :customerId', { customerId })
+      .andWhere('channel.id = :channelId', { channelId })
+      .getOne();
+  }
+
   async create(createConversationDto: CreateConversationDto, channel: Channel) {
     try {
       const {
@@ -236,12 +249,23 @@ export class ConversationsService {
       const customers = conversation.members.filter(
         (member) => member.participantType === ParticipantType.CUSTOMER,
       );
-
       const messages = await Promise.all(
-        conversation.messages.map(async (message) => ({
-          ...message,
-          sender: await this.getInfoSenderMessages(message),
-        })),
+        conversation.messages.map(async (message) => {
+          try {
+            return {
+              ...message,
+              sender: await this.getInfoSenderMessages(message),
+            };
+          } catch (e) {
+            // Log rõ ra message nào fail
+            console.error('Lỗi khi get sender cho message:', message, e);
+            return {
+              ...message,
+              sender: null, // hoặc object default
+              error: e.message,
+            };
+          }
+        }),
       );
 
       return {

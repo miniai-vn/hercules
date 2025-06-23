@@ -62,11 +62,11 @@ export class ConversationsController {
     message: string;
     data: any;
   }> {
-    const shopId = req.user.shop_id;
+    const shopId = req.user.shopId;
     queryParams.shopId = shopId;
 
     if (!queryParams.userId) {
-      queryParams.userId = req.user.user_id;
+      queryParams.userId = req.user.userId;
     }
 
     return {
@@ -192,7 +192,7 @@ export class ConversationsController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req,
   ): Promise<ApiResponse<{ id: number }>> {
-    const userId = req.user.user_id;
+    const userId = req.user.userId;
     await this.conversationsService.markReadConversation(id, userId);
     return {
       message: 'Conversation marked as read successfully',

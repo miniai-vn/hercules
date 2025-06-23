@@ -45,6 +45,9 @@ export class Conversation {
   @Column({ type: 'text', nullable: true, name: 'content' })
   content?: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'external_id' })
+  externalId?: string;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
   createdAt: Date;
 

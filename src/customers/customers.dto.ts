@@ -59,6 +59,10 @@ export class CreateCustomerDto {
   @IsNumber()
   @IsNotEmpty()
   channelId: number;
+
+  @IsString()
+  @IsOptional()
+  avatar?: string;
 }
 
 export class UpdateCustomerDto {

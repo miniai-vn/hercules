@@ -10,16 +10,13 @@ export class FacebookMessageEntryDTO {
 }
 
 export class FacebookMessagingEventDTO {
-  sender: {
-    id: string; // User PSID
-  };
-  recipient: {
-    id: string; // Page ID
-  };
+  sender: { id: string }; // User PSID
+  recipient: { id: string }; // Page ID
   timestamp?: number;
   message?: {
+    // Có khi chỉ là message khi user nhắn
     mid?: string;
     text?: string;
   };
-  postback?: any; // nếu có xử lý postback
+  postback?: any; // Nếu là postback event
 }

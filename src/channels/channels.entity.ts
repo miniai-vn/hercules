@@ -69,6 +69,14 @@ export class Channel {
   })
   enableAutoReply?: boolean;
 
+  @Column({
+    type: 'text',
+    nullable: true,
+    name: 'user_token_from_facebook',
+    select: false,
+  })
+  userToken?: string;
+
   @ManyToMany(() => User, (user) => user.channels, {
     cascade: true,
   })

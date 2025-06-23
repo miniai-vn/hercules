@@ -1,26 +1,26 @@
 import { FacebookService } from './facebook.service';
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
-  Param,
+  HttpStatus,
   Post,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
-import { TConversationPageId } from './types/conversation.type';
+
 @ApiTags('Facebook')
 @Controller('facebook')
 export class FacebookController {
   constructor(private readonly facebookService: FacebookService) {}
 
   @Get('connect')
-  connectToFacebook(@Res() res: Response) {
-    return this.facebookService.connectToFacebook(res);
+  async connectToFacebook(@Res() res: Response) {
+    return await this.facebookService.connectToFacebook(res);
   }
 
   @Get('callback')
@@ -34,7 +34,7 @@ export class FacebookController {
     } catch (error) {}
   }
 
-  @Get('webhook')
+  @Get('/webhook')
   verifyWebhook(
     @Query('hub.mode') mode: string,
     @Query('hub.verify_token') verifyToken: string,
@@ -44,43 +44,49 @@ export class FacebookController {
   }
 
   // 2. Endpoint để nhận POST event sau khi đã verify
-  @Post('webhook/handler')
-  async receiveWebhook(@Body() body: FacebookWebhookDTO) {
-    if (body.object === 'page') {
-      for (const entry of body.entry ?? []) {
-        for (const event of entry.messaging) {
-          if (event.message?.text) {
-            await this.facebookService?.handleMessage(event);
-          } else if (event.postback) {
-            await this.facebookService?.handlePostback(event);
-          }
-        }
-      }
+  @Post('webhook/receive')
+  @ApiOperation({ summary: 'Receive Facebook webhook events' })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook received and processed',
+  })
+  async receiveWebhook(@Body() body: FacebookWebhookDTO, @Res() res: Response) {
+    try {
+      res.status(HttpStatus.OK).json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        message: 'Webhook received and processed',
+      });
+      await this.facebookService.handleWebhook(body);
+    } catch (error) {
+      return { status: 'error', message: error.message };
     }
-
-    return {
-      success: true,
-      timestamp: new Date().toISOString(),
-      message: 'Webhook received and processed',
-    };
   }
 
-  @Get('/page/:page_id/conversations')
-  async getIdsConversationsPage(
-    @Query('acces_token_page') access_token_page: string,
-    @Param('page_id') page_id: string,
-  ): Promise<TConversationPageId> {
-    return await this.facebookService.getIdsConversationsPage(
-      access_token_page,
-      page_id,
-    );
-  }
+  // @Get('/conversations')
+  // async getIdsConversationsPage(
+  //   @Query() query: TFacebookConversatioQueryDTO,
+  //   // @Param('page_id') page_id: string,
+  // ): Promise<TConversationPageId> {
+  //   return await this.facebookService.getIdsConversationsPage(query);
+  // }
 
-  @Get('/:id/messages-detail')
-  async getMessage(
-    @Query('access_token_page') access_token_page: string,
-    @Query('fields') fields: string,
-  ): Promise<string> {
-    return null;
-  }
+  // @Get('/conversations/all')
+  // async getIdsConversationsPageAll(): Promise<any> {
+  //   return await this.facebookService.getIdsConversationsPageAll();
+  // }
+
+  // @Get('/message/:id/messages-detail')
+  // async getMessage(
+  //   @Query() query: FacebookMessageQueryDTO,
+  // ): Promise<TFacebookMessage> {
+  //   return await this.facebookService.getMessageDetail(query);
+  // }
+
+  // @Get('/:psid')
+  // async getUserProfile(
+  //   @Query() query: FacebookUserProfileQueryDTO,
+  // ): Promise<void> {
+  //   return await this.facebookService.getUserProfile(query);
+  // }
 }

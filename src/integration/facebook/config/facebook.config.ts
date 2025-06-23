@@ -15,7 +15,12 @@ export const FACEBOOK_CONFIG = {
     DIALOG_OAUTH: 'dialog/oauth',
     DEBUG_TOKEN: 'debug_token',
   },
-  SCOPE: 'pages_show_list,pages_messaging,business_management',
+  SCOPE:
+    'pages_show_list,pages_messaging,business_management,pages_read_engagement',
   VERIFY_TOKEN: process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN,
   REDIRECT_URL: process.env.FACEBOOK_REDIRECT_URL,
+  EVENT_WEBHOOK: {
+    USER_SEND_TEXT: 'user_send_text',
+    USER_SEND_POSTBACK: 'user_send_postback',
+  },
 } as const;

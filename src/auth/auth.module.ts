@@ -5,6 +5,7 @@ import { RolesModule } from 'src/roles/roles.module';
 import { ShopsModule } from 'src/shops/shops.module';
 import { AuthService } from './auth.service';
 import { UsersModule } from 'src/users/users.module';
+import { AuthController } from './auth.controller';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -22,5 +23,6 @@ import { UsersModule } from 'src/users/users.module';
   ],
   providers: [AuthService],
   exports: [],
+  controllers: [AuthController],
 })
 export class AuthModule {}

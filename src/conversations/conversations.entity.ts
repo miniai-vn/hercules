@@ -1,7 +1,5 @@
 import { Channel } from 'src/channels/channels.entity';
-import {
-  ConversationMember
-} from 'src/conversation-members/conversation-members.entity';
+import { ConversationMember } from 'src/conversation-members/conversation-members.entity';
 import { Tag } from 'src/tags/tags.entity';
 import {
   Column,
@@ -70,7 +68,10 @@ export class Conversation {
   })
   members: ConversationMember[];
 
-  @ManyToMany(() => Tag, (tag) => tag.conversations)
+  @ManyToMany(() => Tag, (tag) => tag.conversations, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
   @JoinTable({
     name: 'tag_conversations',
     joinColumn: { name: 'conversation_id', referencedColumnName: 'id' },

@@ -29,15 +29,9 @@ export class JwtAuthGuard implements CanActivate {
         algorithms: [(process.env.JWT_ALGORITHM || 'HS256') as jwt.Algorithm],
       });
 
-      if (
-        typeof payload !== 'object' ||
-        payload === null ||
-        !('shop_id' in payload)
-      ) {
-        throw new UnauthorizedException('Invalid token payload');
-      }
+    
       const roles = await this.rolesService.findByUserId(
-        (payload as any).user_id, // Assuming user_id is in the payload
+        (payload as any).userId, // Assuming user_id is in the payload
       );
       const permissionsUniqueCode = new Set<string>();
       roles.forEach((role) => {
@@ -46,7 +40,7 @@ export class JwtAuthGuard implements CanActivate {
         });
       });
 
-      const shop = await this.shopService.findOne((payload as any).shop_id);
+      const shop = await this.shopService.findOne((payload as any).shopId);
       if (!shop) {
         throw new UnauthorizedException('Shop not found');
       }

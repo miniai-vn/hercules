@@ -26,10 +26,10 @@ export class Channel {
   name: string;
 
   @Column({ type: 'varchar', length: 50, name: 'type' })
-  type: string; // e.g., Zalo, Facebook, TikTok
+  type: string;
 
   @Column({ type: 'varchar', length: 50, default: 'inactive', name: 'status' })
-  status: string; // e.g., active, inactive
+  status: string;
 
   @Column({ type: 'text', nullable: true, name: 'description' })
   description?: string;
@@ -70,8 +70,6 @@ export class Channel {
   enableAutoReply?: boolean;
 
   @ManyToMany(() => User, (user) => user.channels, {
-    onDelete: 'SET NULL',
-    nullable: true,
     cascade: true,
   })
   @JoinTable({
@@ -109,6 +107,6 @@ export class Channel {
   @JoinColumn({ name: 'shop_id' })
   shop: Shop;
 
-  @DeleteDateColumn()
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamp', nullable: true })
   deletedAt?: Date;
 }

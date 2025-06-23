@@ -27,8 +27,11 @@ export class Message {
   @Column({ type: 'text', name: 'content_type' })
   contentType: string;
 
+  @Column({ type: 'text', nullable: true, name: 'external_id' })
+  externalId?: string;
+
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'sender_id' })
-  senderId?: string; // ID of the sender in the conversation
+  senderId?: string;
 
   @Column({ type: 'text', nullable: true, name: 'content' })
   content?: string;
@@ -37,10 +40,10 @@ export class Message {
   lastMessagesMembers: ConversationMember[];
 
   @ManyToOne(() => Conversation, (conversation) => conversation.messages, {
-    onDelete: 'CASCADE', // Matches SQLAlchemy
+    onDelete: 'CASCADE',
     nullable: false,
   })
-  @JoinColumn({ name: 'conversation_id' }) // Specifies the foreign key column
+  @JoinColumn({ name: 'conversation_id' })
   conversation: Conversation;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
@@ -49,10 +52,10 @@ export class Message {
   @Column({ type: 'text', nullable: true, name: 'intent' })
   intent?: string;
 
-  @Column({ type: 'jsonb', nullable: true, name: 'extra_data' }) // Using jsonb for dictionary-like data
+  @Column({ type: 'jsonb', nullable: true, name: 'extra_data' })
   extraData?: Record<string, any>;
 
-  @Column({ type: 'jsonb', nullable: true, name: 'token_usage' }) // Using jsonb for dictionary-like data
+  @Column({ type: 'jsonb', nullable: true, name: 'token_usage' })
   tokenUsage?: Record<string, any>;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })

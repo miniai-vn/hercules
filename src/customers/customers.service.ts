@@ -1,25 +1,25 @@
 import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
   BadRequestException,
-  InternalServerErrorException,
+  ConflictException,
   Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, FindManyOptions } from 'typeorm';
-import { Customer } from './customers.entity';
-import { ShopService } from '../shops/shops.service';
+import { PaginatedResult } from 'src/common/types/reponse.type';
+import { TagsService } from 'src/tags/tags.service';
+import { FindManyOptions, In, Like, Repository } from 'typeorm';
 import { ChannelsService } from '../channels/channels.service';
+import { ShopService } from '../shops/shops.service';
 import {
   CreateCustomerDto,
-  UpdateCustomerDto,
-  CustomerResponseDto,
   CustomerListQueryDto,
-  CustomerListResponseDto,
+  CustomerResponseDto,
+  UpdateCustomerDto,
 } from './customers.dto';
-import { TagsService } from 'src/tags/tags.service';
+import { Customer } from './customers.entity';
 
 @Injectable()
 export class CustomersService {
@@ -92,30 +92,21 @@ export class CustomersService {
     }
   }
 
-  async findAll(query: CustomerListQueryDto): Promise<CustomerListResponseDto> {
-    const { platform, shopId, channelId, name, page = 1, limit = 10 } = query;
+  async query(query: CustomerListQueryDto): Promise<PaginatedResult<Customer>> {
+    const { page = 1, limit = 10 } = query;
 
-    const whereConditions: any = {};
-
-    if (platform) {
-      whereConditions.platform = platform;
-    }
-
-    if (shopId) {
-      // Validate shop exists using ShopService
-      await this.shopService.findOne(shopId);
-      whereConditions.shop = { id: shopId };
-    }
-
-    if (channelId) {
-      // Validate channel exists using ChannelService
-      await this.channelService.getOne(channelId);
-      whereConditions.channel = { id: channelId };
-    }
-
-    if (name) {
-      whereConditions.name = Like(`%${name}%`);
-    }
+    const whereConditions = {
+      ...(query.search && {
+        name: Like(`%${query.search}%`),
+      }),
+      ...(query.shopId && { shop: { id: query.shopId } }),
+      ...(query.channelId && { channel: { id: query.channelId } }),
+      ...(query.platform && { platform: query.platform }),
+      ...(query.email && { email: query.email }),
+      ...(query.phone && { phone: query.phone }),
+      ...(query.address && { address: query.address }),
+      ...(query.tagIds && { tags: { id: In(query.tagIds) } }),
+    };
 
     const findOptions: FindManyOptions<Customer> = {
       where: whereConditions,
@@ -128,15 +119,14 @@ export class CustomersService {
     const [customers, total] =
       await this.customerRepository.findAndCount(findOptions);
 
-    const data = customers.map((customer) => this.mapToResponseDto(customer));
-    const totalPages = Math.ceil(total / limit);
-
     return {
-      data,
+      data: customers,
       total,
       page,
       limit,
-      totalPages,
+      totalPages: Math.ceil(total / limit),
+      hasNext: page * limit < total,
+      hasPrev: page > 1,
     };
   }
 
@@ -208,7 +198,7 @@ export class CustomersService {
     name,
     shopId,
     channelId,
-    avatar
+    avatar,
   }: {
     platform: string;
     externalId: string;
@@ -264,6 +254,23 @@ export class CustomersService {
     return await this.customerRepository.findOne({
       where: { externalId },
     });
+  }
+
+  async createMany(customers: CreateCustomerDto[]) {
+    return await this.customerRepository.upsert(
+      customers.map((customer) => ({
+        platform: customer.platform,
+        externalId: customer.externalId,
+        avatar: customer.avatar,
+        name: customer.name,
+        shop: customer.shopId ? { id: customer.shopId } : null,
+        channel: customer.channelId ? { id: customer.channelId } : null,
+      })),
+      {
+        conflictPaths: ['externalId'],
+        skipUpdateIfNoValuesChanged: true,
+      },
+    );
   }
 
   private mapToResponseDto(customer: Customer): CustomerResponseDto {

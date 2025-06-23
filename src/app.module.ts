@@ -35,7 +35,7 @@ import { UploadsModule } from './uploads/uploads.module';
 @Module({
   imports: [
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'public'), // path to index.html
+      rootPath: join(__dirname, '..', 'public'),
     }),
     BullModule.forRoot({
       connection: {
@@ -44,16 +44,9 @@ import { UploadsModule } from './uploads/uploads.module';
         password: '5mrFkt9Yc244lFqOR7pV4eYUBM7WsBPn',
       },
     }),
-    BullModule.registerQueue({
-      name: 'miniai-queue',
-    }),
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
-    }),
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '../../', 'uploads'),
-      serveRoot: '/uploads',
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

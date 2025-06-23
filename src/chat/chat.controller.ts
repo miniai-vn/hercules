@@ -22,11 +22,15 @@ export class ChatController {
     type: Object,
   })
   async sendMessage(@Payload() data: ZaloWebhookDto) {
-    this.chatService.sendMessagesZaloToPlatform(data);
-    return {
-      status: 'success',
-      message: 'Authenticated message sent successfully',
-    };
+    try {
+      this.chatService.sendMessagesZaloToPlatform(data);
+      return {
+        status: 'success',
+        message: 'Authenticated message sent successfully',
+      };
+    } catch (error) {
+      throw new Error(`Failed to send message: ${error.message}`);
+    }
   }
 
   @Post('/send-message-platform-to-zalo')

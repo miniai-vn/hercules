@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { Payload } from '@nestjs/microservices';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
@@ -49,54 +49,60 @@ export class ChatService {
     private readonly userService: UsersService,
   ) {}
   async sendMessagesZaloToPlatform(@Payload() data: ZaloWebhookDto) {
-    const { message, recipient, sender } = data;
-    const zaloChannel = await this.channelService.getByTypeAndAppId(
-      ChannelType.ZALO,
-      recipient.id,
-    );
-
-    let customer = await this.customerService.findByExternalId(
-      ChannelType.ZALO,
-      sender.id,
-    );
-    console.log('customer', customer);
-    if (!customer) {
-      const metadataCustomerZalo = await this.zaloService.getUserProfile(
-        zaloChannel.accessToken,
-        sender.id,
+    try {
+      const { message, recipient, sender } = data;
+      const zaloChannel = await this.channelService.getByTypeAndAppId(
+        ChannelType.ZALO,
+        recipient.id,
       );
 
-      customer = await this.customerService.findOrCreateByExternalId({
-        platform: ChannelType.ZALO,
-        externalId: sender.id,
-        avatar: metadataCustomerZalo.data.data.avatar,
-        name: metadataCustomerZalo.data.data.display_name,
-        channelId: zaloChannel.id,
-      });
-    }
-
-    const { conversation, messageData, isNewConversation } =
-      await this.conversationsService.sendMessageToConversation({
-        message: message.text,
-        channel: zaloChannel,
-        customer,
-      });
-
-    if (isNewConversation) {
-      conversation.members.forEach((member) => {
-        this.chatGateway.sendEventJoinConversation(
-          conversation.id,
-          member.userId,
+      let customer = await this.customerService.findByExternalId(
+        ChannelType.ZALO,
+        sender.id,
+      );
+      console.log('customer', customer);
+      if (!customer) {
+        const metadataCustomerZalo = await this.zaloService.getUserProfile(
+          zaloChannel.accessToken,
+          sender.id,
         );
-      });
-    }
 
-    const roomName = `conversation:${conversation.id}`;
-    this.chatGateway.server.to(roomName).emit('receiveMessage', {
-      ...messageData,
-      conversationId: conversation.id,
-      channelType: ChannelType.ZALO,
-    });
+        customer = await this.customerService.findOrCreateByExternalId({
+          platform: ChannelType.ZALO,
+          externalId: sender.id,
+          avatar: metadataCustomerZalo.data.data.avatar,
+          name: metadataCustomerZalo.data.data.display_name,
+          channelId: zaloChannel.id,
+        });
+      }
+
+      const { conversation, messageData, isNewConversation } =
+        await this.conversationsService.sendMessageToConversation({
+          message: message.text,
+          channel: zaloChannel,
+          customer,
+        });
+
+      if (isNewConversation) {
+        conversation.members.forEach((member) => {
+          this.chatGateway.sendEventJoinConversation(
+            conversation.id,
+            member.userId,
+          );
+        });
+      }
+
+      const roomName = `conversation:${conversation.id}`;
+      this.chatGateway.server.to(roomName).emit('receiveMessage', {
+        ...messageData,
+        conversationId: conversation.id,
+        channelType: ChannelType.ZALO,
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to send message from Zalo to platform: ${error.message}`,
+      );
+    }
   }
 
   async sendMessagePlatformToZalo(data: SendMessageData): Promise<void> {

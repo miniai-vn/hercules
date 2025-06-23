@@ -3,11 +3,14 @@ import {
   Controller,
   Get,
   HttpStatus,
+  Param,
+  ParseIntPipe,
   Post,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { join } from 'path';
 import { ZaloService } from './zalo.service';
@@ -69,6 +72,24 @@ export class ZaloController {
       console.error('Error processing webhook event:', error);
       return { status: 'error', message: error.message };
     }
+  }
+
+  @Post('zalo/sync-conversations/:channelId')
+  @ApiOperation({ summary: 'Sync Zalo conversations' })
+  @ApiParam({
+    name: 'channelId',
+    description: 'Channel ID to sync conversations for',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversations synced successfully',
+  })
+  async syncZaloConversations(@Param('channelId', ParseIntPipe) channelId: number) {
+    const result = await this.zaloService.syncConversations(channelId);
+    return {
+      message: 'Conversations synced successfully',
+      data: result,
+    };
   }
 
   //    @Get("authorize-tiktok")

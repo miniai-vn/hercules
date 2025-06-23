@@ -403,7 +403,10 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
-        relations: ['messages', 'members'],
+        relations: {
+          messages: true,
+          members: true,
+        },
         order: {
           messages: {
             createdAt: 'ASC',
@@ -494,6 +497,37 @@ export class ConversationsService {
     }
   }
 
+  async getConversationByChannelAndCustomer(
+    channelId: number,
+    customerId: string,
+  ): Promise<Conversation> {
+    try {
+      const conversation = await this.conversationRepository.findOne({
+        where: {
+          members: {
+            customer: {
+              externalId: customerId,
+            },
+          },
+          channel: {
+            id: channelId,
+          },
+        },
+        relations: {
+          members: true,
+          channel: true,
+          messages: true,
+        },
+      });
+
+
+      return conversation;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to get conversation by channel and customer',
+      );
+    }
+  }
   async sendMessageToConversation({
     channel,
     customer,
@@ -506,24 +540,10 @@ export class ConversationsService {
     try {
       let isNewConversation = false;
 
-      let conversation = await this.conversationRepository.findOne({
-        where: {
-          members: {
-            customer: {
-              externalId: customer.id,
-            },
-          },
-          channel: {
-            id: channel.id,
-          },
-        },
-        relations: {
-          members: true,
-          channel: true,
-          messages: true,
-        },
-      });
-
+      let conversation = await this.getConversationByChannelAndCustomer(
+        channel.id,
+        customer.externalId,
+      );
       if (!conversation) {
         const adminChannels = await this.userService.findAdminChannel(
           channel.id,
@@ -599,11 +619,16 @@ export class ConversationsService {
 
   async getConversationByUserId(userId: string) {
     try {
-      const conversations = await this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.members', 'members')
-        .where('members.userId = :userId', { userId })
-        .getMany();
+      const conversations = await this.conversationRepository.find({
+        where: {
+          members: {
+            userId,
+          },
+        },
+        relations: {
+          members: true,
+        },
+      });
       return conversations;
     } catch (error) {
       throw new InternalServerErrorException(

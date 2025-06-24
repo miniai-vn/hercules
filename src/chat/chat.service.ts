@@ -60,7 +60,7 @@ export class ChatService {
         ChannelType.ZALO,
         sender.id,
       );
-      console.log('customer', customer);
+
       if (!customer) {
         const metadataCustomerZalo = await this.zaloService.getUserProfile(
           zaloChannel.accessToken,
@@ -78,6 +78,7 @@ export class ChatService {
 
       const { conversation, messageData, isNewConversation } =
         await this.conversationsService.sendMessageToConversation({
+          externalMessageId: message.msg_id,
           message: message.text,
           channel: zaloChannel,
           customer,

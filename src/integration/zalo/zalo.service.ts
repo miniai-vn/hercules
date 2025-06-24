@@ -6,14 +6,17 @@ import { Channel } from 'src/channels/channels.entity';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
+import { delay, isAfter } from 'src/common/utils/utils';
+import { ConversationType } from 'src/conversations/conversations.entity';
+import { ConversationsService } from 'src/conversations/conversations.service';
+import { Platform } from 'src/customers/customers.dto';
+import { CustomersService } from 'src/customers/customers.service';
 import { KafkaService } from 'src/kafka/kafka.service';
 import { ZALO_CONFIG } from './config/zalo.config';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
-import { CustomersService } from 'src/customers/customers.service';
-import { ConversationsService } from 'src/conversations/conversations.service';
-import { Platform } from 'src/customers/customers.dto';
-import { delay } from 'src/common/utils/utils';
-import { ConversationType } from 'src/conversations/conversations.entity';
+import dayjs from 'dayjs';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 dotenv.config();
 
@@ -26,7 +29,8 @@ export class ZaloService {
     private readonly channelService: ChannelsService,
     private readonly kafkaService: KafkaService,
     private readonly customerService: CustomersService,
-    private readonly conversationService: ConversationsService, // Assuming this is the correct service for conversations
+    private readonly conversationService: ConversationsService,
+    @InjectQueue('zalo-sync') private readonly zaloSyncQueue: Queue,
   ) {}
 
   /**
@@ -108,6 +112,9 @@ export class ZaloService {
     return this.callZaloAPI({ endpoint, method, data, headers, params });
   }
 
+  /**
+   * Get access token from Zalo using authorization code
+   */
   async getAccessToken(oa_id: string, code: string) {
     try {
       const requestData = {
@@ -155,7 +162,9 @@ export class ZaloService {
       throw error;
     }
   }
-
+  /**
+   * Refresh access token for Zalo channel
+   */
   async refreshAccessToken(channel: Channel): Promise<boolean> {
     try {
       const requestData = {
@@ -164,7 +173,6 @@ export class ZaloService {
         grant_type: 'refresh_token',
       };
 
-      // Use common OAuth API method
       const response = await this.callZaloOAuthAPI(
         ZALO_CONFIG.OAUTH_ENDPOINTS.ACCESS_TOKEN,
         requestData,
@@ -247,35 +255,75 @@ export class ZaloService {
     );
   }
 
-  async handleFetchConversation(accessToken: string = '', userId: string) {
-    let offset = 0;
-    const count = 10;
-    const allConversations = [];
+  async handleSyncConversationsWithUserId(user_id, channelId) {
+    try {
+      const channel = await this.channelService.getOne(channelId);
+      let offset = 0;
+      const count = 10;
+      const allConversations = [];
 
-    while (true) {
-      const response = await this.fetchConversaitons({
-        accessToken,
-        offset,
-        count,
-        userId,
-      });
-      console.log('Fetched conversations:', response.data);
+      while (true) {
+        const response = await this.fetchConversaitons({
+          accessToken: channel.accessToken,
+          offset,
+          count,
+          userId: user_id,
+        });
 
-      if (
-        !response.data ||
-        !response.data.data ||
-        response.data.data.length === 0
-      ) {
-        break;
+        if (
+          !response.data ||
+          !response.data.data ||
+          response.data.data.length === 0 ||
+          response.data.data.total <= offset
+        ) {
+          break;
+        }
+
+        for (const message of response.data.data) {
+          const dataMessageUpsert = {
+            platform: Platform.ZALO,
+            externalId: message.src === 1 ? message.from_id : message.to_id,
+            name:
+              message.src === 1
+                ? message.from_display_name
+                : message.to_display_name,
+            avatar: message.src === 1 ? message.from_avatar : message.to_avatar,
+            channelId: channel.id,
+          };
+
+          const customer =
+            await this.customerService.findOrCreateByExternalId(
+              dataMessageUpsert,
+            );
+
+          if (message.src === 1) {
+            await this.conversationService.sendMessageToConversation({
+              externalMessageId: message.message_id,
+              channel: channel,
+              customer: customer,
+              message: message.message,
+              type: message.type,
+            });
+          } else {
+            await this.conversationService.sendMessageToConversationWithOthers({
+              channel: channel,
+              message,
+              externalId: dataMessageUpsert.externalId,
+              customer: customer,
+            });
+          }
+        }
+
+        allConversations.push(...response.data.data.conversations);
+        offset += count;
       }
-
-      allConversations.push(...response.data.data);
-      offset += count;
+      return allConversations;
+    } catch (error) {
+      throw new Error(
+        `Failed to sync conversations with user ID ${user_id}: ${error.message}`,
+      );
     }
-    console.log('All conversations fetched:', allConversations);
-    return allConversations;
   }
-
   async getUsers({
     accessToken,
     offset = 0,
@@ -298,17 +346,15 @@ export class ZaloService {
       baseUrl: ZALO_CONFIG.BASE_URL,
     });
   }
-
-  async getAllUsers(
-    accessToken: string = 'F8MQBDjf1YSyWPuiss448pwCcYZQUd9sPCgfSy1TPmaYneDaa3Dr4ohTcsQEVr8m6iogT_nELouOe8j3gmb9AIgMeKMG76KXS9t_LiWs8pHViRnlpX1QObgGsnpj9XbeNRV_FT4A9t5_cyXwpmeLBd6xxohI91CcGeN88lK8FKPIlA4zmXHKRJcUoHchTXDI8kEDFfKM4tC2jDGqWoKIG6pFzaJuU2eBHl6-HV5nT1DXX9nRsJy40dUsqMkO8WrY98kMPhzWOsfQsuWwwKP6IL3FlZ3sRbv44kJ7FFrI3Lv6s_SLqs0-S3RDuHsBH3XH7j_n2PrKFmPu_-fKrsmXM6ADt366OqOw4V7POhLV40u9x8XAY7DTEX-UbNVu8LehLhoZSD5LE0fT-SP2l54I45ZG_sn3KTROh3tUSmSf',
-  ) {
+  async getAllUsers(channelId: number) {
+    const channel = await this.channelService.getOne(channelId);
     let offset = 0;
     const count = 50;
     const allUsers = [];
 
     while (true) {
       const response = await this.getUsers({
-        accessToken,
+        accessToken: channel.accessToken,
         offset,
         count,
       });
@@ -325,15 +371,23 @@ export class ZaloService {
       allUsers.push(...response.data.data.users);
       offset += count;
     }
-    for (let i = 0; i < 19; i++) {
+    for (let i = 0; i <= allUsers.length; i++) {
       const profileResponse = await this.getUserProfile(
-        accessToken,
-        allUsers[i].user_id,
+        channel.accessToken,
+        allUsers[i]?.user_id,
       );
       allUsers[i].profile = profileResponse.data.data || {};
-      delay(Math.random() * 1000); // Delay to avoid hitting rate limits
+      await this.customerService.upsert({
+        platform: Platform.ZALO,
+        externalId: allUsers[i].user_id,
+        name: allUsers[i].profile.display_name || '',
+        shopId: channel?.shop?.id || null,
+        channelId: channel?.id || null,
+        avatar: allUsers[i].profile.avatar || '',
+      });
+      delay(Math.random() * 1000);
     }
-    return allUsers.slice(0, 20); // Return only the first 20 users
+    return allUsers;
   }
 
   async getUser({
@@ -428,59 +482,97 @@ export class ZaloService {
     this.kafkaService.sendMessage(this.topic, payload);
   }
 
-  async syncConversations(channelId: number) {
+  /**
+   * Fetch recent chat messages
+   */
+  async fetchRecentChat({
+    accessToken,
+    offset = 0,
+    count = 10,
+  }: {
+    accessToken: string;
+    offset?: number;
+    count?: number;
+  }): Promise<AxiosResponse> {
+    return this.callZaloAuthenticatedAPI(
+      ZALO_CONFIG.ENDPOINTS.LIST_RECENT_CHAT,
+      accessToken,
+      HttpMethod.GET,
+      undefined,
+      { data: JSON.stringify({ offset, count }) },
+    );
+  }
+
+  /**
+   * Fetch conversations within the last month
+   */
+  async fetchMessagesWithinCustomTime(
+    channelId: number,
+    within: number,
+    type: dayjs.ManipulateType,
+  ) {
     const channel = await this.channelService.getOne(channelId);
-    if (!channel) {
-      throw new Error('Channel not found');
-    }
-    const customers = await this.getAllUsers(channel.accessToken);
-    for (let i = 0; i < customers.length; i += 200) {
-      const batch = customers.slice(i, i + 200);
-      await this.customerService.createMany(
-        batch.map((customer) => ({
-          platform: Platform.ZALO,
-          externalId: customer.user_id,
-          name: customer.profile?.display_name || '',
-          shopId: channel.shop.id,
-          channelId: channel.id,
-          avatar: customer.profile?.avatar || '',
-        })),
-      );
-    }
+    let offset = 0;
+    let count = 10;
+    const processedMessages = [];
 
-    const platFormCustomer = await this.customerService.query({
-      channelId: channel.id,
-      page: 1,
-      limit: 20,
-    });
+    while (true) {
+      const response = await this.fetchRecentChat({
+        accessToken: channel.accessToken,
+        offset,
+        count,
+      });
 
-    for (const customer of platFormCustomer.data) {
-      let conversation =
-        await this.conversationService.getConversationByChannelAndCustomer(
-          channel.id,
-          customer.externalId,
-        );
-      if (!conversation) {
-        conversation = await this.conversationService.create(
-          {
-            customerParticipantIds: [customer.id],
-            externalId: customer.externalId,
-            name: customer.name,
-            avatar: customer.avatar,
-            type: ConversationType.DIRECT,
-          },
-          channel,
-        );
+      if (
+        !response.data ||
+        !response.data.data ||
+        response.data.data.length === 0
+      ) {
+        break;
       }
 
-      const messages = await this.handleFetchConversation(
-        channel.accessToken,
-        customer.externalId,
-      );
+      const result = response.data.data;
+      let shouldBreak = false;
 
-      console.log(
-        `Fetched ${messages.length} messages for customer ${customer.externalId}`,
+      for (let i = 0; i < result.length; i++) {
+        const message = result[i];
+        const isWithinCustomTime = isAfter(message.time, within, type, true);
+        if (!isWithinCustomTime) {
+          shouldBreak = true;
+          break;
+        }
+
+        processedMessages.push(message);
+      }
+
+      if (shouldBreak) {
+        break;
+      }
+
+      offset += 1;
+    }
+
+    for (let i = 0; i < processedMessages.length; i++) {
+      const conversationsId =
+        processedMessages[i].src === 1
+          ? processedMessages[i].from_id
+          : processedMessages[i].to_id;
+
+      await this.zaloSyncQueue.add(
+        'sync-zalo-conversations-with-user',
+        {
+          userId: conversationsId,
+          channelId: channelId,
+        },
+        {
+          delay: i * 1000,
+          deduplication: {
+            id: `sync-zalo-conversations-${conversationsId}`,
+          },
+        },
       );
     }
+    console.log(processedMessages);
+    return processedMessages;
   }
 }

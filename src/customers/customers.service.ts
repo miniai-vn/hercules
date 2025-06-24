@@ -92,6 +92,26 @@ export class CustomersService {
     }
   }
 
+  async upsert(createCustomerDto: CreateCustomerDto) {
+    return await this.customerRepository.upsert(
+      {
+        platform: createCustomerDto.platform,
+        externalId: createCustomerDto.externalId,
+        name: createCustomerDto.name,
+        avatar: createCustomerDto.avatar,
+        shop: createCustomerDto.shopId
+          ? { id: createCustomerDto.shopId }
+          : null,
+        channel: createCustomerDto.channelId
+          ? { id: createCustomerDto.channelId }
+          : null,
+      },
+      {
+        conflictPaths: ['externalId'],
+        skipUpdateIfNoValuesChanged: true,
+      },
+    );
+  }
   async query(query: CustomerListQueryDto): Promise<PaginatedResult<Customer>> {
     const { page = 1, limit = 10 } = query;
 
@@ -111,7 +131,7 @@ export class CustomersService {
     const findOptions: FindManyOptions<Customer> = {
       where: whereConditions,
       relations: ['shop', 'channel'],
-      order: { createdAt: 'DESC' },
+      order: { id: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     };

@@ -27,8 +27,17 @@ export class Message {
   @Column({ type: 'text', name: 'content_type' })
   contentType: string;
 
-  @Column({ type: 'text', nullable: true, name: 'external_id' })
+  @Column({ type: 'text', nullable: true, name: 'external_id', unique: true })
   externalId?: string;
+
+  @Column({ type: 'text', nullable: true, name: 'thumb' })
+  thumb?: string;
+
+  @Column({ type: 'text', array: true, nullable: true, name: 'file_url' })
+  links: string[];
+
+  @Column({ type: 'text', nullable: true, name: 'url' })
+  url?: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'sender_id' })
   senderId?: string;

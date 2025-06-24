@@ -39,9 +39,9 @@ import { UploadsModule } from './uploads/uploads.module';
     }),
     BullModule.forRoot({
       connection: {
-        host: 'redis-10293.c82.us-east-1-2.ec2.cloud.redislabs.com',
-        port: 10293,
-        password: '5mrFkt9Yc244lFqOR7pV4eYUBM7WsBPn',
+        host: 'redis-16758.c265.us-east-1-2.ec2.redns.redis-cloud.com',
+        port: 16758,
+        password: 'qbla6AyQWRp3znnJSCOtV0nRxRbiU8lW',
       },
     }),
     ScheduleModule.forRoot(),

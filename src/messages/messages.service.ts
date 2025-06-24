@@ -10,7 +10,7 @@ import {
   MessageResponseDto,
   PaginatedMessagesDto,
   RestoreMessageDto,
-  UpdateMessageDto
+  UpdateMessageDto,
 } from './messages.dto';
 import { Message } from './messages.entity';
 
@@ -32,6 +32,23 @@ export class MessagesService {
     });
     const savedMessage = await this.messageRepository.save(message);
     return this.toResponseDto(savedMessage);
+  }
+
+  async upsert(createMessageDto: CreateMessageDto, conversation: Conversation) {
+    const upsertedMessage = await this.messageRepository.upsert(
+      {
+        ...createMessageDto,
+        conversation: conversation,
+        senderType: createMessageDto.senderType as any,
+      },
+      {
+        conflictPaths: ['externalId'],
+      },
+    );
+
+    return await this.messageRepository.findOne({
+      where: { id: upsertedMessage.identifiers[0].id },
+    });
   }
 
   async bulkCreate(

@@ -62,11 +62,11 @@ export class ConversationsController {
     message: string;
     data: any;
   }> {
-    const shopId = req.user.shop_id;
+    const shopId = req.user.shopId;
     queryParams.shopId = shopId;
 
     if (!queryParams.userId) {
-      queryParams.userId = req.user.user_id;
+      queryParams.userId = req.user.userId;
     }
 
     return {

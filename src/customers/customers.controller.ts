@@ -22,11 +22,11 @@ import {
 import {
   CreateCustomerDto,
   CustomerListQueryDto,
-  CustomerListResponseDto,
   CustomerResponseDto,
   FindCustomerByExternalIdDto,
   UpdateCustomerDto,
   AddTagsToCustomerDto,
+  CustomerListResponseDto,
 } from './customers.dto';
 import { CustomersService } from './customers.service';
 
@@ -85,10 +85,8 @@ export class CustomersController {
   @ApiQuery({ name: 'name', required: false, description: 'Search by name' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number' })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  async findAll(
-    @Query() query: CustomerListQueryDto,
-  ): Promise<CustomerListResponseDto> {
-    return this.customersService.findAll(query);
+  async findAll(@Query() query: CustomerListQueryDto) {
+    return this.customersService.query(query);
   }
 
   @Get(':id')
@@ -181,8 +179,8 @@ export class CustomersController {
   async findByPlatform(
     @Param('platform') platform: string,
     @Query() query: CustomerListQueryDto,
-  ): Promise<CustomerListResponseDto> {
-    return this.customersService.findAll({ ...query, platform });
+  ) {
+    return this.customersService.query({ ...query, platform });
   }
 
   @Get('channel/:channelId')
@@ -199,10 +197,8 @@ export class CustomersController {
     status: 401,
     description: 'Unauthorized - invalid or missing token',
   })
-  async findByChannel(
-    @Query() query: CustomerListQueryDto,
-  ): Promise<CustomerListResponseDto> {
-    return this.customersService.findAll({ ...query });
+  async findByChannel(@Query() query: CustomerListQueryDto) {
+    return this.customersService.query({ ...query });
   }
 
   @Get('search/:searchTerm')
@@ -225,8 +221,8 @@ export class CustomersController {
   async searchByName(
     @Param('searchTerm') searchTerm: string,
     @Query() query: CustomerListQueryDto,
-  ): Promise<CustomerListResponseDto> {
-    return this.customersService.findAll({ ...query, name: searchTerm });
+  ) {
+    return this.customersService.query({ ...query, name: searchTerm });
   }
 
   @Post(':id/add-tags')

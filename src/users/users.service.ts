@@ -239,12 +239,7 @@ export class UsersService {
 
   async remove(id: string): Promise<void> {
     try {
-      const user = await this.usersRepository.findOne({ where: { id } });
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-
-      await this.usersRepository.softDelete(user);
+      await this.usersRepository.softDelete(id);
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;

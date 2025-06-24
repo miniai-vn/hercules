@@ -45,6 +45,11 @@ async function bootstrap() {
   //     client: {
   //       clientId: process.env.KAFKA_CLIENT_ID,
   //       brokers: [process.env.KAFKA_BROKERS],
+  //       sasl: {
+  //         mechanism: 'plain',
+  //         username: 'admin',
+  //         password: 'admin-secret',
+  //       },
   //     },
   //     producer: {
   //       allowAutoTopicCreation: true,

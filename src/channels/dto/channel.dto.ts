@@ -4,14 +4,12 @@ import {
   IsArray,
   IsBoolean,
   IsDate,
-  IsDateString,
   IsEnum,
   IsInt,
   IsNotEmpty,
   IsObject,
   IsOptional,
-  IsString,
-  Min,
+  IsString
 } from 'class-validator';
 import { Channel } from '../channels.entity'; // Assuming Channel entity for PaginatedChannelsDto
 

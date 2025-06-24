@@ -244,6 +244,14 @@ export class CustomerResponseDto {
 
 export class CustomerListQueryDto {
   @ApiPropertyOptional({
+    description: 'Filter by customer ID',
+    example: 'c1234567890',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
     description: 'Filter by platform',
     enum: Platform,
     example: 'zalo',
@@ -275,6 +283,47 @@ export class CustomerListQueryDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by email',
+    example: '',
+  })
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by phone number',
+    example: '+84123456789',
+  })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by address',
+    example: '123 Main St, Hanoi, Vietnam',
+  })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by note',
+    example: 'VIP customer prefers Zalo contact.',
+  })
+  @IsOptional()
+  @IsString()
+  note?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search by tag IDs',
+    type: [Number],
+    example: [1, 2, 3],
+  })
+  @IsOptional()
+  @IsNumber({}, { each: true })
+  tagIds?: number[];
 
   @ApiPropertyOptional({
     description: 'Page number for pagination',

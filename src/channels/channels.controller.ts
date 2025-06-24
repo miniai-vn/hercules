@@ -230,4 +230,19 @@ export class ChannelsController {
       data: updatedChannels,
     };
   }
+
+  @Post('sync-conversations')
+  @RequirePermissions(PermissionCode.CHANNEL_UPDATE)
+  @ApiOperation({ summary: 'Sync conversations for a channel' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversations synced successfully',
+  })
+  async syncConversations(@Param('id', ParseIntPipe) channelId: number) {
+    // const result = await this.channelsService.syncConversations(channelId);
+    // return {
+    //   message: 'Conversations synced successfully',
+    //   data: result,
+    // };
+  }
 }

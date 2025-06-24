@@ -8,6 +8,7 @@ export const ZALO_CONFIG = {
     UPLOAD_FILE: '/v2.0/oa/upload',
     GET_CONVERSATIONS: '/v2.0/oa/conversation',
     GET_OA_INFO: '/v2.0/oa/getoa',
+    LIST_RECENT_CHAT: '/v2.0/oa/listrecentchat',
   },
   OAUTH_ENDPOINTS: {
     ACCESS_TOKEN: '/v4/oa/access_token',

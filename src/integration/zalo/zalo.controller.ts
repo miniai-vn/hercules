@@ -3,20 +3,28 @@ import {
   Controller,
   Get,
   HttpStatus,
+  Param,
+  ParseIntPipe,
   Post,
   Query,
+  Req,
   Res,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { join } from 'path';
 import { ZaloService } from './zalo.service';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
+import { InjectQueue } from '@nestjs/bullmq';
+import { delay, Queue } from 'bullmq';
 
 @ApiTags('Integration')
 @Controller('integration')
 export class ZaloController {
-  constructor(private readonly zaloService: ZaloService) {}
+  constructor(
+    private readonly zaloService: ZaloService,
+    @InjectQueue('zalo-sync') private readonly zaloSyncQueue: Queue,
+  ) {}
 
   @Get('zalo')
   @ApiOperation({ summary: 'Zalo webhook verification' })
@@ -71,23 +79,75 @@ export class ZaloController {
     }
   }
 
-  //    @Get("authorize-tiktok")
-  //     async authorizeTikTok() {
-  //         return this.integrationService.authorizeTikTok();
-  //     }
+  @Post('zalo/sync-conversations/:channelId')
+  @ApiOperation({ summary: 'Sync Zalo conversations' })
+  @ApiParam({
+    name: 'channelId',
+    description: 'Channel ID to sync conversations for',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversations synced successfully',
+  })
+  async syncZaloConversations(
+    @Param('channelId', ParseIntPipe) channelId: number,
+  ) {
+    const job = await this.zaloSyncQueue.add('first-time-sync', {
+      channelId: channelId,
+    });
 
-  //     @Get("tiktok/conversations")
-  //     async getConversations() {
-  //         return this.integrationService.getConversations();
-  //     }
+    const schedulerId = `sync-conversations-${channelId}`;
+    await this.zaloSyncQueue.removeJobScheduler(schedulerId);
+    await this.zaloSyncQueue.upsertJobScheduler(
+      schedulerId,
+      {
+        every: 24 * 60 * 60 * 1000,
+        startDate: new Date(Date.now() + 60 * 60 * 1000),
+      },
+      {
+        name: 'sync-daily-zalo-conversations',
+        data: {
+          channelId,
+        },
+      },
+    );
+    return {
+      message: 'Conversations synced successfully',
+      data: job.id,
+    };
+  }
 
-  //     @Get("tiktok/shop-info")
-  //     async getShopInfo() {
-  //         return this.integrationService.getAuthorizeShop();
-  //     }
+  @Get('test-queue')
+  @ApiOperation({ summary: 'Test Zalo sync queue' })
+  @ApiResponse({ status: 200, description: 'Queue test successful' })
+  async testQueue() {
+    // const job = await this.zaloSyncQueue.add('sync-zalo-conversations', {
+    //   channelId: 34,
+    // });
+    await this.zaloSyncQueue.upsertJobScheduler(
+      'sync-conversations-35',
+      {
+        every: 10000, // Run every 24 hours
+        immediately: false,
+        startDate: new Date(Date.now() + 10000), // Start after 10 seconds
+      },
+      {
+        name: 'sync-conversations-35',
+        data: {
+          id: 34,
+        },
+        opts: {
+          backoff: {
+            type: 'exponential', // Use exponential backoff
+            delay: 5000, // Initial delay of 5 seconds
+          },
+        },
+      },
+    );
 
-  //     @Get("tiktok/products")
-  //     async getProducts() {
-  //         return this.integrationService.getProducts();
-  //     }
+    return {
+      message: 'Job added to Zalo sync queue',
+      // jobId: job.id,
+    };
+  }
 }

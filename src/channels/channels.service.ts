@@ -34,6 +34,7 @@ export class ChannelsService {
     private readonly channelRepository: Repository<Channel>,
     @Inject(forwardRef(() => DepartmentsService))
     private readonly departmentsService: DepartmentsService,
+    @Inject(forwardRef(() => ConversationsService))
     private readonly conversationsService: ConversationsService, // Inject ConversationsService if needed
     private readonly oaService: OAService, // Inject OAService
     private readonly usersService: UsersService, // Use UsersService instead of userRepository
@@ -82,7 +83,12 @@ export class ChannelsService {
   async getOne(id: number): Promise<Channel> {
     const channel = await this.channelRepository.findOne({
       where: { id },
-      relations: ['department'],
+      relations: {
+        department: true,
+        users: true, // Include users relation
+
+        shop: true, // Include shop relation
+      },
     });
     if (!channel) {
       throw new NotFoundException(`Channel with ID ${id} not found`);

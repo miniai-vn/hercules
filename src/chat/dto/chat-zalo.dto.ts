@@ -154,7 +154,7 @@ export class ZaloMessageDto {
 
 export class ZaloWebhookDto {
   @ApiProperty({
-    description: 'Zalo App ID',
+    description: 'Zalo App ID', 
     example: '431280473888958120'
   })
   @IsString()

@@ -65,7 +65,7 @@ export class ChannelsController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number, // Changed from perPage for consistency if desired
   ): Promise<ApiResponse<PaginatedChannelsDto>> {
-    const shopId = req.user.shop_id; // Assuming req.user.shop_id is the correct way to get shop ID
+    const shopId = req.user.shopId; // Assuming req.user.shop_id is the correct way to get shop ID
     const paginatedChannels = await this.channelsService.getByShopId(
       shopId,
       page,
@@ -223,11 +223,26 @@ export class ChannelsController {
     const updatedChannels = await this.channelsService.updateShopId(
       shop,
       appId,
-      req.user.user_id,
+      req.user.userId,
     );
     return {
       message: 'Shop ID updated successfully',
       data: updatedChannels,
     };
+  }
+
+  @Post('sync-conversations')
+  @RequirePermissions(PermissionCode.CHANNEL_UPDATE)
+  @ApiOperation({ summary: 'Sync conversations for a channel' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversations synced successfully',
+  })
+  async syncConversations(@Param('id', ParseIntPipe) channelId: number) {
+    // const result = await this.channelsService.syncConversations(channelId);
+    // return {
+    //   message: 'Conversations synced successfully',
+    //   data: result,
+    // };
   }
 }

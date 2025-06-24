@@ -1,12 +1,14 @@
 import {
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Channel } from 'src/channels/channels.entity';
-import { ChannelType } from 'src/channels/dto/channel.dto';
 import { AddParticipantDto } from 'src/conversation-members/conversation-members.dto';
+import { Customer } from 'src/customers/customers.entity';
 import { CustomersService } from 'src/customers/customers.service';
 import { SenderType } from 'src/messages/messages.dto';
 import { Message } from 'src/messages/messages.entity';
@@ -24,7 +26,8 @@ import {
   CreateConversationDto,
   UpdateConversationDto,
 } from './dto/conversation.dto';
-import { Customer } from 'src/customers/customers.entity';
+import { ChannelsService } from 'src/channels/channels.service';
+import { MessageType } from 'src/common/enums/message.enum';
 
 @Injectable()
 export class ConversationsService {
@@ -35,7 +38,9 @@ export class ConversationsService {
     private readonly messagesService: MessagesService,
     private readonly tagsService: TagsService,
     private readonly customerService: CustomersService,
-    private readonly userService: UsersService, // Assuming you have a UsersService to handle user-related logic
+    private readonly userService: UsersService,
+    @Inject(forwardRef(() => ChannelsService))
+    private readonly channelService: ChannelsService,
   ) {}
 
   async create(createConversationDto: CreateConversationDto, channel: Channel) {
@@ -221,21 +226,20 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id },
-        relations: [
-          'messages',
-          'members',
-          'members.customer',
-          'members.user',
-          'tags',
-        ],
+        relations: {
+          members: {
+            customer: true,
+            user: true,
+          },
+          channel: true,
+          messages: true,
+          tags: true,
+        },
       });
 
       if (!conversation) {
         throw new NotFoundException('Conversation not found');
       }
-      const customers = conversation.members.filter(
-        (member) => member.participantType === ParticipantType.CUSTOMER,
-      );
 
       const messages = await Promise.all(
         conversation.messages.map(async (message) => ({
@@ -246,12 +250,6 @@ export class ConversationsService {
 
       return {
         ...conversation,
-        name:
-          conversation.name ??
-          customers[0].customer?.name ??
-          'Unknown Customer',
-        avatar: customers[0].customer?.avatar ?? '',
-        senderId: customers[0].customer?.id,
         messages: messages,
       };
     } catch (error) {
@@ -403,7 +401,10 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
-        relations: ['messages', 'members'],
+        relations: {
+          messages: true,
+          members: true,
+        },
         order: {
           messages: {
             createdAt: 'ASC',
@@ -494,27 +495,20 @@ export class ConversationsService {
     }
   }
 
-  async sendMessageToConversation({
-    channel,
-    customer,
-    message = '',
-  }: {
-    channel: Channel;
-    customer: Customer;
-    message: string;
-  }) {
+  async getConversationByChannelAndCustomer(
+    channelId: number,
+    customerId: string,
+  ): Promise<Conversation> {
     try {
-      let isNewConversation = false;
-
-      let conversation = await this.conversationRepository.findOne({
+      const conversation = await this.conversationRepository.findOne({
         where: {
           members: {
             customer: {
-              externalId: customer.id,
+              externalId: customerId,
             },
           },
           channel: {
-            id: channel.id,
+            id: channelId,
           },
         },
         relations: {
@@ -523,6 +517,34 @@ export class ConversationsService {
           messages: true,
         },
       });
+
+      return conversation;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to get conversation by channel and customer',
+      );
+    }
+  }
+  async sendMessageToConversation({
+    channel,
+    customer,
+    externalMessageId,
+    message = '',
+    type,
+  }: {
+    channel: Channel;
+    customer: Customer;
+    externalMessageId: string;
+    message: string;
+    type?: string;
+  }) {
+    try {
+      let isNewConversation = false;
+
+      let conversation = await this.getConversationByChannelAndCustomer(
+        channel.id,
+        customer.externalId,
+      );
 
       if (!conversation) {
         const adminChannels = await this.userService.findAdminChannel(
@@ -551,10 +573,11 @@ export class ConversationsService {
         isNewConversation = true;
       }
 
-      const messageData = await this.messagesService.create(
+      const messageData = await this.messagesService.upsert(
         {
           content: message,
-          contentType: 'text',
+          contentType: type,
+          externalId: externalMessageId,
           senderType: SenderType.customer,
           senderId: customer.id,
         },
@@ -574,6 +597,18 @@ export class ConversationsService {
   }
 
   async getInfoSenderMessages(message: Message) {
+    if (message.senderType === SenderType.channel) {
+      // const channel = await this
+      const id = Number(message.senderId);
+      const channel = await this.channelService.getOne(id);
+      return {
+        id: message.id,
+        senderType: message.senderType,
+        senderId: message.senderId,
+        name: channel.name,
+        avatar: channel.avatar,
+      };
+    }
     if (message.senderType === SenderType.customer) {
       const customer = await this.customerService.findOne(message.senderId);
       return {
@@ -599,11 +634,16 @@ export class ConversationsService {
 
   async getConversationByUserId(userId: string) {
     try {
-      const conversations = await this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.members', 'members')
-        .where('members.userId = :userId', { userId })
-        .getMany();
+      const conversations = await this.conversationRepository.find({
+        where: {
+          members: {
+            userId,
+          },
+        },
+        relations: {
+          members: true,
+        },
+      });
       return conversations;
     } catch (error) {
       throw new InternalServerErrorException(
@@ -651,6 +691,76 @@ export class ConversationsService {
       customerId,
       channelType: channel.type,
     };
+  }
+
+  async sendMessageToConversationWithOthers({
+    channel,
+    message,
+    externalId,
+    customer,
+  }: {
+    channel: Channel;
+    message: any;
+    externalId: string;
+    customer: Customer;
+  }) {
+    try {
+      let conversation = await this.getConversationByChannelAndCustomer(
+        channel.id,
+        externalId,
+      );
+
+      if (!conversation) {
+        const adminChannels = await this.userService.findAdminChannel(
+          channel.id,
+        );
+        conversation = await this.create(
+          {
+            name: customer.name || 'Unknown Customer',
+            type: ConversationType.DIRECT,
+            avatar: customer.avatar || '',
+            externalId: customer.externalId,
+            customerParticipantIds: [customer.id],
+            userParticipantIds: adminChannels.map((user) => user.id),
+          },
+          channel,
+        );
+
+        conversation = await this.conversationRepository.findOne({
+          where: { id: conversation.id },
+          relations: {
+            members: true,
+            channel: true,
+            messages: true,
+          },
+        });
+      }
+
+      const metadataMessage = await this.messagesService.upsert(
+        {
+          content: message.type === MessageType.TEXT ? message.message : '',
+          contentType: message.type,
+          senderType: SenderType.channel,
+          senderId: channel.id.toString(),
+          links: message.links,
+          thumb: message.thumb,
+          url: message.url,
+          externalId: message.message_id,
+        },
+        conversation,
+      );
+
+      return {
+        accessToken: channel.accessToken,
+        message: metadataMessage,
+        customerId: conversation.members[0].customerId,
+        channelType: channel.type,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to send message to conversation with OA',
+      );
+    }
   }
 
   private toResponseDto(conversation: Conversation): ConversationResponseDto {

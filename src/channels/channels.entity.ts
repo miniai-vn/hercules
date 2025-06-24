@@ -93,6 +93,7 @@ export class Channel {
 
   @OneToMany(() => Customer, (customer) => customer.channel, {
     onDelete: 'SET NULL',
+    cascade: true,
   })
   customers: Customer[];
 

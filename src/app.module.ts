@@ -35,25 +35,18 @@ import { UploadsModule } from './uploads/uploads.module';
 @Module({
   imports: [
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'public'), // path to index.html
+      rootPath: join(__dirname, '..', 'public'),
     }),
     BullModule.forRoot({
       connection: {
-        host: 'redis-10293.c82.us-east-1-2.ec2.cloud.redislabs.com',
-        port: 10293,
-        password: '5mrFkt9Yc244lFqOR7pV4eYUBM7WsBPn',
+        host: 'redis-16758.c265.us-east-1-2.ec2.redns.redis-cloud.com',
+        port: 16758,
+        password: 'qbla6AyQWRp3znnJSCOtV0nRxRbiU8lW',
       },
-    }),
-    BullModule.registerQueue({
-      name: 'miniai-queue',
     }),
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
-    }),
-    ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '../../', 'uploads'),
-      serveRoot: '/uploads',
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

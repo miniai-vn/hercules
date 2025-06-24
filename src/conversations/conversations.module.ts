@@ -8,6 +8,7 @@ import { MessagesModule } from '../messages/messages.module';
 import { ConversationsController } from './conversations.controller';
 import { Conversation } from './conversations.entity';
 import { ConversationsService } from './conversations.service';
+import { ChannelsModule } from 'src/channels/channels.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ConversationsService } from './conversations.service';
     forwardRef(() => TagsModule),
     forwardRef(() => CustomersModule), // Prevent circular dependency
     forwardRef(() => UsersModule),
+    forwardRef(() => ChannelsModule), // Prevent circular dependency
   ],
   controllers: [ConversationsController],
   providers: [ConversationsService],

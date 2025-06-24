@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsNotEmpty,
   IsNumber,
   IsObject,
@@ -11,6 +12,7 @@ export enum SenderType {
   user = 'user',
   customer = 'customer',
   assistant = 'assistant',
+  channel = 'channel',
 }
 export class CreateMessageDto {
   @IsString()
@@ -43,6 +45,23 @@ export class CreateMessageDto {
   @IsObject()
   @IsOptional()
   tokenUsage?: Record<string, any>;
+
+  @IsString()
+  @IsOptional()
+  externalId?: string; // For external systems to reference this message
+
+  @IsString()
+  @IsOptional()
+  @IsArray()
+  links?: string[]; // Array of file URLs or links associated with the message
+
+  @IsString()
+  @IsOptional()
+  thumb?: string; // Thumbnail URL for media messages
+
+  @IsString()
+  @IsOptional()
+  url?: string; // URL for the message, if applicable
 }
 
 export class UpdateMessageDto {

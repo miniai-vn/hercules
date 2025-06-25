@@ -262,7 +262,10 @@ export class ZaloService {
 
   async handleSyncConversationsWithUserId(user_id, channelId) {
     try {
-      const channel = await this.channelService.getOne(channelId);
+      const channel = await this.channelService.getByTypeAndAppId(
+        ChannelType.ZALO,
+        channelId,
+      );
       let offset = 0;
       const count = 10;
       const allConversations = [];
@@ -351,8 +354,11 @@ export class ZaloService {
       baseUrl: ZALO_CONFIG.BASE_URL,
     });
   }
-  async getAllUsers(channelId: number) {
-    const channel = await this.channelService.getOne(channelId);
+  async getAllUsers(appId: string) {
+    const channel = await this.channelService.getByTypeAndAppId(
+      ChannelType.ZALO,
+      appId,
+    );
     let offset = 0;
     const count = 50;
     const allUsers = [];
@@ -449,10 +455,13 @@ export class ZaloService {
   }
 
   async manualTokenRefresh(
-    channelId: number,
+    appId: string,
   ): Promise<{ success: boolean; message: string }> {
     try {
-      const channel = await this.channelService.getOne(channelId);
+      const channel = await this.channelService.getByTypeAndAppId(
+        ChannelType.ZALO,
+        appId,
+      );
 
       const success = await this.refreshAccessToken(channel);
 
@@ -522,11 +531,14 @@ export class ZaloService {
    * Fetch conversations within the last month
    */
   async fetchMessagesWithinCustomTime(
-    channelId: number,
+    appId: string,
     within: number,
     type: dayjs.ManipulateType,
   ) {
-    const channel = await this.channelService.getOne(channelId);
+    const channel = await this.channelService.getByTypeAndAppId(
+      ChannelType.ZALO,
+      appId,
+    );
     let offset = 0;
     let count = 10;
     const processedMessages = [];
@@ -556,8 +568,23 @@ export class ZaloService {
           shouldBreak = true;
           break;
         }
-
+        const conversationsId =
+          message[i].src === 1 ? message[i].from_id : message[i].to_id;
+        await this.zaloSyncQueue.add(
+          'sync-zalo-conversations-with-user',
+          {
+            userId: conversationsId,
+            appId: appId,
+          },
+          {
+            delay: i * 1000,
+            deduplication: {
+              id: `sync-zalo-conversations-${conversationsId}`,
+            },
+          },
+        );
         processedMessages.push(message);
+        delay(Math.random() * 1000);
       }
 
       if (shouldBreak) {
@@ -567,26 +594,26 @@ export class ZaloService {
       offset += 1;
     }
 
-    for (let i = 0; i < processedMessages.length; i++) {
-      const conversationsId =
-        processedMessages[i].src === 1
-          ? processedMessages[i].from_id
-          : processedMessages[i].to_id;
+    // for (let i = 0; i < processedMessages.length; i++) {
+    //   const conversationsId =
+    //     processedMessages[i].src === 1
+    //       ? processedMessages[i].from_id
+    //       : processedMessages[i].to_id;
 
-      await this.zaloSyncQueue.add(
-        'sync-zalo-conversations-with-user',
-        {
-          userId: conversationsId,
-          channelId: channelId,
-        },
-        {
-          delay: i * 1000,
-          deduplication: {
-            id: `sync-zalo-conversations-${conversationsId}`,
-          },
-        },
-      );
-    }
+    //   await this.zaloSyncQueue.add(
+    //     'sync-zalo-conversations-with-user',
+    //     {
+    //       userId: conversationsId,
+    //       appId: appId,
+    //     },
+    //     {
+    //       delay: i * 1000,
+    //       deduplication: {
+    //         id: `sync-zalo-conversations-${conversationsId}`,
+    //       },
+    //     },
+    //   );
+    // }
     return processedMessages;
   }
 }

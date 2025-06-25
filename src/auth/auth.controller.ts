@@ -68,16 +68,20 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
     @Body() loginDto: LoginDto,
   ) {
-    const { accessToken, user } = await this.authService.login(loginDto);
-    response.cookie('accessToken', accessToken);
+    try {
+      const { accessToken, user } = await this.authService.login(loginDto);
+      response.cookie('accessToken', accessToken);
 
-    return {
-      data: {
-        user: user,
-        accessToken: accessToken,
-      },
-      message: 'Login successful',
-    };
+      return {
+        data: {
+          user: user,
+          accessToken: accessToken,
+        },
+        message: 'Login successful',
+      };
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 
   @Post('logout')

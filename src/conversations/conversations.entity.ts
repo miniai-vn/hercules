@@ -31,6 +31,7 @@ export class Conversation {
   @Column({
     type: 'varchar',
     name: 'type',
+    default: ConversationType.DIRECT,
   })
   type: ConversationType;
 

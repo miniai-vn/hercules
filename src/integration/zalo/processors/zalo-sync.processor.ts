@@ -8,32 +8,28 @@ export class ZaloSyncProcessor extends WorkerHost {
   }
 
   async process(job: Job) {
-    const { channelId, userId } = job.data;
+    const { appId, userId } = job.data;
     console.log(job.name);
     try {
       switch (job.name) {
         case 'first-time-sync':
           await this.zaloService.fetchMessagesWithinCustomTime(
-            channelId,
+            appId,
             3,
             'month',
           );
-          this.zaloService.getAllUsers(channelId);
+          this.zaloService.getAllUsers(appId);
           break;
         case 'sync-daily-zalo-conversations':
-          await this.zaloService.fetchMessagesWithinCustomTime(
-            channelId,
-            1,
-            'day',
-          );
+          await this.zaloService.fetchMessagesWithinCustomTime(appId, 1, 'day');
 
         case 'sync-zalo-conversations-with-user':
           console.log(
-            `Syncing conversations with user ID: ${userId} for channel ID: ${channelId}`,
+            `Syncing conversations with user ID: ${userId} for channel ID: ${appId}`,
           );
           await this.zaloService.handleSyncConversationsWithUserId(
             userId,
-            channelId,
+            appId,
           );
           break;
         default:

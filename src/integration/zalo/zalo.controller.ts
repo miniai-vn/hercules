@@ -1,22 +1,20 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   Body,
   Controller,
   Get,
   HttpStatus,
   Param,
-  ParseIntPipe,
   Post,
   Query,
-  Req,
   Res,
 } from '@nestjs/common';
 import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Queue } from 'bullmq';
 import { Response } from 'express';
 import { join } from 'path';
-import { ZaloService } from './zalo.service';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
-import { InjectQueue } from '@nestjs/bullmq';
-import { delay, Queue } from 'bullmq';
+import { ZaloService } from './zalo.service';
 
 @ApiTags('Integration')
 @Controller('integration')
@@ -81,14 +79,20 @@ export class ZaloController {
     status: 200,
     description: 'Conversations synced successfully',
   })
-  async syncZaloConversations(
-    @Param('channelId', ParseIntPipe) channelId: number,
-  ) {
-    const job = await this.zaloSyncQueue.add('first-time-sync', {
-      channelId: channelId,
-    });
+  async syncZaloConversations(@Param('appId') appId: number) {
+    const job = await this.zaloSyncQueue.add(
+      'first-time-sync',
+      {
+        appId: appId,
+      },
+      {
+        deduplication: {
+          id: `sync-conversations-${appId}`,
+        },
+      },
+    );
 
-    const schedulerId = `sync-conversations-${channelId}`;
+    const schedulerId = `sync-conversations-${appId}`;
     await this.zaloSyncQueue.removeJobScheduler(schedulerId);
     await this.zaloSyncQueue.upsertJobScheduler(
       schedulerId,
@@ -99,7 +103,7 @@ export class ZaloController {
       {
         name: 'sync-daily-zalo-conversations',
         data: {
-          channelId,
+          appId,
         },
       },
     );

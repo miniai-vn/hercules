@@ -34,8 +34,8 @@ export class User {
 
   @Column({
     type: 'text',
-    nullable: false,
     name: 'password',
+    nullable: true,
   })
   password: string;
 

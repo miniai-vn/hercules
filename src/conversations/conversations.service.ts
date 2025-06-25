@@ -235,6 +235,11 @@ export class ConversationsService {
           messages: true,
           tags: true,
         },
+        order: {
+          messages: {
+            createdAt: 'ASC',
+          },
+        },
       });
 
       if (!conversation) {
@@ -270,10 +275,11 @@ export class ConversationsService {
         .leftJoinAndSelect('members.user', 'user')
         .leftJoinAndSelect('conversation.channel', 'channel')
         .leftJoinAndSelect('conversation.tags', 'tags')
+        .leftJoinAndSelect('members.lastMessage', 'lastMessage')
         .where('channel.shop_id = :shopId', {
           shopId: queryParams.shopId,
         })
-        .orderBy('conversation.createdAt', 'DESC');
+        .orderBy('lastMessage.createdAt', 'DESC');
 
       if (queryParams.channelType) {
         queryBuilder.andWhere('channel.type = :channelType', {
@@ -332,16 +338,11 @@ export class ConversationsService {
             conv.id,
             queryParams.userId,
           );
-          const lastestMessage =
-            conv.messages[conv.messages.length - 1].content;
-          delete conv.messages;
           return {
             ...this.toResponseDto(conv),
             tags: conv.tags,
             channel: conv.channel,
             unreadMessagesCount: countMessagesUnread,
-            isRead: countMessagesUnread === 0,
-            lastestMessage,
           };
         }),
       );
@@ -370,7 +371,10 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
-        relations: ['messages', 'members'],
+        relations: {
+          members: true,
+          messages: true,
+        },
         order: {
           messages: {
             createdAt: 'ASC',
@@ -659,7 +663,7 @@ export class ConversationsService {
     messageType,
   }: {
     conversationId: number;
-    message: string;
+    message: any;
     userId: string;
     messageType: string;
   }) {
@@ -676,9 +680,10 @@ export class ConversationsService {
       (member) => member.participantType === ParticipantType.CUSTOMER,
     )?.customerId;
 
-    const metadataMessage = await this.messagesService.create(
+    const metadataMessage = await this.messagesService.upsert(
       {
-        content: message,
+        content: message.content,
+        externalId: message.externalMessageId,
         contentType: messageType,
         senderType: SenderType.user,
         senderId: userId,

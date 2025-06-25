@@ -10,7 +10,7 @@ export class MiniaiController {
   @Patch('sync-shop')
   @UseGuards(JwtAuthGuard)
   async syncDataShop(@Request() req): Promise<{ message: string }> {
-    const shopId = req.user.shop_id; // or req.user.id, depending on your JWT payload
+    const shopId = req.user.shopId; // or req.user.id, depending on your JWT payload
     await this.miniaiService.startSync(shopId);
     return { message: 'Shop data sync triggered' };
   }

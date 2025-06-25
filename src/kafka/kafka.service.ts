@@ -11,7 +11,7 @@ export class KafkaService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      // await this.kafkaClient.connect();
+      await this.kafkaClient.connect();
       console.log('✅ Kafka client connected successfully');
     } catch (error) {
       console.error('❌ Failed to connect Kafka client:', error);

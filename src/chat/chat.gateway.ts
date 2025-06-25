@@ -31,6 +31,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Store user ID to client ID mapping (ensure one client per user)
   private userToClient = new Map<string, string>();
 
+  eventSet = new Set<string>();
+
   constructor(
     private readonly conversationsService: ConversationsService, // Replace with actual service
   ) {}
@@ -113,7 +115,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           message: `You joined conversation ${conversationId}`,
         });
       }
-    } catch (error) { 
+    } catch (error) {
       console.error(error);
     }
   }
@@ -127,7 +129,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (this.activeConversations.has(conversationId)) {
       return;
     }
-    // Create or get conversation data
     this.activeConversations.set(conversationId, {
       conversationId,
       participants: new Set(),
@@ -147,29 +148,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       message: string;
       userId: string;
       messageType?: string;
+      key?: string;
     },
     @ConnectedSocket() client: Socket,
   ) {
     const roomName = `conversation:${data.conversationId}`;
-    const conversationData = this.activeConversations.get(data.conversationId);
 
-    if (!conversationData) {
-      client.emit('error', { message: 'Conversation not found' });
+    if (this.eventSet.has(data.key)) {
       return;
     }
-
-    // Verify client is participant in conversation
-    if (!conversationData.participants.has(client.id)) {
-      client.emit('error', {
-        message: 'Client not a participant in this conversation',
-      });
-      return;
-    }
-
-    // Send message to all users in the conversation
+    console.log(
+      `Sending message to conversation ${roomName} from user ${data.key}`,
+    );
+    this.eventSet.add(data.key);
     this.server.to(roomName).emit('receiveMessage', {
-      message: data.message,
-      userId: data.userId,
+      content: data.message,
+      senderId: data.userId,
+      key: `${data.conversationId}-${Date.now()}`,
       conversationId: data.conversationId,
       messageType: data.messageType || 'text',
       timestamp: new Date(),

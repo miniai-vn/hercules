@@ -24,7 +24,7 @@ export class UploadsController {
   @RequirePermissions(PermissionCode.DEPARTMENT_UPDATE)
   async upload(@Req() req, @UploadedFile() file: Express.Multer.File) {
     return {
-      data: await this.s3.uploadFile(file, req.user.shop_id),
+      data: await this.s3.uploadFile(file, req.user.shopId),
       message: 'File uploaded successfully',
     };
   }

@@ -65,7 +65,7 @@ export class ChannelsController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number, // Changed from perPage for consistency if desired
   ): Promise<ApiResponse<PaginatedChannelsDto>> {
-    const shopId = req.user.shopId; // Assuming req.user.shop_id is the correct way to get shop ID
+    const shopId = req.user.shopId; // Assuming req.user.shopId is the correct way to get shop ID
     const paginatedChannels = await this.channelsService.getByShopId(
       shopId,
       page,
@@ -81,8 +81,8 @@ export class ChannelsController {
   @RequirePermissions(PermissionCode.CHANNEL_READ)
   @ApiOperation({ summary: 'Get unread message count by shopId and userId' })
   async getUnreadCount(@Request() req) {
-    const shopId = req.user.shop_id;
-    const userId = req.user.user_id; // Assuming req.user.id is the correct way to get user ID
+    const shopId = req.user.shopId;
+    const userId = req.user.userId; // Assuming req.user.id is the correct way to get user ID
     return {
       message: 'Unread message count retrieved successfully',
       data: await this.channelsService.getByShopIdAndUserIdAndCountUnreadMessages(
@@ -101,8 +101,8 @@ export class ChannelsController {
     try {
       const channels = await this.channelsService.query({
         ...queryParams,
-        shopId: req.user.shop_id,
-        userId: req.user.user_id,
+        shopId: req.user.shopId,
+        userId: req.user.userId,
       });
       return {
         message: 'Channels queried successfully',

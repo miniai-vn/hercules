@@ -17,6 +17,7 @@ import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
 import dayjs from 'dayjs';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { text } from 'stream/consumers';
 
 dotenv.config();
 
@@ -203,19 +204,21 @@ export class ZaloService {
   async sendMessage(
     accessToken: string,
     message: string,
-    customerId: string,
+    zaloId: string,
   ): Promise<AxiosResponse> {
     const data = {
       recipient: {
-        user_id: customerId,
+        user_id: zaloId,
       },
-      message: message,
+      message: {
+        text: message,
+      },
     };
     return this.callZaloAuthenticatedAPI(
       ZALO_CONFIG.ENDPOINTS.SEND_MESSAGE,
       accessToken,
       HttpMethod.POST,
-      JSON.stringify(data),
+      data,
     );
   }
 
@@ -464,6 +467,7 @@ export class ZaloService {
 
   async handleWebhook(payload: ZaloWebhookDto): Promise<void> {
     try {
+      console.log('Zalo Webhook Payload:', payload);
       switch (payload.event_name) {
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
           await this.handleTextMessage(payload);

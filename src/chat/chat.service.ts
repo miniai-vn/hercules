@@ -2,17 +2,16 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { Payload } from '@nestjs/microservices';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
+import { CustomersService } from 'src/customers/customers.service';
+import { ZaloService } from 'src/integration/zalo/zalo.service';
+import { UsersService } from 'src/users/users.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
-import { ParticipantType } from 'src/conversation-members/conversation-members.entity';
-import { ZaloService } from 'src/integration/zalo/zalo.service';
-import { CustomersService } from 'src/customers/customers.service';
-import { UsersService } from 'src/users/users.service';
 
 export interface SendMessageData {
   conversationId: number;
-  message: string;
+  content: string;
   userId: string;
   messageType?: string;
   shopId: string;
@@ -109,26 +108,44 @@ export class ChatService {
   async sendMessagePlatformToZalo(data: SendMessageData): Promise<void> {
     try {
       const roomName = `conversation:${data.conversationId}`;
-      const { accessToken, customerId, channelType, message } =
-        await this.conversationsService.sendMessageToOtherPlatform({
-          conversationId: data.conversationId,
-          message: data.message,
-          userId: data.userId,
-          messageType: data.messageType,
-        });
-      if (channelType === ChannelType.ZALO) {
-        await this.zaloService.sendMessage(
-          accessToken,
-          data.message,
-          customerId,
-        );
-      }
+      const conversation = await this.conversationsService.findOne(
+        data.conversationId,
+      );
+      const customer = conversation.members.find(
+        (member) => !!member.customerId,
+      );
 
-      this.chatGateway.server.to(roomName).emit('receiveMessage', {
-        ...message,
-        conversationId: data.conversationId,
-        channelType: ChannelType.ZALO,
-      });
+      const customerDetails = await this.customerService.findOne(
+        customer.customerId,
+      );
+
+      const channel = conversation.channel;
+
+      if (channel.type === ChannelType.ZALO) {
+        const res = await this.zaloService.sendMessage(
+          channel.accessToken,
+          data.content,
+          customerDetails.externalId,
+        );
+
+        const { message } =
+          await this.conversationsService.sendMessageToOtherPlatform({
+            conversationId: data.conversationId,
+            message: {
+              content: data.content,
+              externalMessageId: res.data.message_id,
+            },
+            userId: data.userId,
+            messageType: data.messageType,
+          });
+
+        this.chatGateway.server.to(roomName).emit('receiveMessage', {
+          ...message,
+          senderId: data.userId,
+          conversationId: data.conversationId,
+          channelType: ChannelType.ZALO,
+        });
+      }
     } catch (error) {
       throw new Error(`Failed to send message other platform`);
     }

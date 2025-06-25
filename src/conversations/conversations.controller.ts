@@ -192,7 +192,7 @@ export class ConversationsController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req,
   ): Promise<ApiResponse<{ id: number }>> {
-    const userId = req.user.user_id;
+    const userId = req.user.userId;
     await this.conversationsService.markReadConversation(id, userId);
     return {
       message: 'Conversation marked as read successfully',

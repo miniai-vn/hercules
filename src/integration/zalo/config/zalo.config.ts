@@ -2,7 +2,7 @@ export const ZALO_CONFIG = {
   BASE_URL: 'https://openapi.zalo.me',
   OAUTH_BASE_URL: 'https://oauth.zaloapp.com',
   ENDPOINTS: {
-    SEND_MESSAGE: '/v2.0/oa/message',
+    SEND_MESSAGE: '/v3.0/oa/message/cs',
     GET_USER_LIST: '/v3.0/oa/user/getlist',
     GET_USER_PROFILE: '/v3.0/oa/user/detail',
     UPLOAD_FILE: '/v2.0/oa/upload',

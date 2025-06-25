@@ -49,17 +49,9 @@ export class ZaloController {
         query.code,
       );
 
-      // Redirect to the URL returned by the service
       return res.redirect(url);
     } catch (error) {
-      console.error('Error in webhook handler:', error);
-
-      // Redirect to error page or return error response
-      return res.status(500).json({
-        status: 'error',
-        message: 'Failed to process webhook',
-        error: error.message,
-      });
+      throw new Error(`Error processing Zalo webhook: ${error.message}`);
     }
   }
   @Post('zalo/webhook/receive')
@@ -114,40 +106,6 @@ export class ZaloController {
     return {
       message: 'Conversations synced successfully',
       data: job.id,
-    };
-  }
-
-  @Get('test-queue')
-  @ApiOperation({ summary: 'Test Zalo sync queue' })
-  @ApiResponse({ status: 200, description: 'Queue test successful' })
-  async testQueue() {
-    // const job = await this.zaloSyncQueue.add('sync-zalo-conversations', {
-    //   channelId: 34,
-    // });
-    await this.zaloSyncQueue.upsertJobScheduler(
-      'sync-conversations-35',
-      {
-        every: 10000, // Run every 24 hours
-        immediately: false,
-        startDate: new Date(Date.now() + 10000), // Start after 10 seconds
-      },
-      {
-        name: 'sync-conversations-35',
-        data: {
-          id: 34,
-        },
-        opts: {
-          backoff: {
-            type: 'exponential', // Use exponential backoff
-            delay: 5000, // Initial delay of 5 seconds
-          },
-        },
-      },
-    );
-
-    return {
-      message: 'Job added to Zalo sync queue',
-      // jobId: job.id,
     };
   }
 }

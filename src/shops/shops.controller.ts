@@ -24,7 +24,7 @@ export class ShopsController {
 
   @Get('me')
   async findMyShop(@Request() req) {
-    const shopId = req.user.shop_id;
+    const shopId = req.user.shopId;
     return {
       message: 'Shop found successfully',
       data: await this.shopService.findOne(shopId),

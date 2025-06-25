@@ -44,7 +44,7 @@ export class TagsController {
     schema: { example: { message: 'Tag created successfully', data: {} } },
   })
   async create(@Req() req, @Body() createTagDto: CreateTagDto) {
-    const shopId = req.user.shop_id; // Assuming shopId is stored in the user object
+    const shopId = req.user.shopId; // Assuming shopId is stored in the user object
     const tag = await this.tagsService.create({
       ...createTagDto,
       shopId,
@@ -63,7 +63,7 @@ export class TagsController {
     schema: { example: { message: 'Tags fetched successfully', data: [] } },
   })
   async findAll(@Req() req, @Query() query: TagQueryParamsDto) {
-    const shopId = req.user.shop_id; // Assuming shopId is stored in the user object
+    const shopId = req.user.shopId; // Assuming shopId is stored in the user object
     const tags = await this.tagsService.findAll({
       ...query,
       shopId: query.shopId || shopId, // Use shopId from query or from user

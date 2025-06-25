@@ -580,7 +580,7 @@ export class ConversationsService {
       const messageData = await this.messagesService.upsert(
         {
           content: message,
-          contentType: type,
+          contentType: type || MessageType.TEXT,
           externalId: externalMessageId,
           senderType: SenderType.customer,
           senderId: customer.id,

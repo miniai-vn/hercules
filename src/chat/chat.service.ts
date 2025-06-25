@@ -47,7 +47,7 @@ export class ChatService {
     private readonly customerService: CustomersService,
     private readonly userService: UsersService,
   ) {}
-  async sendMessagesZaloToPlatform(@Payload() data: ZaloWebhookDto) {
+  async sendMessagesZaloToPlatform(data: ZaloWebhookDto) {
     try {
       const { message, recipient, sender } = data;
       const zaloChannel = await this.channelService.getByTypeAndAppId(

@@ -1,38 +1,40 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { Queue } from 'bullmq';
+import dayjs from 'dayjs';
 import * as dotenv from 'dotenv';
 import { Channel } from 'src/channels/channels.entity';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
 import { delay, isAfter } from 'src/common/utils/utils';
-import { ConversationType } from 'src/conversations/conversations.entity';
 import { ConversationsService } from 'src/conversations/conversations.service';
 import { Platform } from 'src/customers/customers.dto';
 import { CustomersService } from 'src/customers/customers.service';
-import { KafkaService } from 'src/kafka/kafka.service';
+import { KafkaConsumerService } from 'src/kafka/kafka.consumer';
 import { ZALO_CONFIG } from './config/zalo.config';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
-import dayjs from 'dayjs';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { text } from 'stream/consumers';
+import { Producer } from 'kafkajs';
+import { KafkaProducerService } from 'src/kafka/kafka.producer';
 
 dotenv.config();
 
 @Injectable()
 export class ZaloService {
   private readonly topic = process.env.KAFKA_ZALO_MESSAGE_TOPIC;
-
+  producer: Producer;
   constructor(
     @Inject(forwardRef(() => ChannelsService))
     private readonly channelService: ChannelsService,
-    private readonly kafkaService: KafkaService,
+    private readonly kafkaProducerService: KafkaProducerService,
     private readonly customerService: CustomersService,
     private readonly conversationService: ConversationsService,
     @InjectQueue('zalo-sync') private readonly zaloSyncQueue: Queue,
-  ) {}
+  ) {
+    this.producer = this.kafkaProducerService.getProducer();
+  }
 
   /**
    * Common method to handle Zalo API calls
@@ -483,7 +485,16 @@ export class ZaloService {
   }
 
   private async handleTextMessage(payload: ZaloWebhookDto): Promise<void> {
-    this.kafkaService.sendMessage(this.topic, payload);
+    // this.kafkaService.sendMessage(this.topic, payload);
+    this.producer.send({
+      topic: this.topic,
+      messages: [
+        {
+          key: new Date().toISOString(),
+          value: JSON.stringify(payload),
+        },
+      ],
+    });
   }
 
   /**
@@ -576,7 +587,6 @@ export class ZaloService {
         },
       );
     }
-    console.log(processedMessages);
     return processedMessages;
   }
 }

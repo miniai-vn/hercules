@@ -11,7 +11,7 @@ import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
-  @EventPattern(process.env.KAFKA_ZALO_MESSAGE_CONSUMER)
+  // @EventPattern(process.env.KAFKA_ZALO_MESSAGE_CONSUMER)
   // @Post('/zalo-webhook')
   // @ApiOperation({
   //   summary: 'Handle Zalo webhook messages',

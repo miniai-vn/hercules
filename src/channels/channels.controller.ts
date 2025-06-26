@@ -17,21 +17,20 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
+import { PermissionsGuard } from 'src/auth/gaurds/permission.guard';
+import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
+import { PermissionCode } from 'src/common/enums/permission.enum';
 import { Channel } from './channels.entity';
 import { ChannelsService } from './channels.service';
 import { ChannelUserIdsDto } from './dto/channel-user-ids.dto';
 import {
-  ChannelBulkDeleteDto,
   ChannelQueryParamsDto,
   CreateChannelDto,
   PaginatedChannelsDto,
   UpdateChannelDto,
   UpdateChannelStatusDto,
 } from './dto/channel.dto';
-import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
-import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
-import { PermissionCode } from 'src/common/enums/permission.enum';
-import { PermissionsGuard } from 'src/auth/gaurds/permission.guard';
 
 interface ApiResponse<T> {
   message: string;
@@ -158,10 +157,9 @@ export class ChannelsController {
     };
   }
 
-  @Patch(':id/update-status')
+  @Patch(':id/status')
   @RequirePermissions(PermissionCode.CHANNEL_UPDATE)
-  async updateStatusForShop(
-    @Request() req,
+  async updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateChannelStatusDto: UpdateChannelStatusDto,
   ): Promise<ApiResponse<Channel>> {
@@ -229,20 +227,5 @@ export class ChannelsController {
       message: 'Shop ID updated successfully',
       data: updatedChannels,
     };
-  }
-
-  @Post('sync-conversations')
-  @RequirePermissions(PermissionCode.CHANNEL_UPDATE)
-  @ApiOperation({ summary: 'Sync conversations for a channel' })
-  @ApiResponse({
-    status: 200,
-    description: 'Conversations synced successfully',
-  })
-  async syncConversations(@Param('id', ParseIntPipe) channelId: number) {
-    // const result = await this.channelsService.syncConversations(channelId);
-    // return {
-    //   message: 'Conversations synced successfully',
-    //   data: result,
-    // };
   }
 }

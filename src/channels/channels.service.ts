@@ -207,20 +207,9 @@ export class ChannelsService {
       const channel = await this.getOne(id);
 
       channel.status = dto.status;
-      const updatedChannel = await this.channelRepository.save(channel);
-      if (updatedChannel.department.id) {
-        await this.oaService.sendStatusChannel({
-          id: updatedChannel.department.id,
-          status: updatedChannel.status,
-        });
-      }
-      return updatedChannel;
+
+      return await this.channelRepository.save(channel);
     } catch (error) {
-      this.logger.error(
-        `Failed to update status for channel ${id}: ${error.message}`,
-        error.stack,
-      );
-      if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException(
         `Failed to update status for channel ${id}`,
         error.message,
@@ -357,8 +346,8 @@ export class ChannelsService {
 
   async getByTypeAndAppId(type: ChannelType, appId: string): Promise<Channel> {
     return this.channelRepository.findOne({
-      where: { type, appId },
-      relations: ['shop', 'users'],
+      where: { type, appId, status: 'active' },
+      relations: ['shop'],
     });
   }
 

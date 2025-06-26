@@ -21,7 +21,8 @@ import { ZaloService } from './zalo.service';
 export class ZaloController {
   constructor(
     private readonly zaloService: ZaloService,
-    @InjectQueue('zalo-sync') private readonly zaloSyncQueue: Queue,
+    @InjectQueue(process.env.REDIS_ZALO_SYNC_TOPIC)
+    private readonly zaloSyncQueue: Queue,
   ) {}
 
   @Get('zalo')
@@ -64,41 +65,32 @@ export class ZaloController {
       res.status(HttpStatus.OK).json({});
       await this.zaloService.handleWebhook(body);
     } catch (error) {
-      console.error('Error processing webhook event:', error);
       return { status: 'error', message: error.message };
     }
   }
 
-  @Post('zalo/sync-conversations/:channelId')
+  @Post('zalo/sync-conversations/:appId')
   @ApiOperation({ summary: 'Sync Zalo conversations' })
-  @ApiParam({
-    name: 'channelId',
-    description: 'Channel ID to sync conversations for',
-  })
   @ApiResponse({
     status: 200,
     description: 'Conversations synced successfully',
   })
-  async syncZaloConversations(@Param('appId') appId: number) {
-    const job = await this.zaloSyncQueue.add(
-      'first-time-sync',
-      {
-        appId: appId,
-      },
-      {
-        deduplication: {
-          id: `sync-conversations-${appId}`,
-        },
-      },
-    );
+  async syncZaloConversations(@Param('appId') appId: string) {
+    // Validate appId
+    if (!appId) {
+      throw new Error('App ID is required');
+    }
+    const job = this.zaloSyncQueue.add('first-time-sync', {
+      appId: appId,
+    });
 
     const schedulerId = `sync-conversations-${appId}`;
-    await this.zaloSyncQueue.removeJobScheduler(schedulerId);
-    await this.zaloSyncQueue.upsertJobScheduler(
+    // await this.zaloSyncQueue.removeJobScheduler(schedulerId);
+    this.zaloSyncQueue.upsertJobScheduler(
       schedulerId,
       {
         every: 24 * 60 * 60 * 1000,
-        startDate: new Date(Date.now() + 60 * 60 * 1000),
+        startDate: new Date(Date.now() + 10 * 60 * 1000),
       },
       {
         name: 'sync-daily-zalo-conversations',
@@ -109,7 +101,7 @@ export class ZaloController {
     );
     return {
       message: 'Conversations synced successfully',
-      data: job.id,
+      data: job,
     };
   }
 }

@@ -5,6 +5,7 @@ import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { Queue } from 'bullmq';
 import dayjs from 'dayjs';
 import * as dotenv from 'dotenv';
+import { Producer } from 'kafkajs';
 import { Channel } from 'src/channels/channels.entity';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
@@ -13,11 +14,9 @@ import { delay, isAfter } from 'src/common/utils/utils';
 import { ConversationsService } from 'src/conversations/conversations.service';
 import { Platform } from 'src/customers/customers.dto';
 import { CustomersService } from 'src/customers/customers.service';
-import { KafkaConsumerService } from 'src/kafka/kafka.consumer';
+import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import { ZALO_CONFIG } from './config/zalo.config';
 import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
-import { Producer } from 'kafkajs';
-import { KafkaProducerService } from 'src/kafka/kafka.producer';
 
 dotenv.config();
 
@@ -31,7 +30,8 @@ export class ZaloService {
     private readonly kafkaProducerService: KafkaProducerService,
     private readonly customerService: CustomersService,
     private readonly conversationService: ConversationsService,
-    @InjectQueue('zalo-sync') private readonly zaloSyncQueue: Queue,
+    @InjectQueue(process.env.REDIS_ZALO_SYNC_TOPIC)
+    private readonly zaloSyncQueue: Queue,
   ) {
     this.producer = this.kafkaProducerService.getProducer();
   }
@@ -260,15 +260,14 @@ export class ZaloService {
     );
   }
 
-  async handleSyncConversationsWithUserId(user_id, channelId) {
+  async handleSyncConversationsWithUserId(user_id: string, appId: string) {
     try {
       const channel = await this.channelService.getByTypeAndAppId(
         ChannelType.ZALO,
-        channelId,
+        appId,
       );
       let offset = 0;
       const count = 10;
-      const allConversations = [];
 
       while (true) {
         const response = await this.fetchConversaitons({
@@ -288,23 +287,19 @@ export class ZaloService {
         }
 
         for (const message of response.data.data) {
-          const dataMessageUpsert = {
+          const isFromUser = message.src === 1;
+
+          const customer = await this.customerService.findOrCreateByExternalId({
             platform: Platform.ZALO,
-            externalId: message.src === 1 ? message.from_id : message.to_id,
-            name:
-              message.src === 1
-                ? message.from_display_name
-                : message.to_display_name,
-            avatar: message.src === 1 ? message.from_avatar : message.to_avatar,
+            externalId: isFromUser ? message.from_id : message.to_id,
+            name: isFromUser
+              ? message.from_display_name
+              : message.to_display_name,
+            avatar: isFromUser ? message.from_avatar : message.to_avatar,
             channelId: channel.id,
-          };
+          });
 
-          const customer =
-            await this.customerService.findOrCreateByExternalId(
-              dataMessageUpsert,
-            );
-
-          if (message.src === 1) {
+          if (isFromUser) {
             await this.conversationService.sendMessageToConversation({
               externalMessageId: message.message_id,
               channel: channel,
@@ -316,16 +311,13 @@ export class ZaloService {
             await this.conversationService.sendMessageToConversationWithOthers({
               channel: channel,
               message,
-              externalId: dataMessageUpsert.externalId,
               customer: customer,
             });
           }
         }
 
-        allConversations.push(...response.data.data.conversations);
         offset += count;
       }
-      return allConversations;
     } catch (error) {
       throw new Error(
         `Failed to sync conversations with user ID ${user_id}: ${error.message}`,
@@ -478,7 +470,6 @@ export class ZaloService {
 
   async handleWebhook(payload: ZaloWebhookDto): Promise<void> {
     try {
-      console.log('Zalo Webhook Payload:', payload);
       switch (payload.event_name) {
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
           await this.handleTextMessage(payload);
@@ -568,23 +559,16 @@ export class ZaloService {
           shouldBreak = true;
           break;
         }
-        const conversationsId =
-          message[i].src === 1 ? message[i].from_id : message[i].to_id;
-        await this.zaloSyncQueue.add(
-          'sync-zalo-conversations-with-user',
-          {
-            userId: conversationsId,
+
+        const userId = message.src === 1 ? message.from_id : message.to_id;
+
+        processedMessages.push({
+          name: 'sync-zalo-conversations-with-user',
+          data: {
+            userId: userId,
             appId: appId,
           },
-          {
-            delay: i * 1000,
-            deduplication: {
-              id: `sync-zalo-conversations-${conversationsId}`,
-            },
-          },
-        );
-        processedMessages.push(message);
-        delay(Math.random() * 1000);
+        });
       }
 
       if (shouldBreak) {
@@ -594,26 +578,7 @@ export class ZaloService {
       offset += 1;
     }
 
-    // for (let i = 0; i < processedMessages.length; i++) {
-    //   const conversationsId =
-    //     processedMessages[i].src === 1
-    //       ? processedMessages[i].from_id
-    //       : processedMessages[i].to_id;
-
-    //   await this.zaloSyncQueue.add(
-    //     'sync-zalo-conversations-with-user',
-    //     {
-    //       userId: conversationsId,
-    //       appId: appId,
-    //     },
-    //     {
-    //       delay: i * 1000,
-    //       deduplication: {
-    //         id: `sync-zalo-conversations-${conversationsId}`,
-    //       },
-    //     },
-    //   );
-    // }
+    await this.zaloSyncQueue.addBulk(processedMessages);
     return processedMessages;
   }
 }

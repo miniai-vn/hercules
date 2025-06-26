@@ -6,8 +6,6 @@ import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
-  // Set global prefix first
   app.setGlobalPrefix('api');
 
   const config = new DocumentBuilder()
@@ -23,7 +21,7 @@ async function bootstrap() {
         name: 'Authorization',
         description: 'Enter your Bearer token',
       },
-      'bearerAuth', // This is the security scheme name
+      'bearerAuth',
     )
     .build();
 

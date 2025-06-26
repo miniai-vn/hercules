@@ -31,18 +31,19 @@ import { RolesModule } from './roles/roles.module';
 import { UserDepartmentPermissionsModule } from './user-dept-perm/user-dept-perm.module';
 import { ResourceModule } from './resources/resources.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { getRedisConfig } from './configs/redis.config';
+import { AgentsModule } from './agents/agents.module';
 
 @Module({
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
     }),
-    BullModule.forRoot({
-      connection: {
-        host: 'redis-16758.c265.us-east-1-2.ec2.redns.redis-cloud.com',
-        port: 16758,
-        password: 'qbla6AyQWRp3znnJSCOtV0nRxRbiU8lW',
-      },
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) =>
+        getRedisConfig(configService),
+      inject: [ConfigService],
     }),
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
@@ -76,6 +77,7 @@ import { UploadsModule } from './uploads/uploads.module';
     UserDepartmentPermissionsModule,
     ResourceModule,
     UploadsModule,
+    AgentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],

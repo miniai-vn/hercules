@@ -36,9 +36,6 @@ export class KafkaConsumerService implements OnModuleDestroy {
       },
     });
 
-    console.log(
-      `[Kafka] Consumer group "${groupId}" is listening to topic "${topic}"`,
-    );
     this.consumers.push(consumer);
   }
 

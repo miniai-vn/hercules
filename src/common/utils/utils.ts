@@ -11,9 +11,7 @@ const isAfter = (
   isMilliseconds: boolean = false,
 ): boolean => {
   const targetTime = dayjs().subtract(amount, unit);
-  console.log(targetTime.format('YYYY-MM-DD HH:mm:ss'));
   const messageTime = isMilliseconds ? dayjs(timestamp) : dayjs.unix(timestamp);
-  console.log(messageTime.format('YYYY-MM-DD HH:mm:ss'));
   return messageTime.isAfter(targetTime);
 };
 

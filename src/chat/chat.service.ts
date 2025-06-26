@@ -45,7 +45,6 @@ export class ChatService {
     private readonly channelService: ChannelsService,
     private readonly zaloService: ZaloService,
     private readonly customerService: CustomersService,
-    private readonly userService: UsersService,
   ) {}
   async sendMessagesZaloToPlatform(data: ZaloWebhookDto) {
     try {
@@ -54,6 +53,10 @@ export class ChatService {
         ChannelType.ZALO,
         recipient.id,
       );
+
+      if (!zaloChannel) {
+        return { message: 'Channel not found or not active' };
+      }
 
       let customer = await this.customerService.findByExternalId(
         ChannelType.ZALO,

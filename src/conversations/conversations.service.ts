@@ -70,6 +70,41 @@ export class ConversationsService {
     }
   }
 
+  async upsert(createConversationDto: CreateConversationDto, channel: Channel) {
+    try {
+      const conversationUpsert = await this.conversationRepository.upsert(
+        {
+          ...createConversationDto,
+
+          channel,
+        },
+        {
+          conflictPaths: ['externalId', 'channel.id'],
+          skipUpdateIfNoValuesChanged: true,
+        },
+      );
+
+      const conversation = await this.conversationRepository.findOne({
+        where: { externalId: createConversationDto.externalId },
+        relations: {
+          members: true,
+          channel: true,
+          tags: true,
+        },
+      });
+      await this.addParticipants(conversation.id, {
+        userIds: createConversationDto.userParticipantIds || [],
+        customerIds: createConversationDto.customerParticipantIds || [],
+      });
+      return {
+        conversation,
+        isNewConversation: conversationUpsert.raw.length !== 0,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to upsert conversation');
+    }
+  }
+
   async findOne(id: number): Promise<Conversation> {
     try {
       const conversation = await this.conversationRepository.findOne({
@@ -263,6 +298,7 @@ export class ConversationsService {
       );
     }
   }
+
   async query(
     queryParams: ConversationQueryParamsDto,
   ): Promise<ConversationResponseDto[]> {
@@ -480,25 +516,6 @@ export class ConversationsService {
     }
   }
 
-  async getTags(conversationId: number): Promise<ConversationResponseDto> {
-    try {
-      const conversation = await this.conversationRepository.findOne({
-        where: { id: conversationId },
-        relations: ['tags'],
-      });
-
-      if (!conversation) {
-        throw new NotFoundException('Conversation not found');
-      }
-
-      return this.toResponseDto(conversation);
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'Failed to get tags for conversation',
-      );
-    }
-  }
-
   async getConversationByChannelAndCustomer(
     channelId: number,
     customerId: string,
@@ -529,6 +546,7 @@ export class ConversationsService {
       );
     }
   }
+
   async sendMessageToConversation({
     channel,
     customer,
@@ -543,39 +561,18 @@ export class ConversationsService {
     type?: string;
   }) {
     try {
-      let isNewConversation = false;
-
-      let conversation = await this.getConversationByChannelAndCustomer(
-        channel.id,
-        customer.externalId,
+      const adminChannels = await this.userService.findAdminChannel(channel.id);
+      const { conversation, isNewConversation } = await this.upsert(
+        {
+          name: customer.name || 'Unknown Customer',
+          type: ConversationType.DIRECT,
+          avatar: customer.avatar || '',
+          externalId: customer.externalId,
+          customerParticipantIds: [customer.id],
+          userParticipantIds: adminChannels.map((user) => user.id),
+        },
+        channel,
       );
-
-      if (!conversation) {
-        const adminChannels = await this.userService.findAdminChannel(
-          channel.id,
-        );
-        conversation = await this.create(
-          {
-            name: customer.name || 'Unknown Customer',
-            type: ConversationType.DIRECT,
-            avatar: customer.avatar || '',
-            externalId: customer.externalId,
-            customerParticipantIds: [customer.id],
-            userParticipantIds: adminChannels.map((user) => user.id),
-          },
-          channel,
-        );
-
-        conversation = await this.conversationRepository.findOne({
-          where: { id: conversation.id },
-          relations: {
-            members: true,
-            channel: true,
-            messages: true,
-          },
-        });
-        isNewConversation = true;
-      }
 
       const messageData = await this.messagesService.upsert(
         {
@@ -701,45 +698,25 @@ export class ConversationsService {
   async sendMessageToConversationWithOthers({
     channel,
     message,
-    externalId,
     customer,
   }: {
     channel: Channel;
     message: any;
-    externalId: string;
     customer: Customer;
   }) {
     try {
-      let conversation = await this.getConversationByChannelAndCustomer(
-        channel.id,
-        externalId,
+      const adminChannels = await this.userService.findAdminChannel(channel.id);
+      const { conversation } = await this.upsert(
+        {
+          name: customer.name || 'Unknown Customer',
+          type: ConversationType.DIRECT,
+          avatar: customer.avatar || '',
+          externalId: customer.externalId,
+          customerParticipantIds: [customer.id],
+          userParticipantIds: adminChannels.map((user) => user.id),
+        },
+        channel,
       );
-
-      if (!conversation) {
-        const adminChannels = await this.userService.findAdminChannel(
-          channel.id,
-        );
-        conversation = await this.create(
-          {
-            name: customer.name || 'Unknown Customer',
-            type: ConversationType.DIRECT,
-            avatar: customer.avatar || '',
-            externalId: customer.externalId,
-            customerParticipantIds: [customer.id],
-            userParticipantIds: adminChannels.map((user) => user.id),
-          },
-          channel,
-        );
-
-        conversation = await this.conversationRepository.findOne({
-          where: { id: conversation.id },
-          relations: {
-            members: true,
-            channel: true,
-            messages: true,
-          },
-        });
-      }
 
       const metadataMessage = await this.messagesService.upsert(
         {

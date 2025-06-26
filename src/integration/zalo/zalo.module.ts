@@ -19,15 +19,10 @@ import { ZaloSyncProcessor } from './processors/zalo-sync.processor';
     CustomersModule,
     ConversationsModule,
     BullModule.registerQueue({
-      name: 'zalo-sync',
+      name: process.env.REDIS_ZALO_SYNC_TOPIC,
       defaultJobOptions: {
         removeOnComplete: true,
         removeOnFail: true,
-        attempts: 3,
-        backoff: {
-          type: 'fixed',
-          delay: 1000,
-        },
       },
     }),
   ],

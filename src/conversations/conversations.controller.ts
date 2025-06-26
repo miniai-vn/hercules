@@ -268,18 +268,4 @@ export class ConversationsController {
       data: conversation,
     };
   }
-
-  @Get(':id/tags')
-  @ApiOperation({ summary: 'Get tags of a conversation' })
-  @ApiResponse({
-    status: 200,
-    description: 'Tags retrieved successfully',
-  })
-  async getTags(@Param('id', ParseIntPipe) id: number) {
-    const tags = await this.conversationsService.getTags(id);
-    return {
-      message: 'Tags retrieved successfully',
-      data: tags,
-    };
-  }
 }

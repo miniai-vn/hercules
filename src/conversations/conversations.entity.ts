@@ -11,6 +11,7 @@ import {
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
+  Unique,
   UpdateDateColumn,
 } from 'typeorm';
 import { Message } from '../messages/messages.entity';
@@ -21,6 +22,7 @@ export enum ConversationType {
 }
 
 @Entity('conversations')
+@Unique(['channel', 'externalId'])
 export class Conversation {
   @PrimaryGeneratedColumn({ name: 'id' })
   id: number;
@@ -34,6 +36,9 @@ export class Conversation {
     default: ConversationType.DIRECT,
   })
   type: ConversationType;
+
+  @Column({ type: 'text', nullable: true, name: 'external_id' })
+  externalId?: string;
 
   @Column({
     type: 'text',

@@ -359,8 +359,6 @@ export class UsersService {
             id: chanelId,
           },
         },
-
-        relations: ['shop'],
       });
       return users;
     } catch (error) {

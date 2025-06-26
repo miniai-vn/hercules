@@ -120,32 +120,19 @@ export class AgentsService {
   async findAll(queryDto: QueryAgentDto) {
     const { page, limit, search, status, modelProvider, shopId } = queryDto;
 
+    const where: any = {
+      ...(search && { name: Like(`%${name}%`) }),
+      ...(status && { status }),
+      ...(modelProvider && { modelProvider }),
+      ...(shopId && { shop: { id: shopId } }),
+    };
     const query: FindManyOptions<Agent> = {
+      where,
       relations: ['shop', 'users'],
       skip: (page - 1) * limit,
       take: limit,
       order: { createdAt: 'DESC' },
     };
-
-    const where: any = {};
-
-    if (search) {
-      where.name = Like(`%${search}%`);
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (modelProvider) {
-      where.modelProvider = modelProvider;
-    }
-
-    if (shopId) {
-      where.shop = { id: shopId };
-    }
-
-    query.where = where;
 
     const [agents, total] = await this.agentRepository.findAndCount(query);
 
@@ -163,7 +150,10 @@ export class AgentsService {
   async findOne(id: number): Promise<Agent> {
     const agent = await this.agentRepository.findOne({
       where: { id },
-      relations: ['shop', 'users'],
+      relations: {
+        shop: true,
+        users: true,
+      },
     });
 
     if (!agent) {

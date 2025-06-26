@@ -41,12 +41,11 @@ export class Department {
 
   channels: Channel[];
 
-  @OneToMany(
-    () => UserDepartment,
-    (userDepartment) => userDepartment.department,
-  )
+  @OneToMany(() => UserDepartment, (userDepartment) => userDepartment.department)
   users: User[];
 
-  @OneToMany(() => Resource, (resource) => resource.department)
+  @OneToMany(() => Resource, (resource) => resource.department, {
+    cascade: true,
+  })
   resources: Resource[];
 }

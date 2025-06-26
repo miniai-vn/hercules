@@ -8,5 +8,6 @@ import { AgentsService } from './agents.service';
   imports: [TypeOrmModule.forFeature([Agent])],
   providers: [AgentsService],
   controllers: [AgentsController],
+  exports: [AgentsService],
 })
 export class AgentsModule {}

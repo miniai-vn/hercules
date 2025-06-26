@@ -26,6 +26,7 @@ export enum ModelProvider {
   DEEPSEEK = 'deepseek',
   GOOGLE = 'google',
   LOCAL = 'local',
+  DEEPSEEK_V3 = 'deepseek-v3',
 }
 
 @Entity('agents')

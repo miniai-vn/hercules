@@ -77,6 +77,7 @@ export class AgentsService {
       [ModelProvider.DEEPSEEK]: [
         'deepseek-chat',
         'deepseek-coder',
+        'deepseek-v3',
         'deepseek-v2',
       ],
       [ModelProvider.GOOGLE]: [
@@ -96,8 +97,8 @@ export class AgentsService {
     // Validate model name
     if (
       !this.validateModelName(
-        createAgentDto.modelProvider,
-        createAgentDto.modelName,
+        createAgentDto.modelProvider.toLocaleLowerCase() as ModelProvider,
+        createAgentDto.modelName.toLocaleLowerCase(),
       )
     ) {
       throw new BadRequestException(
@@ -108,8 +109,8 @@ export class AgentsService {
     // Set default model config if not provided
     if (!createAgentDto.modelConfig) {
       createAgentDto.modelConfig = this.getDefaultModelConfig(
-        createAgentDto.modelProvider,
-        createAgentDto.modelName,
+        createAgentDto.modelProvider.toLocaleLowerCase() as ModelProvider,
+        createAgentDto.modelName.toLocaleLowerCase(),
       );
     }
 

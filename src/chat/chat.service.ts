@@ -114,7 +114,7 @@ export class ChatService {
     }
   }
 
-  async sendMessagePlatformToZalo(data: SendMessageData): Promise<void> {
+  async sendMessagePlatformToOmniChannel(data: SendMessageData): Promise<void> {
     try {
       const roomName = `conversation:${data.conversationId}`;
       const conversation = await this.conversationsService.findOne(
@@ -155,91 +155,6 @@ export class ChatService {
           channelType: ChannelType.ZALO,
         });
       }
-    } catch (error) {
-      throw new Error(`Failed to send message other platform`);
-    }
-  }
-
-  async sendMessagesFacebookToPlatform(
-    @Payload() data: FacebookMessagingEventDTO,
-  ) {
-    try {
-      const { message, recipient, sender } = data;
-
-      // 1. Validate channel
-      const channel = await this.channelService.getByTypeAndAppId(
-        ChannelType.FACEBOOK,
-        recipient.id,
-      );
-
-      if (!channel) return;
-
-      // 2. Tìm/khởi tạo customer
-      const query = {
-        access_token: channel.accessToken,
-        fields: 'first_name,last_name,profile_pic,name',
-        psid: sender.id,
-        pageId: channel.appId,
-      };
-
-      // Không lấy được user mới khi nhắn tới page
-      const resp = await this.facebookService.getUserProfileWithCache(query);
-
-      const customer = await this.customerService.findOrCreateByExternalId({
-        platform: ChannelType.FACEBOOK,
-        externalId: sender.id,
-        avatar: resp.profile_pic,
-        name: resp.name,
-        channelId: channel.id,
-        shopId: channel.shop.id,
-      });
-
-      // 3. Tạo hoặc lấy conversation & gửi message
-      const { conversation, messageData, isNewConversation } =
-        await this.conversationsService.sendMessageToConversation({
-          channel: channel,
-          customer: customer,
-          externalMessageId: message.mid,
-          message: message.text,
-          type: 'text',
-        });
-
-      // 4. Nếu là hội thoại mới, gửi event join
-      if (isNewConversation) {
-        conversation.members
-          .filter((member) => !!member.userId)
-          .forEach((member) => {
-            this.chatGateway.sendEventJoinConversation(
-              conversation.id,
-              member.userId,
-            );
-          });
-      }
-
-      // 5. Emit realtime về frontend
-      const roomName = `conversation:${conversation.id}`;
-      this.chatGateway.server.to(roomName).emit('receiveMessage', {
-        ...messageData,
-        conversationId: conversation.id,
-        channelType: ChannelType.FACEBOOK,
-      });
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to send message from Facebook to platform: ${error.message}`,
-      );
-    }
-  }
-
-  async sendMessagePlatformToFacebook(data: SendMessageData): Promise<void> {
-    try {
-      const roomName = `conversation:${data.conversationId}`;
-
-      const conversation = await this.conversationsService.findOne(
-        data.conversationId,
-      );
-
-      const channel = conversation.channel;
-
       if (channel.type === ChannelType.FACEBOOK) {
         const resp = await this.facebookService.sendMessageFacebook(
           channel.accessToken,
@@ -265,8 +180,75 @@ export class ChatService {
         });
       }
     } catch (error) {
-      throw new Error(
-        `Failed to send message other platform: ${error.message}`,
+      throw new Error(`Failed to send message other platform`);
+    }
+  }
+
+  async sendMessagesFacebookToPlatform(data: FacebookMessagingEventDTO) {
+    try {
+      const { message, recipient, sender } = data;
+
+      const channel = await this.channelService.getByTypeAndAppId(
+        ChannelType.FACEBOOK,
+        recipient.id,
+      );
+
+      if (!channel) return;
+
+      const customerInfo = await this.customerService.findByExternalId(
+        Platform.FACEBOOK,
+        sender.id,
+      );
+
+      if (customerInfo && customerInfo.avatar && customerInfo.name) return;
+
+      const query = {
+        access_token: channel.accessToken,
+        fields: 'first_name,last_name,profile_pic,name',
+        psid: sender.id,
+        pageId: channel.appId,
+      };
+
+      const resp = await this.facebookService.getUserProfile(query);
+
+      const customer = await this.customerService.findOrCreateByExternalId({
+        platform: ChannelType.FACEBOOK,
+        externalId: sender.id,
+        avatar: resp.profile_pic,
+        name: resp.name,
+        channelId: channel.id,
+        shopId: channel.shop.id,
+      });
+
+      const { conversation, messageData, isNewConversation } =
+        await this.conversationsService.sendMessageToConversation({
+          channel: channel,
+          customer: customer,
+          externalMessageId: message.mid,
+          message: message.text,
+          type: 'text',
+        });
+
+      if (isNewConversation) {
+        conversation.members
+          .filter((member) => !!member.userId)
+          .forEach((member) => {
+            this.chatGateway.sendEventJoinConversation(
+              conversation.id,
+              member.userId,
+            );
+          });
+      }
+
+      const roomName = `conversation:${conversation.id}`;
+      this.chatGateway.server.to(roomName).emit('receiveMessage', {
+        ...messageData,
+        conversationId: conversation.id,
+        channelType: ChannelType.FACEBOOK,
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to send message from Facebook to platform: ${error.message}`,
       );
     }
   }

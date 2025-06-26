@@ -5,9 +5,8 @@ import {
   Inject,
   Injectable,
   InternalServerErrorException,
-  Logger,
 } from '@nestjs/common';
-import axios, { AxiosResponse } from 'axios';
+import { AxiosResponse } from 'axios';
 import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { FACEBOOK_CONFIG } from './config/facebook.config';
@@ -19,18 +18,16 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { FacebookUserProfileQueryDTO } from './dto/facebook.dto';
 import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
 import { TUserProfile } from './types/userProfile.type';
-import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { ChatService } from 'src/chat/chat.service';
+import { HttpMethod } from 'src/common/enums/http-method.enum';
 dotenv.config();
 Injectable();
 export class FacebookService {
-  private readonly logger = new Logger(FacebookService.name);
   private readonly hubMode = 'subscribe';
   constructor(
     private readonly channelService: ChannelsService,
     @Inject(forwardRef(() => ChatService))
     private readonly chatService: ChatService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
     private readonly facebookHttpService: FacebookHttpService,
     private readonly facebookTokenService: FacebookTokenService,
   ) {}
@@ -120,7 +117,7 @@ export class FacebookService {
     try {
       const shortTokenResp = await this.facebookHttpService.callFacebookAPI(
         endpoint,
-        'GET',
+        HttpMethod.GET,
         params,
         undefined,
         FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
@@ -142,7 +139,7 @@ export class FacebookService {
       // 2. Gọi tiếp để lấy long-lived token
       const longTokenResp = await this.facebookHttpService.callFacebookAPI(
         endpoint,
-        'GET',
+        HttpMethod.GET,
         paramsLongLiveToken,
         undefined,
         FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
@@ -163,15 +160,21 @@ export class FacebookService {
   }
 
   private async getTokenPages(tokenUser: string): Promise<TPageInfo[]> {
-    const url = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/me/accounts`;
+    const endpoint = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/me/accounts`;
+
+    const params = {
+      access_token: tokenUser,
+      fields: 'id,name,access_token,picture{url},tasks',
+    };
 
     try {
-      const resp = await axios.get(url, {
-        params: {
-          access_token: tokenUser,
-          fields: 'id,name,access_token,picture{url},tasks',
-        },
-      });
+      const resp = await this.facebookHttpService.callFacebookAPI(
+        endpoint,
+        HttpMethod.GET,
+        params,
+        undefined,
+        FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
+      );
 
       return resp.data.data;
     } catch (error) {
@@ -199,17 +202,11 @@ export class FacebookService {
       for (const event of entry.messaging) {
         if (event.message?.text) {
           await this.chatService.sendMessagesFacebookToPlatform(event);
-        } else if (event.postback) {
-          await this.handlePostback(event);
         }
       }
     }
   }
 
-  /**
-   * @description Send message to facebook user
-   * @returns
-   */
   async sendMessageFacebook(
     access_token: string,
     customerId: string,
@@ -226,7 +223,7 @@ export class FacebookService {
     };
     const response = await this.facebookHttpService.callFacebookAPI(
       endpoint,
-      'POST',
+      HttpMethod.POST,
       data,
       undefined,
       FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
@@ -248,7 +245,7 @@ export class FacebookService {
     try {
       const response = await this.facebookHttpService.callFacebookAPI(
         endpoint,
-        'GET',
+        HttpMethod.GET,
         params,
         undefined,
         FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
@@ -264,36 +261,8 @@ export class FacebookService {
     }
   }
 
-  async handlePostback(event: any): Promise<void> {
-    this.logger.log('This is postback');
-  }
-
-  async getUserProfileWithCache(
-    query: FacebookUserProfileQueryDTO,
-  ): Promise<TUserProfile> {
-    const cacheKey = `fb:profile:${query.psid}`;
-    let profile = await (this.cacheManager as any).get(cacheKey);
-
-    if (profile) {
-      return profile;
-    }
-
-    // Nếu chưa có trong cache thì gọi API thật
-    profile = await this.getUserProfile(query);
-
-    // Lưu vào cache (ttl mặc định lấy theo config)
-    await (this.cacheManager as any).set(cacheKey, profile);
-
-    return profile;
-  }
-
-  /**
-   * Chạy mỗi giờ: kiểm tra tất cả token Facebook page trong DB,
-   * nếu gần hết hạn thì refresh và update lại.
-   */
   @Cron(CronExpression.EVERY_HOUR)
   async handleTokenExpiryCheck() {
-    // 1. Lấy tất cả channel có type FACEBOOK từ DB
     const fbChannels = await this.channelService.findByType(
       ChannelType.FACEBOOK,
     );
@@ -301,14 +270,12 @@ export class FacebookService {
     for (const channel of fbChannels) {
       const { id: channelId, accessToken } = channel;
       try {
-        // 2. Kiểm tra xem token page có gần hết hạn không
         const isNearExpiry = await this.facebookTokenService.isTokenNearExpiry(
           accessToken,
           channelId,
         );
 
         if (isNearExpiry) {
-          // 3. Refresh token và lưu lại DB
           const newToken =
             await this.facebookTokenService.refreshLongLivedToken(accessToken);
 

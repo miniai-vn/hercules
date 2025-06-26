@@ -4,10 +4,8 @@ import {
   Controller,
   Get,
   HttpStatus,
-  Param,
   Post,
   Query,
-  Req,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -75,7 +73,6 @@ export class FacebookController {
     return res.status(403).send('Forbidden');
   }
 
-  // 2. Endpoint để nhận POST event sau khi đã verify
   @Post('webhook')
   @ApiOperation({ summary: 'Receive Facebook webhook events' })
   @ApiResponse({

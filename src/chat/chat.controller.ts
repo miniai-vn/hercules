@@ -1,10 +1,11 @@
-import { Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
 import { EventPattern, Payload } from '@nestjs/microservices';
 
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ChatService, SendMessageData } from './chat.service';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
+import { FacebookMessagingEventDTO } from 'src/integration/facebook/dto/facebook-webhook.dto';
 
 @ApiTags('chat')
 @Controller('chat')
@@ -41,7 +42,7 @@ export class ChatController {
     @Payload() data: SendMessageData,
   ) {
     try {
-      return await this.chatService.sendMessagePlatformToZalo({
+      return await this.chatService.sendMessagePlatformToOmniChannel({
         ...data,
         userId: req.user.userId,
       });
@@ -50,36 +51,11 @@ export class ChatController {
     }
   }
 
-  @Post('/send-message-facebook-to-platform')
-  async sendMessageFacebookToPlatform(@Req() req) {
-    await this.chatService.sendMessagesFacebookToPlatform(req.body);
+  async sendMessageFacebookToPlatform(@Body() data: FacebookMessagingEventDTO) {
+    await this.chatService.sendMessagesFacebookToPlatform(data);
     return {
       status: 'success',
       message: 'Message sent to Facebook successfully',
     };
-  }
-
-  @Post('/sms-facebook')
-  @ApiBearerAuth('bearerAuth')
-  @UseGuards(JwtAuthGuard)
-  async sendMessagePlatformToFacebook(
-    @Req() req,
-    @Payload() data: SendMessageData,
-  ) {
-    try {
-      await this.chatService.sendMessagePlatformToFacebook({
-        ...data,
-        userId: req.user.userId, // Lấy userId từ token đã decode
-      });
-      return {
-        status: 'success',
-        message: 'Message sent to Facebook successfully',
-      };
-    } catch (error) {
-      return {
-        status: 'error',
-        message: `Failed to send message: ${error.message}`,
-      };
-    }
   }
 }

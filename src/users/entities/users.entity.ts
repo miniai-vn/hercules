@@ -17,6 +17,7 @@ import { Channel } from 'src/channels/channels.entity';
 import { Role } from 'src/roles/roles.entity';
 import { UserDepartmentPermission } from 'src/user-dept-perm/user-dept-perm.entity';
 import { UserDepartment } from './user-department.entity';
+import { Agent } from 'src/agents/agents.entity';
 
 @Entity('users')
 export class User {
@@ -92,6 +93,15 @@ export class User {
     inverseJoinColumn: { name: 'channel_id', referencedColumnName: 'id' },
   })
   channels: Channel[];
+
+  //
+  @ManyToMany(() => Agent, (agent) => agent.users)
+  @JoinTable({
+    name: 'user_agents',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'agent_id', referencedColumnName: 'id' },
+  })
+  agents: Agent[];
 
   @CreateDateColumn({
     name: 'created_at',

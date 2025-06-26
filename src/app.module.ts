@@ -32,6 +32,7 @@ import { UserDepartmentPermissionsModule } from './user-dept-perm/user-dept-perm
 import { ResourceModule } from './resources/resources.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { getRedisConfig } from './configs/redis.config';
+import { AgentsModule } from './agents/agents.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { getRedisConfig } from './configs/redis.config';
     UserDepartmentPermissionsModule,
     ResourceModule,
     UploadsModule,
+    AgentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],

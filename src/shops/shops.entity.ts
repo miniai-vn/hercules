@@ -1,3 +1,4 @@
+import { Agent } from 'src/agents/agents.entity';
 import { Category } from 'src/categories/categories.entity';
 import { Channel } from 'src/channels/channels.entity';
 import { Customer } from 'src/customers/customers.entity';
@@ -61,4 +62,7 @@ export class Shop {
 
   @OneToMany(() => Role, (role) => role.shop)
   roles: Role[];
+
+  @OneToMany(() => Agent, (agent) => agent.shop)
+  agents: Agent[];
 }

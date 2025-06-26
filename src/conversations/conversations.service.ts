@@ -297,20 +297,10 @@ export class ConversationsService {
 
       const messages = await Promise.all(
         conversation.messages.map(async (message) => {
-          try {
-            return {
-              ...message,
-              sender: await this.getInfoSenderMessages(message),
-            };
-          } catch (e) {
-            // Log rõ ra message nào fail
-            console.error('Lỗi khi get sender cho message:', message, e);
-            return {
-              ...message,
-              sender: null, // hoặc object default
-              error: e.message,
-            };
-          }
+          return {
+            ...message,
+            sender: await this.getInfoSenderMessages(message),
+          };
         }),
       );
 
@@ -544,14 +534,14 @@ export class ConversationsService {
 
   async getConversationByChannelAndCustomer(
     channelId: number,
-    customerId: string,
+    externalId: string,
   ): Promise<Conversation> {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: {
           members: {
             customer: {
-              externalId: customerId,
+              externalId: externalId,
             },
           },
           channel: {

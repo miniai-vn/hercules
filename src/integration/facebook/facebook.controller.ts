@@ -4,13 +4,14 @@ import {
   Controller,
   Get,
   HttpStatus,
+  Param,
   Post,
   Query,
   Req,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
 
 @ApiTags('Facebook')
@@ -20,7 +21,8 @@ export class FacebookController {
 
   @Get('connect')
   async connectToFacebook(@Res() res: Response) {
-    return await this.facebookService.connectToFacebook(res);
+    const url = await this.facebookService.connectToFacebook();
+    return res.redirect(url);
   }
 
   @Get('callback')
@@ -35,16 +37,46 @@ export class FacebookController {
   }
 
   @Get('/webhook')
+  @ApiOperation({ summary: 'Facebook webhook verification' })
+  @ApiQuery({
+    name: 'hub.mode',
+    required: true,
+    type: String,
+    description: 'The mode value for verification, usually "subscribe"',
+    example: 'subscribe',
+  })
+  @ApiQuery({
+    name: 'hub.verify_token',
+    required: true,
+    type: String,
+    description: 'Token to verify the webhook endpoint',
+  })
+  @ApiQuery({
+    name: 'hub.challenge',
+    required: true,
+    type: String,
+    description: 'Challenge code to be echoed back',
+    example: '9999',
+  })
   verifyWebhook(
     @Query('hub.mode') mode: string,
     @Query('hub.verify_token') verifyToken: string,
     @Query('hub.challenge') challenge: string,
+    @Res() res: Response,
   ) {
-    return this.facebookService.verifyWebhook(mode, verifyToken, challenge);
+    const result = this.facebookService.verifyWebhook(
+      mode,
+      verifyToken,
+      challenge,
+    );
+    if (result) {
+      return res.status(200).send(result);
+    }
+    return res.status(403).send('Forbidden');
   }
 
   // 2. Endpoint để nhận POST event sau khi đã verify
-  @Post('webhook/receive')
+  @Post('webhook')
   @ApiOperation({ summary: 'Receive Facebook webhook events' })
   @ApiResponse({
     status: 200,
@@ -62,31 +94,4 @@ export class FacebookController {
       return { status: 'error', message: error.message };
     }
   }
-
-  // @Get('/conversations')
-  // async getIdsConversationsPage(
-  //   @Query() query: TFacebookConversatioQueryDTO,
-  //   // @Param('page_id') page_id: string,
-  // ): Promise<TConversationPageId> {
-  //   return await this.facebookService.getIdsConversationsPage(query);
-  // }
-
-  // @Get('/conversations/all')
-  // async getIdsConversationsPageAll(): Promise<any> {
-  //   return await this.facebookService.getIdsConversationsPageAll();
-  // }
-
-  // @Get('/message/:id/messages-detail')
-  // async getMessage(
-  //   @Query() query: FacebookMessageQueryDTO,
-  // ): Promise<TFacebookMessage> {
-  //   return await this.facebookService.getMessageDetail(query);
-  // }
-
-  // @Get('/:psid')
-  // async getUserProfile(
-  //   @Query() query: FacebookUserProfileQueryDTO,
-  // ): Promise<void> {
-  //   return await this.facebookService.getUserProfile(query);
-  // }
 }

@@ -97,6 +97,11 @@ export class ConversationsService {
         },
       );
 
+      await this.addParticipants(conversationUpsert.raw[0].id, {
+        userIds: createConversationDto.userParticipantIds || [],
+        customerIds: createConversationDto.customerParticipantIds || [],
+      });
+
       const conversation = await this.conversationRepository.findOne({
         where: { externalId: createConversationDto.externalId },
         relations: {
@@ -104,10 +109,6 @@ export class ConversationsService {
           channel: true,
           tags: true,
         },
-      });
-      await this.addParticipants(conversation.id, {
-        userIds: createConversationDto.userParticipantIds || [],
-        customerIds: createConversationDto.customerParticipantIds || [],
       });
       return {
         conversation,

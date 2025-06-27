@@ -103,7 +103,10 @@ export class ConversationsService {
       });
 
       const conversation = await this.conversationRepository.findOne({
-        where: { externalId: createConversationDto.externalId },
+        where: {
+          externalId: createConversationDto.externalId,
+          channel: { id: channel.id },
+        },
         relations: {
           members: true,
           channel: true,
@@ -586,6 +589,7 @@ export class ConversationsService {
           externalId: customer.externalId,
           customerParticipantIds: [customer.id],
           userParticipantIds: adminChannels.map((user) => user.id),
+          content: message,
         },
         channel,
       );

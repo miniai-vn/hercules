@@ -187,46 +187,44 @@ export class ChatService {
   async sendMessagesFacebookToPlatform(data: FacebookMessagingEventDTO) {
     try {
       const { message, recipient, sender } = data;
-
       const channel = await this.channelService.getByTypeAndAppId(
         ChannelType.FACEBOOK,
         recipient.id,
       );
 
-      if (!channel) return;
+      if (!channel) return { message: 'Channel not found or not active' };
 
-      const customerInfo = await this.customerService.findByExternalId(
+      let customer = await this.customerService.findByExternalId(
         Platform.FACEBOOK,
         sender.id,
       );
 
-      if (customerInfo && customerInfo.avatar && customerInfo.name) return;
+      if (!customer) {
+        const query = {
+          access_token: channel.accessToken,
+          fields: 'first_name,last_name,profile_pic,name',
+          psid: sender.id,
+        };
 
-      const query = {
-        access_token: channel.accessToken,
-        fields: 'first_name,last_name,profile_pic,name',
-        psid: sender.id,
-        pageId: channel.appId,
-      };
+        const resp = await this.facebookService.getUserProfile(query);
 
-      const resp = await this.facebookService.getUserProfile(query);
-
-      const customer = await this.customerService.findOrCreateByExternalId({
-        platform: ChannelType.FACEBOOK,
-        externalId: sender.id,
-        avatar: resp.profile_pic,
-        name: resp.name,
-        channelId: channel.id,
-        shopId: channel.shop.id,
-      });
+        customer = await this.customerService.findOrCreateByExternalId({
+          platform: Platform.FACEBOOK,
+          externalId: sender.id,
+          avatar: resp.profile_pic,
+          name: resp.name,
+          channelId: channel.id,
+          shopId: channel.shop.id,
+        });
+      }
 
       const { conversation, messageData, isNewConversation } =
         await this.conversationsService.sendMessageToConversation({
           channel: channel,
-          customer: customer,
           externalMessageId: message.mid,
           message: message.text,
           type: 'text',
+          customer,
         });
 
       if (isNewConversation) {

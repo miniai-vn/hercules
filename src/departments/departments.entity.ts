@@ -1,3 +1,4 @@
+import { Agent } from 'src/agents/agents.entity';
 import { Channel } from 'src/channels/channels.entity';
 import { Resource } from 'src/resources/resources.entity';
 import { Shop } from 'src/shops/shops.entity';
@@ -9,6 +10,8 @@ import {
   DeleteDateColumn,
   Entity,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -47,6 +50,16 @@ export class Department {
   )
   users: User[];
 
-  @OneToMany(() => Resource, (resource) => resource.department)
+  @OneToMany(() => Resource, (resource) => resource.department, {
+    cascade: true,
+  })
   resources: Resource[];
+
+  @ManyToMany(() => Agent, (agent) => agent.departments)
+  @JoinTable({
+    name: 'department_agents',
+    joinColumn: { name: 'department_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'agent_id', referencedColumnName: 'id' },
+  })
+  agents: Agent[];
 }

@@ -1,3 +1,5 @@
+import { Channel } from 'src/channels/channels.entity';
+import { Department } from 'src/departments/departments.entity';
 import { Shop } from 'src/shops/shops.entity';
 import { User } from 'src/users/entities/users.entity';
 import {
@@ -26,6 +28,7 @@ export enum ModelProvider {
   DEEPSEEK = 'deepseek',
   GOOGLE = 'google',
   LOCAL = 'local',
+  DEEPSEEK_V3 = 'deepseek-v3',
 }
 
 @Entity('agents')
@@ -79,6 +82,26 @@ export class Agent {
   })
   @JoinColumn({ name: 'shop_id' })
   shop: Shop;
+
+  @ManyToMany(() => Department, (department) => department.agents, {
+    cascade: true,
+  })
+  @JoinTable({
+    name: 'department_agents',
+    joinColumn: { name: 'agent_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'department_id', referencedColumnName: 'id' },
+  })
+  departments: Department[];
+
+  @ManyToMany(() => Channel, (channel) => channel.agents, {
+    cascade: true,
+  })
+  @JoinTable({
+    name: 'agent_channels',
+    joinColumn: { name: 'agent_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'channel_id', referencedColumnName: 'id' },
+  })
+  channels: Channel[];
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
   createdAt: Date;

@@ -9,7 +9,7 @@ import {
   IsNotEmpty,
   IsObject,
   IsOptional,
-  IsString
+  IsString,
 } from 'class-validator';
 import { Channel } from '../channels.entity'; // Assuming Channel entity for PaginatedChannelsDto
 
@@ -17,6 +17,7 @@ export enum ChannelType {
   ZALO = 'zalo',
   FACEBOOK = 'facebook',
   TIKTOK = 'tikTok',
+  LAZADA = 'lazada',
 }
 
 export class CreateChannelDto {

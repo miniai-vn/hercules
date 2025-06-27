@@ -104,8 +104,11 @@ export class AgentsController {
     status: 404,
     description: 'Agent not found',
   })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.agentsService.findOne(id);
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return {
+      data: await this.agentsService.findOne(id),
+      message: 'Agent retrieved successfully',
+    };
   }
 
   @Patch(':id')
@@ -192,5 +195,51 @@ export class AgentsController {
   })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.agentsService.remove(id);
+  }
+
+  @Post('add-channel')
+  @ApiOperation({ summary: 'Add a channel to an agent' })
+  @ApiBody({
+    type: Object,
+    examples: {
+      example1: {
+        summary: 'Add Channel Example',
+        value: {
+          agentId: 1,
+          channelIds: [1, 2, 3],
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Channel added to agent successfully',
+  })
+  @RequirePermissions(PermissionCode.AGENT_UPDATE)
+  addChannel(@Body() body: { agentId: number; channelIds: number[] }) {
+    return this.agentsService.addChannel(body.agentId, body.channelIds);
+  }
+
+  @Post('add-users')
+  @ApiOperation({ summary: 'Add users to an agent' })
+  @ApiBody({
+    type: Object,
+    examples: {
+      example1: {
+        summary: 'Add Users Example',
+        value: {
+          agentId: 1,
+          userIds: ['user1', 'user2'],
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Users added to agent successfully',
+  })
+  @RequirePermissions(PermissionCode.AGENT_UPDATE)
+  addUser(@Body() body: { agentId: number; userIds: string[] }) {
+    return this.agentsService.addUser(body.agentId, body.userIds);
   }
 }

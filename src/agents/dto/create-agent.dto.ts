@@ -7,6 +7,7 @@ import {
   MaxLength,
   IsArray,
   IsInt,
+  IsNumber,
 } from 'class-validator';
 import { AgentStatus, ModelProvider } from '../agents.entity';
 
@@ -49,4 +50,9 @@ export class CreateAgentDto {
   @IsArray()
   @IsInt({ each: true })
   userIds?: number[];
+
+  @IsOptional()
+  @IsArray({ each: true })
+  @IsNumber({}, { each: true })
+  departmentIds?: number[];
 }

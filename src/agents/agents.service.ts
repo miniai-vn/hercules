@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, FindManyOptions } from 'typeorm';
@@ -9,12 +10,16 @@ import { Agent, AgentStatus, ModelProvider } from './agents.entity';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateAgentDto } from './dto/update-agent.dto';
 import { QueryAgentDto } from './dto/query-agent.dto';
+import { ChannelsService } from 'src/channels/channels.service';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class AgentsService {
   constructor(
     @InjectRepository(Agent)
     private readonly agentRepository: Repository<Agent>,
+    private readonly channelService: ChannelsService,
+    private readonly userService: UsersService, // Assuming userService is used for user-related operations
   ) {}
 
   /**
@@ -77,6 +82,7 @@ export class AgentsService {
       [ModelProvider.DEEPSEEK]: [
         'deepseek-chat',
         'deepseek-coder',
+        'deepseek-v3',
         'deepseek-v2',
       ],
       [ModelProvider.GOOGLE]: [
@@ -96,8 +102,8 @@ export class AgentsService {
     // Validate model name
     if (
       !this.validateModelName(
-        createAgentDto.modelProvider,
-        createAgentDto.modelName,
+        createAgentDto.modelProvider.toLocaleLowerCase() as ModelProvider,
+        createAgentDto.modelName.toLocaleLowerCase(),
       )
     ) {
       throw new BadRequestException(
@@ -108,44 +114,40 @@ export class AgentsService {
     // Set default model config if not provided
     if (!createAgentDto.modelConfig) {
       createAgentDto.modelConfig = this.getDefaultModelConfig(
-        createAgentDto.modelProvider,
-        createAgentDto.modelName,
+        createAgentDto.modelProvider.toLocaleLowerCase() as ModelProvider,
+        createAgentDto.modelName.toLocaleLowerCase(),
       );
     }
 
-    const agent = this.agentRepository.create(createAgentDto);
+    const agent = this.agentRepository.create({
+      ...createAgentDto,
+      departments: createAgentDto?.departmentIds.map((id) => ({ id })),
+    });
     return await this.agentRepository.save(agent);
   }
 
   async findAll(queryDto: QueryAgentDto) {
     const { page, limit, search, status, modelProvider, shopId } = queryDto;
 
+    const where: any = {
+      ...(search && { name: Like(`%${search}%`) }),
+      ...(status && { status }),
+      ...(modelProvider && { modelProvider }),
+      ...(shopId && { shop: { id: shopId } }),
+    };
     const query: FindManyOptions<Agent> = {
-      relations: ['shop', 'users'],
+      where,
+      relations: {
+        shop: true,
+        users: true,
+        departments: true,
+        channels: true, // Include channels relation
+      },
       skip: (page - 1) * limit,
       take: limit,
+
       order: { createdAt: 'DESC' },
     };
-
-    const where: any = {};
-
-    if (search) {
-      where.name = Like(`%${search}%`);
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (modelProvider) {
-      where.modelProvider = modelProvider;
-    }
-
-    if (shopId) {
-      where.shop = { id: shopId };
-    }
-
-    query.where = where;
 
     const [agents, total] = await this.agentRepository.findAndCount(query);
 
@@ -163,7 +165,11 @@ export class AgentsService {
   async findOne(id: number): Promise<Agent> {
     const agent = await this.agentRepository.findOne({
       where: { id },
-      relations: ['shop', 'users'],
+      relations: {
+        shop: true,
+        users: true,
+        departments: true, // Include departments relation
+      },
     });
 
     if (!agent) {
@@ -209,6 +215,34 @@ export class AgentsService {
     const agent = await this.findOne(id);
     agent.status = AgentStatus.INACTIVE;
     return await this.agentRepository.save(agent);
+  }
+
+  async addChannel(id: number, channelIds: number[]) {
+    try {
+      const agent = await this.findOne(id);
+      const channels = await Promise.all(
+        channelIds.map((channelId) => this.channelService.getOne(channelId)),
+      );
+      agent.channels = channels; // Assuming channels are entities with at least an id
+      return await this.agentRepository.save(agent);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to add channels to agent `,
+      );
+    }
+  }
+
+  async addUser(id: number, userIds: string[]) {
+    try {
+      const agent = await this.findOne(id);
+      const users = await Promise.all(
+        userIds.map((userId) => this.userService.findOne(userId)),
+      );
+      agent.users = users; // Assuming users are entities with at least an id
+      return await this.agentRepository.save(agent);
+    } catch (error) {
+      throw new InternalServerErrorException(`Failed to add users to agent `);
+    }
   }
 
   async getAvailableModels(provider: ModelProvider) {

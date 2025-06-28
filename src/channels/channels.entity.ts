@@ -1,3 +1,4 @@
+import { Agent } from 'src/agents/agents.entity';
 import { Conversation } from 'src/conversations/conversations.entity';
 import { Customer } from 'src/customers/customers.entity';
 import { Department } from 'src/departments/departments.entity';
@@ -28,20 +29,17 @@ export class Channel {
   @Column({ type: 'varchar', length: 50, name: 'type' })
   type: string;
 
-  @Column({ type: 'varchar', length: 50, default: 'inactive', name: 'status' })
+  @Column({ type: 'varchar', length: 50, default: 'active', name: 'status' })
   status: string;
 
   @Column({ type: 'text', nullable: true, name: 'description' })
   description?: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'app_id' })
+  @Column({ type: 'varchar', nullable: true, name: 'app_id' })
   appId?: string;
 
   @Column({ type: 'text', nullable: true, name: 'avatar' })
   avatar?: string;
-
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'app_secret' })
-  appSecret?: string;
 
   @Column({ type: 'text', nullable: true, name: 'access_token' })
   accessToken?: string;
@@ -51,9 +49,6 @@ export class Channel {
 
   @Column({ type: 'timestamp', nullable: true, name: 'expire_token_time' })
   expireTokenTime?: Date;
-
-  @Column({ type: 'json', nullable: true, name: 'extra_data' })
-  extraData?: Record<string, any>;
 
   @Column({
     type: 'boolean',
@@ -87,17 +82,14 @@ export class Channel {
   })
   users: User[];
 
-  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
-  createdAt: Date;
-
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
-  updatedAt: Date;
-
   @ManyToOne(() => Department, (department) => department.channels, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'department_id' })
   department?: Department;
+
+  @ManyToMany(() => Agent, (agent) => agent.channels)
+  agents: Agent[];
 
   @OneToMany(() => Customer, (customer) => customer.channel, {
     onDelete: 'SET NULL',
@@ -115,6 +107,12 @@ export class Channel {
   })
   @JoinColumn({ name: 'shop_id' })
   shop: Shop;
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
+  updatedAt: Date;
 
   @DeleteDateColumn({ name: 'deleted_at', type: 'timestamp', nullable: true })
   deletedAt?: Date;

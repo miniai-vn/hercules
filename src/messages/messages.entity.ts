@@ -45,7 +45,7 @@ export class Message {
   @Column({ type: 'text', nullable: true, name: 'content' })
   content?: string;
 
-  @OneToMany(() => ConversationMember, (member) => member.conversation)
+  @OneToMany(() => ConversationMember, (member) => member.lastMessage)
   lastMessagesMembers: ConversationMember[];
 
   @ManyToOne(() => Conversation, (conversation) => conversation.messages, {

@@ -278,15 +278,15 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id },
-        relations: {
-          members: {
-            customer: true,
-            user: true,
-          },
-          channel: true,
-          messages: true,
-          tags: true,
-        },
+        relations: [
+          'members',
+          'members.customer',
+          'members.user',
+          'members.lastMessage', // Cực kỳ quan trọng!
+          'channel',
+          'messages',
+          'tags',
+        ],
         order: {
           messages: {
             createdAt: 'ASC',
@@ -300,9 +300,24 @@ export class ConversationsService {
 
       const messages = await Promise.all(
         conversation.messages.map(async (message) => {
+          const readBy = conversation.members
+            .filter(
+              (member) =>
+                member.lastMessage && member.lastMessage.id >= message.id,
+            )
+            .map((member) => ({
+              id: member.id,
+              name: member.user?.name || member.customer?.name || 'Unknown',
+              avatar: member.user?.avatar || member.customer?.avatar,
+              type: member.participantType,
+              userId: member.userId,
+              customerId: member.customerId,
+            }));
+
           return {
             ...message,
             sender: await this.getInfoSenderMessages(message),
+            readBy,
           };
         }),
       );
@@ -426,10 +441,7 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
-        relations: {
-          members: true,
-          messages: true,
-        },
+        relations: ['members', 'members.lastMessage', 'messages'],
         order: {
           messages: {
             createdAt: 'ASC',

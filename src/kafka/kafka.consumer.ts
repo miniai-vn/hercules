@@ -26,7 +26,10 @@ export class KafkaConsumerService implements OnModuleDestroy {
 
   private consumers: Consumer[] = [];
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    // private readonly resourceSerivce: ResourcesService,
+  ) {}
   async createConsumer(
     groupId: string,
     topic: string,
@@ -46,7 +49,6 @@ export class KafkaConsumerService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    // Disconnect all consumers
     for (const consumer of this.consumers) {
       await consumer.disconnect();
     }
@@ -59,6 +61,15 @@ export class KafkaConsumerService implements OnModuleDestroy {
       async ({ message }) => {
         const data = JSON.parse(message.value.toString());
         await this.chatService.sendMessagesZaloToPlatform(data);
+      },
+    );
+
+    await this.createConsumer(
+      process.env.KAFKA_ETL_CONSUMER,
+      process.env.KAFKA_ETL_TOPIC,
+      async ({ message }) => {
+        const data = JSON.parse(message.value.toString());
+        // init handle  data with ERL like data {url: string, type: string, shopId, resourceUd:}
       },
     );
   }

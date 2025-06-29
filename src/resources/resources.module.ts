@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ResourcesController } from './resources.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ResourcesController } from './resources.controller';
 import { Resource } from './resources.entity';
 import { ResourcesService } from './resources.service';
-import { DepartmentsModule } from 'src/departments/departments.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Resource]), DepartmentsModule],
+  imports: [TypeOrmModule.forFeature([Resource])],
   controllers: [ResourcesController],
   providers: [ResourcesService],
   exports: [ResourcesService],

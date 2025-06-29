@@ -1,23 +1,21 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaginatedResult } from 'src/common/types/reponse.type';
 import {
   FindManyOptions,
-  Repository,
   ILike,
-  MoreThanOrEqual,
   LessThanOrEqual,
+  MoreThanOrEqual,
+  Repository,
 } from 'typeorm';
-import { Resource } from './resources.entity';
-import { PaginatedResult } from 'src/common/types/reponse.type';
 import { CreateResourceDto, ResourceQueryDto } from './dto/resources.dto';
-import { DepartmentsService } from 'src/departments/departments.service';
+import { Resource } from './resources.entity';
 
 @Injectable()
 export class ResourcesService {
   constructor(
     @InjectRepository(Resource)
     private readonly resourceRepository: Repository<Resource>,
-    private readonly departmentService: DepartmentsService,
   ) {}
 
   async query(query: ResourceQueryDto): Promise<PaginatedResult<Resource>> {
@@ -78,9 +76,7 @@ export class ResourcesService {
     try {
       const resource = this.resourceRepository.create({
         ...data,
-        department: data.departmentId
-          ? await this.departmentService.findOne(data.departmentId)
-          : null,
+        department: { id: data.departmentId },
       });
       return await this.resourceRepository.save(resource);
     } catch (error) {
@@ -110,5 +106,19 @@ export class ResourcesService {
         error.message,
       );
     }
+  }
+
+  async eltData({
+    shopId,
+    url,
+    type,
+    resourceId,
+  }: {
+    shopId: string;
+    url: string;
+    type: string;
+    resourceId?: number;
+  }) {
+    // handle call to chatservice to extraction data
   }
 }

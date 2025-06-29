@@ -4,8 +4,8 @@ import { KafkaConsumerService } from './kafka.consumer';
 import { KafkaProducerService } from './kafka.producer';
 
 @Module({
-  imports: [forwardRef(() => ChatModule)], // Use forwardRef if ChatModule imports KafkaModule to avoid circular dependency
+  imports: [forwardRef(() => ChatModule)],
   providers: [KafkaConsumerService, KafkaProducerService],
-  exports: [KafkaConsumerService, KafkaProducerService], // Export the service if used in other modules
+  exports: [KafkaConsumerService, KafkaProducerService],
 })
 export class KafkaModule {}

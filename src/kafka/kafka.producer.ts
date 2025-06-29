@@ -14,12 +14,11 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       maxRetryTime: 30000,
       factor: 0.2,
     },
-    // ssl: false,
-    // sasl: {
-    //   username: 'admin',
-    //   password: 'admin-secret',
-    //   mechanism: 'plain', // 'plain' or 'scram-sha-256'
-    // },
+    sasl: {
+      mechanism: 'plain',
+      username: process.env.KAFKA_USER,
+      password: process.env.KAFKA_PASSWORD,
+    },
   });
   private producer = this.kafka.producer({
     allowAutoTopicCreation: true,

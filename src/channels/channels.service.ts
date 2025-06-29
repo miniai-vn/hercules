@@ -59,13 +59,13 @@ export class ChannelsService {
 
       const newChannel = await this.channelRepository.save(channelToCreate);
 
-      if (newChannel.type === ChannelType.ZALO && newChannel.extraData) {
-        await this.oaService.sendChannelIdForMiniapp({
-          id: newChannel.department.id,
-          appId: (newChannel.extraData as any)?.app_id,
-          oaId: (newChannel.extraData as any)?.oa_id,
-        });
-      }
+      // if (newChannel.type === ChannelType.ZALO && newChannel.extraData) {
+      //   await this.oaService.sendChannelIdForMiniapp({
+      //     id: newChannel.department.id,
+      //     appId: (newChannel.extraData as any)?.app_id,
+      //     oaId: (newChannel.extraData as any)?.oa_id,
+      //   });
+      // }
       return newChannel;
     } catch (error) {
       this.logger.error(

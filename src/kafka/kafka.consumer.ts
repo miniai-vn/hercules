@@ -7,14 +7,20 @@ import { ChatService } from 'src/chat/chat.service';
 export class KafkaConsumerService implements OnModuleDestroy {
   private kafka = new Kafka({
     clientId: 'kafka-app',
-    brokers: ['103.42.59.43:29092'],
+    brokers: [process.env.KAFKA_BROKERS],
     connectionTimeout: 10000,
     requestTimeout: 30000,
+
     retry: {
       initialRetryTime: 300,
       retries: 10,
       maxRetryTime: 30000,
       factor: 0.2,
+    },
+    sasl: {
+      mechanism: 'plain',
+      username: process.env.KAFKA_USER,
+      password: process.env.KAFKA_PASSWORD,
     },
   });
 

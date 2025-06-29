@@ -29,7 +29,6 @@ export class JwtAuthGuard implements CanActivate {
         algorithms: [(process.env.JWT_ALGORITHM || 'HS256') as jwt.Algorithm],
       });
 
-    
       const roles = await this.rolesService.findByUserId(
         (payload as any).userId, // Assuming user_id is in the payload
       );

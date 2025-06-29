@@ -85,4 +85,10 @@ export enum PermissionCode {
   FAQ_READ = 'faq.read',
   FAQ_UPDATE = 'faq.update',
   FAQ_DELETE = 'faq.delete',
+
+  // Agent
+  AGENT_CREATE = 'agent.create',
+  AGENT_READ = 'agent.read',
+  AGENT_UPDATE = 'agent.update',
+  AGENT_DELETE = 'agent.delete',
 }

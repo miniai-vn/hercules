@@ -264,6 +264,7 @@ export class ConversationResponseDto {
     email?: string;
   }[];
   messagesCount?: number; // Optional: count of messages in conversation
+  lastestMessage?: string;
 }
 
 export class AddParticipantsDto {

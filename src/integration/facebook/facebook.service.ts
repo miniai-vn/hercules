@@ -41,7 +41,7 @@ export class FacebookService {
       `${FACEBOOK_CONFIG.FACEBOOK_PATH}${FACEBOOK_CONFIG.ENDPOINT.DIALOG_OAUTH}`,
     );
 
-    fbAuthUrl.searchParams.append('display', 'popup');
+    fbAuthUrl.searchParams.append('display', 'page');
     fbAuthUrl.searchParams.append('client_id', FACEBOOK_CONFIG.APP.ID);
     fbAuthUrl.searchParams.append('redirect_uri', FACEBOOK_CONFIG.REDIRECT_URL);
     fbAuthUrl.searchParams.append('scope', FACEBOOK_CONFIG.SCOPE);
@@ -160,7 +160,7 @@ export class FacebookService {
   }
 
   private async getTokenPages(tokenUser: string): Promise<TPageInfo[]> {
-    const endpoint = `${FACEBOOK_CONFIG.BASE_PATH_FACEBOOK}/me/accounts`;
+    const endpoint = `me/accounts`;
 
     const params = {
       access_token: tokenUser,

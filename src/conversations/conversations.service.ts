@@ -788,6 +788,18 @@ export class ConversationsService {
         systemId: member.customerId ?? member.userId,
         name: member.customer?.name || 'Unknown Customer',
       })),
+
+      lastestMessage:
+        conversation?.messages && conversation.messages.length > 0
+          ? conversation.messages
+              .slice() // clone array để không mutate
+              .sort(
+                (a, b) =>
+                  new Date(a.createdAt).getTime() -
+                  new Date(b.createdAt).getTime(),
+              )
+              .at(-1)?.content // lấy message cuối cùng theo thời gian
+          : '',
     };
   }
 }

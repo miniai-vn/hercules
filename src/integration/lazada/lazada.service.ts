@@ -1,29 +1,25 @@
-import { InjectQueue } from '@nestjs/bullmq';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
-import { Queue } from 'bullmq';
+import * as crypto from 'crypto';
 import dayjs from 'dayjs';
 import * as dotenv from 'dotenv';
 import { Producer } from 'kafkajs';
-import { Channel } from 'src/channels/channels.entity';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
-import { HttpMethod } from 'src/common/enums/http-method.enum';
-import { delay, isAfter } from 'src/common/utils/utils';
 import { ConversationsService } from 'src/conversations/conversations.service';
-import { Platform } from 'src/customers/customers.dto';
 import { CustomersService } from 'src/customers/customers.service';
 import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import { LAZADA_CONFIG } from './config/lazada.config';
 import {
-  LazadaWebhookDto,
+  LazadaAuthDto,
   LazadaOrderDto,
   LazadaProductDto,
-  LazadaAuthDto,
-  LazadaInventoryUpdateDto,
+  LazadaWebhookDto,
 } from './dto/lazada-webhook.dto';
-import * as crypto from 'crypto';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { HttpMethod } from 'src/common/enums/http-method.enum';
 
 dotenv.config();
 
@@ -38,8 +34,8 @@ export class LazadaService {
     private readonly kafkaProducerService: KafkaProducerService,
     private readonly customerService: CustomersService,
     private readonly conversationService: ConversationsService,
-    // @InjectQueue(process.env.REDIS_LAZADA_SYNC_TOPIC)
-    // private readonly lazadaSyncQueue: Queue,
+    @InjectQueue(process.env.REDIS_LAZADA_SYNC_TOPIC)
+    private readonly lazadaSyncQueue: Queue,
   ) {
     this.producer = this.kafkaProducerService.getProducer();
   }
@@ -141,6 +137,10 @@ export class LazadaService {
         params: {
           code,
         },
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        baseUrl: LAZADA_CONFIG.AUTH_URL,
         appKey,
         appSecret,
       });
@@ -166,6 +166,10 @@ export class LazadaService {
         params: {
           refresh_token: refreshToken,
         },
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        baseUrl: LAZADA_CONFIG.AUTH_URL,
         appKey,
         appSecret,
       });
@@ -275,103 +279,6 @@ export class LazadaService {
   }
 
   /**
-   * Get orders from Lazada
-   */
-  async getOrders(
-    appKey: string,
-    appSecret: string,
-    accessToken: string,
-    params?: {
-      created_after?: string;
-      created_before?: string;
-      updated_after?: string;
-      updated_before?: string;
-      status?: string;
-      limit?: number;
-      offset?: number;
-    },
-  ) {
-    try {
-      const response = await this.callLazadaAPI({
-        endpoint: LAZADA_CONFIG.ENDPOINTS.GET_ORDERS,
-        params,
-        appKey,
-        appSecret,
-        accessToken,
-      });
-
-      return response.data;
-    } catch (error) {
-      throw new Error(`Failed to get Lazada orders: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get products from Lazada
-   */
-  async getProducts(
-    appKey: string,
-    appSecret: string,
-    accessToken: string,
-    params?: {
-      filter?: string;
-      search?: string;
-      limit?: number;
-      offset?: number;
-    },
-  ) {
-    try {
-      const response = await this.callLazadaAPI({
-        endpoint: LAZADA_CONFIG.ENDPOINTS.GET_PRODUCTS,
-        params,
-        appKey,
-        appSecret,
-        accessToken,
-      });
-
-      return response.data;
-    } catch (error) {
-      throw new Error(`Failed to get Lazada products: ${error.message}`);
-    }
-  }
-
-  /**
-   * Update product inventory
-   */
-  async updateInventory(
-    appKey: string,
-    appSecret: string,
-    accessToken: string,
-    inventoryData: LazadaInventoryUpdateDto,
-  ) {
-    try {
-      const response = await this.callLazadaAPI({
-        endpoint: LAZADA_CONFIG.ENDPOINTS.UPDATE_PRICE_QUANTITY,
-        method: 'POST',
-        data: {
-          Request: {
-            Product: {
-              ItemId: inventoryData.item_id,
-              Skus: inventoryData.skus.map((sku) => ({
-                SellerSku: sku.SellerSku,
-                Quantity: sku.Quantity,
-                Price: sku.Price,
-              })),
-            },
-          },
-        },
-        appKey,
-        appSecret,
-        accessToken,
-      });
-
-      return response.data;
-    } catch (error) {
-      throw new Error(`Failed to update Lazada inventory: ${error.message}`);
-    }
-  }
-
-  /**
    * Sync orders daily - scheduled job
    */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -384,14 +291,6 @@ export class LazadaService {
 
       for (const channel of channels) {
         // Check if channel has required credentials
-        if (channel.appSecret && channel.accessToken) {
-          //   await this.lazadaSyncQueue.add('sync-orders', {
-          //     channelId: channel.id,
-          //     appKey: channel.appId,
-          //     appSecret: channel.appSecret,
-          //     accessToken: channel.accessToken,
-          //   });
-        }
       }
 
       console.log('Daily Lazada orders sync completed');
@@ -421,6 +320,74 @@ export class LazadaService {
     } catch (error) {
       console.error('Error verifying Lazada webhook signature:', error);
       return false;
+    }
+  }
+
+  async auth(code: string) {
+    const appKey = LAZADA_CONFIG.APP_KEY;
+    const appSecret = LAZADA_CONFIG.APP_SECRET;
+
+    try {
+      const authData = await this.getAccessToken(code, appKey, appSecret);
+
+      const channel = {
+        name: authData.account,
+        type: ChannelType.LAZADA,
+        appId: authData.account_id ?? authData.account,
+        accessToken: authData.access_token,
+        refreshToken: authData.refresh_token,
+        expireTokenTime: dayjs().add(authData.expires_in, 'seconds').toDate(),
+      };
+
+      await this.channelService.upsert(channel);
+
+      return `${process.env.DASHBOARD_BASE_URL}/dashboard/channels?type=lazada&appId=${channel.appId}`;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async fetchMessagesWithinCustomTime(
+    appId: string,
+    time: number,
+    unit: 'day' | 'week' | 'month',
+  ): Promise<void> {
+    const channel = await this.channelService.getByTypeAndAppId(
+      ChannelType.LAZADA,
+      appId,
+    );
+    if (!channel) {
+      throw new Error(`Channel with appId ${appId} not found`);
+    }
+
+    let startTime = dayjs().subtract(time, unit).valueOf();
+    while (true) {
+      const response = await this.callLazadaAPI({
+        endpoint: `/${LAZADA_CONFIG.ENDPOINTS.GET_SESSION_LIST}`,
+        method: HttpMethod.GET,
+        params: {
+          start_time: startTime,
+          page_size: 20, // Adjust as needed
+        },
+        appKey: LAZADA_CONFIG.APP_KEY,
+        appSecret: LAZADA_CONFIG.APP_SECRET,
+        accessToken: channel.accessToken,
+      });
+
+      const messages = response.data.data.session_list;
+
+      if (messages && messages.length > 0) {
+        for (const message of messages) {
+          // Process each message
+          console.log('Processing message:', message);
+          // You can add your custom logic here
+        }
+      }
+      if (!response.data.data.has_more) {
+        break;
+      }
+
+      startTime = response.data.data.next_start_time;
     }
   }
 }

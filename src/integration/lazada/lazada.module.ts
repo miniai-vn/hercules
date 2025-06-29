@@ -8,7 +8,7 @@ import { CustomersModule } from 'src/customers/customers.module';
 import { KafkaModule } from 'src/kafka/kafka.module';
 import { LazadaController } from './lazada.controller';
 import { LazadaService } from './lazada.service';
-// import { LazadaSyncProcessor } from './processors/lazada-sync.processor';
+import { LazadaSyncProcessor } from './processors/lazada-sync.processor';
 
 @Module({
   imports: [
@@ -18,15 +18,15 @@ import { LazadaService } from './lazada.service';
     KafkaModule,
     CustomersModule,
     ConversationsModule,
-    // BullModule.registerQueue({
-    //   name: process.env.REDIS_LAZADA_SYNC_TOPIC,
-    //   defaultJobOptions: {
-    //     removeOnComplete: true,
-    //     removeOnFail: true,
-    //   },
-    // }),
+    BullModule.registerQueue({
+      name: process.env.REDIS_LAZADA_SYNC_TOPIC,
+      defaultJobOptions: {
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    }),
   ],
-  providers: [LazadaService],
+  providers: [LazadaService, LazadaSyncProcessor],
   controllers: [LazadaController],
   exports: [LazadaService],
 })

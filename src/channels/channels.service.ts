@@ -40,6 +40,25 @@ export class ChannelsService {
     private readonly usersService: UsersService, // Use UsersService instead of userRepository
   ) {}
 
+  async upsert(data: CreateChannelDto) {
+    try {
+      return await this.channelRepository.upsert(
+        {
+          ...data,
+        },
+        {
+          conflictPaths: ['appId'], // Use appId as the unique identifier for upsert
+          skipUpdateIfNoValuesChanged: true, // Skip update if no values have changed
+        },
+      );
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to upsert channel',
+        error.message,
+      );
+    }
+  }
+
   async create(data: CreateChannelDto): Promise<Channel> {
     try {
       let department: Department | undefined | null = undefined;

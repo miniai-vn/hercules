@@ -22,14 +22,17 @@ import {
 import { Response, Request } from 'express';
 import { LazadaWebhookDto } from './dto/lazada-webhook.dto';
 import { LazadaService } from './lazada.service';
-
+import * as crypto from 'crypto';
+import axios from 'axios';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
 @ApiTags('Integration')
 @Controller('integration/lazada')
 export class LazadaController {
   constructor(
     private readonly lazadaService: LazadaService,
-    // @InjectQueue(process.env.REDIS_LAZADA_SYNC_TOPIC)
-    // private readonly lazadaSyncQueue: Queue,
+    @InjectQueue(process.env.REDIS_LAZADA_SYNC_TOPIC)
+    private readonly lazadaSyncQueue: Queue,
   ) {}
 
   @Get('auth')
@@ -37,37 +40,9 @@ export class LazadaController {
   @ApiQuery({ name: 'code', description: 'Authorization code from Lazada' })
   @ApiQuery({ name: 'app_key', description: 'Lazada app key' })
   @ApiResponse({ status: 302, description: 'Redirect to dashboard' })
-  async lazadaAuthHandler(
-    @Query('code') code: string,
-    @Query('app_key') appKey: string,
-    @Res() res: Response,
-    @Req() req: Request, // Use any type for request to access headers if needed
-  ) {
-    // https://auth.lazada.com/oauth/authorize?response_type=code&force_auth=true&redirect_uri=https://680a-42-117-111-89.ngrok-free.app/api/integration/lazada/auth&client_id=133681
-    console.log(code);
-    return res.status(HttpStatus.OK).json({
-      message: 'Lazada auth handler called',
-    });
-    // try {
-    //   // Get app secret from environment or database based on app_key
-    //   const appSecret = process.env.LAZADA_APP_SECRET; // You should get this from your channel configuration
-
-    //   const tokenData = await this.lazadaService.getAccessToken(
-    //     code,
-    //     appKey,
-    //     appSecret,
-    //   );
-
-    //   // You can redirect to your dashboard with the token data
-    //   // Or save it to your database
-    //   const redirectUrl = `${process.env.FRONTEND_URL}/dashboard?lazada_auth=success`;
-    //   //   return res.redirect(redirectUrl);
-    //   return '';
-    // } catch (error) {
-    //   console.error('Lazada auth error:', error);
-    //   const errorUrl = `${process.env.FRONTEND_URL}/dashboard?lazada_auth=error&message=${encodeURIComponent(error.message)}`;
-    //   return res.redirect(errorUrl);
-    // }
+  async lazadaAuthHandler(@Query('code') code: string, @Res() res: Response) {
+    const url = await this.lazadaService.auth(code);
+    return res.redirect(url);
   }
 
   @Post('webhook/receive')
@@ -97,7 +72,6 @@ export class LazadaController {
         }
       }
 
-      // Process webhook asynchronously
       res.status(HttpStatus.OK).json({ status: 'received' });
 
       await this.lazadaService.handleWebhook(body);
@@ -110,226 +84,51 @@ export class LazadaController {
     }
   }
 
-  @Post('sync-orders/:channelId')
-  @ApiOperation({ summary: 'Sync Lazada orders for a specific channel' })
-  @ApiParam({ name: 'channelId', description: 'Channel ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Orders sync initiated successfully',
+  @Post('sync-conversations/:appId')
+  @ApiOperation({
+    summary: 'Sync Lazada conversations for a specific app',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Invalid channel ID or missing credentials',
-  })
-  async syncLazadaOrders(@Param('channelId') channelId: string) {
-    // try {
-    //   if (!channelId) {
-    //     throw new BadRequestException('Channel ID is required');
-    //   }
-    //   const job = await this.lazadaSyncQueue.add('sync-orders', {
-    //     channelId: channelId,
-    //     syncType: 'manual',
-    //   });
-    //   return {
-    //     message: 'Lazada orders sync initiated successfully',
-    //     jobId: job.id,
-    //     status: 'pending',
-    //   };
-    // } catch (error) {
-    //   throw new BadRequestException(
-    //     `Failed to initiate sync: ${error.message}`,
-    //   );
-    // }
-  }
-
-  @Post('sync-products/:channelId')
-  @ApiOperation({ summary: 'Sync Lazada products for a specific channel' })
-  @ApiParam({ name: 'channelId', description: 'Channel ID', type: 'string' })
-  @ApiResponse({
-    status: 200,
-    description: 'Products sync initiated successfully',
-  })
-  async syncLazadaProducts(@Param('channelId') channelId: string) {
-    // try {
-    //   if (!channelId) {
-    //     throw new BadRequestException('Channel ID is required');
-    //   }
-    //   const job = await this.lazadaSyncQueue.add('sync-products', {
-    //     channelId: channelId,
-    //     syncType: 'manual',
-    //   });
-    //   return {
-    //     message: 'Lazada products sync initiated successfully',
-    //     jobId: job.id,
-    //     status: 'pending',
-    //   };
-    // } catch (error) {
-    //   throw new BadRequestException(
-    //     `Failed to initiate sync: ${error.message}`,
-    //   );
-    // }
-  }
-
-  @Get('orders/:channelId')
-  @ApiOperation({ summary: 'Get Lazada orders for a channel' })
-  @ApiParam({ name: 'channelId', description: 'Channel ID', type: 'string' })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    description: 'Number of orders to fetch',
-  })
-  @ApiQuery({
-    name: 'offset',
-    required: false,
-    description: 'Offset for pagination',
-  })
-  @ApiQuery({
-    name: 'status',
-    required: false,
-    description: 'Order status filter',
+  @ApiParam({
+    name: 'appId',
+    description: 'Lazada app ID to sync conversations for',
   })
   @ApiResponse({
     status: 200,
-    description: 'Orders retrieved successfully',
+    description: 'Conversations sync initiated successfully',
   })
-  async getLazadaOrders(
-    @Param('channelId') channelId: string,
-    @Query('limit') limit?: number,
-    @Query('offset') offset?: number,
-    @Query('status') status?: string,
-  ) {
+  async syncLazadaConversations(@Param('appId') appId: string) {
     try {
-      // You would typically get channel credentials from database
-      // For now, using environment variables as example
-      const appKey = process.env.LAZADA_APP_KEY;
-      const appSecret = process.env.LAZADA_APP_SECRET;
-      const accessToken = process.env.LAZADA_ACCESS_TOKEN;
+      if (!appId) {
+        throw new BadRequestException('App ID is required');
+      }
 
-      const params = {
-        limit: limit || 50,
-        offset: offset || 0,
-        ...(status && { status }),
-      };
+      this.lazadaSyncQueue.add('first-time-sync', {
+        appId: appId,
+      });
 
-      const orders = await this.lazadaService.getOrders(
-        appKey,
-        appSecret,
-        accessToken,
-        params,
-      );
-
-      return {
-        message: 'Orders retrieved successfully',
-        data: orders,
-      };
-    } catch (error) {
-      throw new BadRequestException(`Failed to get orders: ${error.message}`);
-    }
-  }
-
-  @Get('products/:channelId')
-  @ApiOperation({ summary: 'Get Lazada products for a channel' })
-  @ApiParam({ name: 'channelId', description: 'Channel ID', type: 'string' })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    description: 'Number of products to fetch',
-  })
-  @ApiQuery({
-    name: 'offset',
-    required: false,
-    description: 'Offset for pagination',
-  })
-  @ApiQuery({ name: 'search', required: false, description: 'Search term' })
-  @ApiResponse({
-    status: 200,
-    description: 'Products retrieved successfully',
-  })
-  async getLazadaProducts(
-    @Param('channelId') channelId: string,
-    @Query('limit') limit?: number,
-    @Query('offset') offset?: number,
-    @Query('search') search?: string,
-  ) {
-    try {
-      // You would typically get channel credentials from database
-      const appKey = process.env.LAZADA_APP_KEY;
-      const appSecret = process.env.LAZADA_APP_SECRET;
-      const accessToken = process.env.LAZADA_ACCESS_TOKEN;
-
-      const params = {
-        limit: limit || 50,
-        offset: offset || 0,
-        ...(search && { search }),
-      };
-
-      const products = await this.lazadaService.getProducts(
-        appKey,
-        appSecret,
-        accessToken,
-        params,
-      );
-
-      return {
-        message: 'Products retrieved successfully',
-        data: products,
-      };
-    } catch (error) {
-      throw new BadRequestException(`Failed to get products: ${error.message}`);
-    }
-  }
-
-  @Post('inventory/update/:channelId')
-  @ApiOperation({ summary: 'Update Lazada product inventory' })
-  @ApiParam({ name: 'channelId', description: 'Channel ID', type: 'string' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        item_id: { type: 'string' },
-        skus: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              SellerSku: { type: 'string' },
-              Quantity: { type: 'number' },
-              Price: { type: 'number' },
-            },
+      const schedulerId = `sync-conversations-${appId}`;
+      this.lazadaSyncQueue.upsertJobScheduler(
+        schedulerId,
+        {
+          every: 24 * 60 * 60 * 1000,
+          startDate: new Date(Date.now() + 10 * 60 * 1000),
+        },
+        {
+          name: 'sync-daily-lazada-conversations',
+          data: {
+            appId,
           },
         },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Inventory updated successfully',
-  })
-  async updateInventory(
-    @Param('channelId') channelId: string,
-    @Body() inventoryData: any,
-  ) {
-    try {
-      // You would typically get channel credentials from database
-      const appKey = process.env.LAZADA_APP_KEY;
-      const appSecret = process.env.LAZADA_APP_SECRET;
-      const accessToken = process.env.LAZADA_ACCESS_TOKEN;
-
-      const result = await this.lazadaService.updateInventory(
-        appKey,
-        appSecret,
-        accessToken,
-        inventoryData,
       );
 
       return {
-        message: 'Inventory updated successfully',
-        data: result,
+        message: 'Conversations sync initiated successfully',
       };
     } catch (error) {
-      throw new BadRequestException(
-        `Failed to update inventory: ${error.message}`,
-      );
+      throw new BadRequestException({
+        error: 'Failed to sync conversations',
+        message: error.message,
+      });
     }
   }
 }

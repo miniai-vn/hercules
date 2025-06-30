@@ -8,6 +8,7 @@ import { MessagesModule } from '../messages/messages.module';
 import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
+import { FacebookModule } from 'src/integration/facebook/facebook.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ChatService } from './chat.service';
     MessagesModule,
     ChannelsModule,
     ZaloModule,
+    FacebookModule,
     CustomersModule,
     UsersModule,
   ],

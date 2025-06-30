@@ -360,14 +360,12 @@ export class ChannelsService {
       where: { appId },
       relations: ['users'],
     });
-
     const userExists = channel.users.some((user) => user.id === userId);
     if (!userExists) {
       const user = await this.usersService.getOne(userId);
       channel.users = [user];
     }
     channel.shop = shop;
-
     return this.channelRepository.save(channel);
   }
 

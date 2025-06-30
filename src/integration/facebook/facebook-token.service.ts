@@ -1,20 +1,15 @@
 import { FacebookHttpService } from './facebook-http.service';
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import * as dotenv from 'dotenv';
-import { TokenDebugData, TokenDebugResponse } from './types/token-debug.type';
+import { TokenDebugData } from './types/token-debug.type';
 import { FACEBOOK_CONFIG } from './config/facebook.config';
+import { HttpMethod } from 'src/common/enums/http-method.enum';
 
 dotenv.config();
 @Injectable()
 export class FacebookTokenService {
-  private readonly logger = new Logger(FacebookTokenService.name);
-
   constructor(private readonly facebookHttpService: FacebookHttpService) {}
 
-  /**
-   * Refresh một long-lived token (user/page) bằng cách gọi lại OAuth endpoint
-   * @param oldToken
-   */
   async refreshLongLivedToken(oldToken: string): Promise<string> {
     const endpoint = FACEBOOK_CONFIG.ENDPOINT.OAUTH_ACCESS_TOKEN;
     const params = {
@@ -27,7 +22,7 @@ export class FacebookTokenService {
     try {
       const resp = await this.facebookHttpService.callFacebookAPI(
         endpoint,
-        'GET',
+        HttpMethod.GET,
         params,
         undefined,
         FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
@@ -44,11 +39,6 @@ export class FacebookTokenService {
     }
   }
 
-  /**
-   *
-   * @param token
-   * @returns
-   */
   async debugAccessToken(token: string): Promise<TokenDebugData> {
     const endpoint = FACEBOOK_CONFIG.ENDPOINT.DEBUG_TOKEN;
 
@@ -60,7 +50,7 @@ export class FacebookTokenService {
 
       const resp = await this.facebookHttpService.callFacebookAPI(
         endpoint,
-        'GET',
+        HttpMethod.GET,
         params,
         undefined,
         FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
@@ -78,12 +68,6 @@ export class FacebookTokenService {
     }
   }
 
-  /**
-   * Kiểm tra token có gần hết hạn không.
-   * @param token access token cần check
-   * @param thresholdSeconds Ngưỡng tính bằng giây (mặc định 7 ngày)
-   * @returns true nếu token sắp hết hạn, false nếu còn thời gian dài
-   */
   async isTokenNearExpiry(
     token: string,
     channelId: number,
@@ -93,16 +77,12 @@ export class FacebookTokenService {
       const debugData = await this.debugAccessToken(token);
 
       if (!debugData.is_valid) {
-        console.warn(
-          `Token expired - Channel ID: ${channelId}, Token: ${token}`,
-        );
         throw new UnauthorizedException('Token expired');
       }
 
       const now = Math.floor(Date.now() / 1000);
       const dataAccessExpiresAt = debugData.data_access_expires_at;
 
-      // Nếu token hết hạn trong khoảng thresholdSeconds tới thì coi là gần hết hạn
       return dataAccessExpiresAt - now <= thresholdSeconds;
     } catch (error) {
       throw new Error(`${error.message || error}`);

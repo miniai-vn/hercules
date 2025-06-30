@@ -70,6 +70,8 @@ export class ConversationMember {
     nullable: true,
     name: 'joined_at',
   })
+  joinedAt?: Date;
+
   @Column({
     type: 'timestamp with time zone',
     nullable: true,

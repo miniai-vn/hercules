@@ -1,25 +1,52 @@
-export class FacebookWebhookDTO {
-  object: string;
-  entry?: FacebookMessageEntryDTO[];
-}
-
-export class FacebookMessageEntryDTO {
-  id: string; // Page ID
-  time?: number;
-  messaging: FacebookMessagingEventDTO[];
-}
+import { Type } from 'class-transformer';
+import {
+  ValidateNested,
+  IsString,
+  IsOptional,
+  IsArray,
+  IsObject,
+} from 'class-validator';
 
 export class FacebookMessagingEventDTO {
-  sender: {
-    id: string; // User PSID
-  };
-  recipient: {
-    id: string; // Page ID
-  };
+  @IsObject()
+  sender: { id: string };
+
+  @IsObject()
+  recipient: { id: string };
+
+  @IsOptional()
   timestamp?: number;
+
+  @IsOptional()
   message?: {
     mid?: string;
     text?: string;
   };
-  postback?: any; // nếu có xử lý postback
+
+  @IsOptional()
+  postback?: any;
+}
+
+export class FacebookMessageEntryDTO {
+  @IsString()
+  id: string;
+
+  @IsOptional()
+  time?: number;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FacebookMessagingEventDTO)
+  messaging: FacebookMessagingEventDTO[];
+}
+
+export class FacebookWebhookDTO {
+  @IsString()
+  object: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FacebookMessageEntryDTO)
+  entry?: FacebookMessageEntryDTO[];
 }

@@ -1,26 +1,26 @@
 import { FacebookService } from './facebook.service';
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
-  Param,
+  HttpStatus,
   Post,
   Query,
   Res,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
-import { TConversationPageId } from './types/conversation.type';
+
 @ApiTags('Facebook')
 @Controller('facebook')
 export class FacebookController {
   constructor(private readonly facebookService: FacebookService) {}
 
   @Get('connect')
-  connectToFacebook(@Res() res: Response) {
-    return this.facebookService.connectToFacebook(res);
+  async connectToFacebook(@Res() res: Response) {
+    const url = await this.facebookService.connectToFacebook();
+    return res.redirect(url);
   }
 
   @Get('callback')
@@ -34,53 +34,61 @@ export class FacebookController {
     } catch (error) {}
   }
 
-  @Get('webhook')
+  @Get('/webhook')
+  @ApiOperation({ summary: 'Facebook webhook verification' })
+  @ApiQuery({
+    name: 'hub.mode',
+    required: true,
+    type: String,
+    description: 'The mode value for verification, usually "subscribe"',
+    example: 'subscribe',
+  })
+  @ApiQuery({
+    name: 'hub.verify_token',
+    required: true,
+    type: String,
+    description: 'Token to verify the webhook endpoint',
+  })
+  @ApiQuery({
+    name: 'hub.challenge',
+    required: true,
+    type: String,
+    description: 'Challenge code to be echoed back',
+    example: '9999',
+  })
   verifyWebhook(
     @Query('hub.mode') mode: string,
     @Query('hub.verify_token') verifyToken: string,
     @Query('hub.challenge') challenge: string,
+    @Res() res: Response,
   ) {
-    return this.facebookService.verifyWebhook(mode, verifyToken, challenge);
-  }
-
-  // 2. Endpoint để nhận POST event sau khi đã verify
-  @Post('webhook/handler')
-  async receiveWebhook(@Body() body: FacebookWebhookDTO) {
-    if (body.object === 'page') {
-      for (const entry of body.entry ?? []) {
-        for (const event of entry.messaging) {
-          if (event.message?.text) {
-            await this.facebookService?.handleMessage(event);
-          } else if (event.postback) {
-            await this.facebookService?.handlePostback(event);
-          }
-        }
-      }
-    }
-
-    return {
-      success: true,
-      timestamp: new Date().toISOString(),
-      message: 'Webhook received and processed',
-    };
-  }
-
-  @Get('/page/:page_id/conversations')
-  async getIdsConversationsPage(
-    @Query('acces_token_page') access_token_page: string,
-    @Param('page_id') page_id: string,
-  ): Promise<TConversationPageId> {
-    return await this.facebookService.getIdsConversationsPage(
-      access_token_page,
-      page_id,
+    const result = this.facebookService.verifyWebhook(
+      mode,
+      verifyToken,
+      challenge,
     );
+    if (result) {
+      return res.status(200).send(result);
+    }
+    return res.status(403).send('Forbidden');
   }
 
-  @Get('/:id/messages-detail')
-  async getMessage(
-    @Query('access_token_page') access_token_page: string,
-    @Query('fields') fields: string,
-  ): Promise<string> {
-    return null;
+  @Post('webhook')
+  @ApiOperation({ summary: 'Receive Facebook webhook events' })
+  @ApiResponse({
+    status: 200,
+    description: 'Webhook received and processed',
+  })
+  async receiveWebhook(@Body() body: FacebookWebhookDTO, @Res() res: Response) {
+    try {
+      res.status(HttpStatus.OK).json({
+        success: true,
+        timestamp: new Date().toISOString(),
+        message: 'Webhook received and processed',
+      });
+      await this.facebookService.handleWebhook(body);
+    } catch (error) {
+      return { status: 'error', message: error.message };
+    }
   }
 }

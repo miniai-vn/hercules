@@ -60,6 +60,14 @@ export class CreateResourceDto {
   name: string;
 
   @ApiPropertyOptional({
+    description: 'S3 key for the resource',
+    example: 'uploads/documents/file.pdf',
+  })
+  @IsOptional()
+  @IsString()
+  s3Key?: string;
+
+  @ApiPropertyOptional({
     description: 'Extra metadata as JSON',
     example: { size: 1024, mimetype: 'application/pdf' },
   })

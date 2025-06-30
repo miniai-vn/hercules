@@ -1,17 +1,27 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { DepartmentsService } from './departments.service';
-import { DepartmentPaginationQueryDto } from './dto/departments.dto';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 import { PermissionsGuard } from 'src/auth/gaurds/permission.guard';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 import { PermissionCode } from 'src/common/enums/permission.enum';
-import { NumericType } from 'typeorm';
+import { DepartmentsService } from './departments.service';
+import { DepartmentPaginationQueryDto } from './dto/departments.dto';
+import { CreateDepartmentDto } from './dto/create-department.dto';
 
 @ApiTags('departments')
 @Controller('departments')
@@ -19,6 +29,20 @@ import { NumericType } from 'typeorm';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class DepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}
+
+  @Post()
+  @RequirePermissions(PermissionCode.DEPARTMENT_CREATE)
+  @ApiOperation({ summary: 'Create a new department' })
+  @ApiResponse({
+    status: 201,
+    description: 'Department created successfully',
+  })
+  async create(@Req() req, @Body() data: CreateDepartmentDto) {
+    return this.departmentsService.create({
+      ...data,
+      shopId: req.user.shopId,
+    });
+  }
 
   @Get()
   @RequirePermissions(PermissionCode.DEPARTMENT_READ)
@@ -40,5 +64,16 @@ export class DepartmentsController {
   })
   async findOne(@Query('id') id: number) {
     return this.departmentsService.findOne(id);
+  }
+
+  @Delete('/:id')
+  @RequirePermissions(PermissionCode.DEPARTMENT_DELETE)
+  @ApiOperation({ summary: 'Delete a department by ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Department deleted successfully',
+  })
+  async delete(@Param('id') id: number) {
+    return this.departmentsService.delete(id);
   }
 }

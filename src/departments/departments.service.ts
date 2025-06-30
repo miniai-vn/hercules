@@ -10,6 +10,7 @@ import {
 import { Department } from './departments.entity';
 import { DepartmentPaginationQueryDto } from './dto/departments.dto';
 import { PaginatedResult } from 'src/common/types/reponse.type';
+import { CreateDepartmentDto } from './dto/create-department.dto';
 
 @Injectable()
 export class DepartmentsService {
@@ -65,9 +66,12 @@ export class DepartmentsService {
     };
   }
 
-  async create(data: Partial<Department>): Promise<Department> {
+  async create(data: CreateDepartmentDto): Promise<Department> {
     try {
-      const department = this.departmentRepository.create(data);
+      const department = this.departmentRepository.create({
+        ...data,
+        shop: { id: data.shopId.toString() },
+      });
       return await this.departmentRepository.save(department);
     } catch (error) {
       throw new InternalServerErrorException(
@@ -102,5 +106,17 @@ export class DepartmentsService {
 
   async remove(id: number): Promise<void> {
     await this.departmentRepository.softDelete(id);
+  }
+
+  async delete(id: number) {
+    try {
+      await this.departmentRepository.softDelete(id);
+      return id;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to delete department',
+        error.message,
+      );
+    }
   }
 }

@@ -9,6 +9,8 @@ import mimeTypes from 'mime-types';
 import { Minetype } from 'src/common/enums/file.enum';
 import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
+
 @Injectable()
 export class UploadsService {
   private s3: S3Client;
@@ -93,6 +95,7 @@ export class UploadsService {
       throw new Error(`Failed to upload JSON file: ${error.message}`);
     }
   }
+
   async getBinaryFile(key: string): Promise<Buffer> {
     const cmd = new GetObjectCommand({
       Bucket: this.config.get<string>('AWS_BUCKET_NAME')!,
@@ -114,23 +117,125 @@ export class UploadsService {
   }
 
   async streamToBuffer(stream: Readable): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      stream.on('data', (chunk) =>
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)),
-      );
-      stream.on('error', reject);
-      stream.on('end', () => resolve(Buffer.concat(chunks)));
-    });
-  }
-
-  async getPresignedUrl(key: string, expiresIn = 3600) {
-    const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
   }
 
   async getFile(key: string) {
-    const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
-    const response = await this.s3.send(cmd);
-    return response.Body;
+    try {
+      const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+      const response = await this.s3.send(cmd);
+      const buf = await this.streamToBuffer(response.Body as Readable);
+
+      // Send buffer using axios directly
+      const formData = new FormData();
+      formData.append('file', new Blob([buf]), key.split('/').pop() || 'file');
+      formData.append('key', key);
+
+      const res = await axios.post(
+        `${process.env.AGENT_BASE_URL}/read-docx`,
+        buf,
+        {
+          headers: {
+            'Content-Type': 'application/octet-stream',
+          },
+        },
+      );
+      console.log('File sent successfully:', res);
+
+      // return {
+      //   success: true,
+      //   fileKey: key,
+      //   fileSize: buf.length,
+      //   externalResponse: httpResponse.data,
+      // };
+    } catch (error) {
+      console.error('Error in getFile:', error);
+      throw new InternalServerErrorException(
+        `Failed to process file: ${error.message}`,
+      );
+    }
+  }
+
+  // Alternative method using raw buffer in request body
+  async getFileAndSendRaw(key: string) {
+    try {
+      const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+      const response = await this.s3.send(cmd);
+      const buf = await this.streamToBuffer(response.Body as Readable);
+
+      // Send raw buffer using axios
+      const httpResponse = await axios.post(
+        'http://127.0.0.1:5000/upload-raw',
+        buf,
+        {
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-File-Key': key,
+            'X-File-Size': buf.length.toString(),
+          },
+          timeout: 30000,
+        },
+      );
+
+      console.log('Raw file sent successfully:', httpResponse.data);
+
+      return {
+        success: true,
+        fileKey: key,
+        fileSize: buf.length,
+        externalResponse: httpResponse.data,
+      };
+    } catch (error) {
+      console.error('Error in getFileAndSendRaw:', error);
+      throw new InternalServerErrorException(
+        `Failed to send raw file: ${error.message}`,
+      );
+    }
+  }
+
+  // Method to send file with additional metadata
+  async getFileAndSendWithMetadata(key: string, metadata?: any) {
+    try {
+      const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+      const response = await this.s3.send(cmd);
+      const buf = await this.streamToBuffer(response.Body as Readable);
+
+      const payload = {
+        file: buf.toString('base64'), // Convert to base64 for JSON
+        key: key,
+        contentType: response.ContentType,
+        size: buf.length,
+        metadata: metadata || {},
+      };
+
+      const httpResponse = await axios.post(
+        'http://127.0.0.1:5000/upload-json',
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
+        },
+      );
+
+      console.log('File with metadata sent successfully:', httpResponse.data);
+
+      return {
+        success: true,
+        fileKey: key,
+        fileSize: buf.length,
+        externalResponse: httpResponse.data,
+      };
+    } catch (error) {
+      console.error('Error in getFileAndSendWithMetadata:', error);
+      throw new InternalServerErrorException(
+        `Failed to send file with metadata: ${error.message}`,
+      );
+    }
   }
 }

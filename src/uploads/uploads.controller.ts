@@ -15,7 +15,7 @@ import { PermissionsGuard } from 'src/auth/gaurds/permission.guard';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 import { PermissionCode } from 'src/common/enums/permission.enum';
 @Controller('uploads')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+// @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UploadsController {
   constructor(private readonly s3: UploadsService) {}
 
@@ -29,9 +29,13 @@ export class UploadsController {
     };
   }
 
-  @Get('presigned/:key')
-  async presigned(@Param('key') key: string) {
-    const url = await this.s3.getPresignedUrl(key);
-    return { url };
+  @Get(':key')
+  // @RequirePermissions(PermissionCode.DEPARTMENT_READ)
+  async getFile(@Param('key') key: string) {
+    const file = await this.s3.getFile(key);
+    return {
+      data: file,
+      message: 'File retrieved successfully',
+    };
   }
 }

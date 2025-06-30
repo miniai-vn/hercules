@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Producer } from 'kafkajs';
 import { PaginatedResult } from 'src/common/types/reponse.type';
 import {
   FindManyOptions,
@@ -8,15 +9,24 @@ import {
   MoreThanOrEqual,
   Repository,
 } from 'typeorm';
-import { CreateResourceDto, ResourceQueryDto } from './dto/resources.dto';
+import {
+  CreateResourceDto,
+  ResourceQueryDto,
+  ResourceStatus,
+} from './dto/resources.dto';
 import { Resource } from './resources.entity';
+import { KafkaProducerService } from 'src/kafka/kafka.producer';
 
 @Injectable()
 export class ResourcesService {
+  private producer: Producer;
   constructor(
     @InjectRepository(Resource)
     private readonly resourceRepository: Repository<Resource>,
-  ) {}
+    private readonly kafkaProducerService: KafkaProducerService, // Assuming this is used for file uploads
+  ) {
+    this.producer = this.kafkaProducerService.getProducer();
+  }
 
   async query(query: ResourceQueryDto): Promise<PaginatedResult<Resource>> {
     const {
@@ -72,13 +82,35 @@ export class ResourcesService {
     };
   }
 
-  async create(data: CreateResourceDto): Promise<Resource> {
+  async create(data: CreateResourceDto) {
     try {
-      const resource = this.resourceRepository.create({
+      let resource = this.resourceRepository.create({
         ...data,
-        department: { id: data.departmentId },
+        status: ResourceStatus.PROCESSING,
+        department: {
+          id: data.departmentId,
+        },
       });
-      return await this.resourceRepository.save(resource);
+      resource = await this.resourceRepository.save(resource);
+      await this.producer.send({
+        topic: 'mi9.etl.resource',
+        messages: [
+          {
+            key: resource.id.toString(),
+            value: JSON.stringify({
+              id: resource.id,
+              name: resource.name,
+              key: resource.s3Key,
+              type: resource.type,
+              status: resource.status,
+              isActive: resource.isActive,
+              departmentId: resource.department?.id,
+            }),
+          },
+        ],
+      });
+
+      return resource;
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to create resource',
@@ -106,19 +138,5 @@ export class ResourcesService {
         error.message,
       );
     }
-  }
-
-  async eltData({
-    shopId,
-    url,
-    type,
-    resourceId,
-  }: {
-    shopId: string;
-    url: string;
-    type: string;
-    resourceId?: number;
-  }) {
-    // handle call to chatservice to extraction data
   }
 }

@@ -2,6 +2,7 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Consumer, EachMessagePayload, Kafka } from 'kafkajs';
 import { ChatService } from 'src/chat/chat.service';
+import { UploadsService } from 'src/uploads/uploads.service';
 
 @Injectable()
 export class KafkaConsumerService implements OnModuleDestroy {
@@ -10,7 +11,6 @@ export class KafkaConsumerService implements OnModuleDestroy {
     brokers: [process.env.KAFKA_BROKERS],
     connectionTimeout: 10000,
     requestTimeout: 30000,
-
     retry: {
       initialRetryTime: 300,
       retries: 10,
@@ -28,7 +28,7 @@ export class KafkaConsumerService implements OnModuleDestroy {
 
   constructor(
     private readonly chatService: ChatService,
-    // private readonly resourceSerivce: ResourcesService,
+    private readonly uploadService: UploadsService,
   ) {}
   async createConsumer(
     groupId: string,
@@ -69,6 +69,8 @@ export class KafkaConsumerService implements OnModuleDestroy {
       process.env.KAFKA_ETL_TOPIC,
       async ({ message }) => {
         const data = JSON.parse(message.value.toString());
+
+        const result = await this.uploadService.sendDataToElt(data.key);
         // init handle  data with ERL like data {url: string, type: string, shopId, resourceUd:}
       },
     );

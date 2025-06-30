@@ -5,19 +5,21 @@ import {
 } from '@aws-sdk/client-s3';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
+import { Producer } from 'kafkajs';
 import mimeTypes from 'mime-types';
 import { Minetype } from 'src/common/enums/file.enum';
 import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
-import axios from 'axios';
 
 @Injectable()
 export class UploadsService {
   private s3: S3Client;
   private bucket: string;
-
+  producer: Producer;
   constructor(private config: ConfigService) {
     this.bucket = this.config.getOrThrow('AWS_BUCKET_NAME');
+
     this.s3 = new S3Client({
       region: this.config.getOrThrow('AWS_REGION'),
       credentials: {
@@ -124,7 +126,7 @@ export class UploadsService {
     return Buffer.concat(chunks);
   }
 
-  async getFile(key: string) {
+  async sendDataToElt(key: string) {
     try {
       const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
       const response = await this.s3.send(cmd);
@@ -152,6 +154,7 @@ export class UploadsService {
       //   fileSize: buf.length,
       //   externalResponse: httpResponse.data,
       // };
+      return true;
     } catch (error) {
       console.error('Error in getFile:', error);
       throw new InternalServerErrorException(

@@ -28,6 +28,7 @@ import {
 } from './dto/conversation.dto';
 import { ChannelsService } from 'src/channels/channels.service';
 import { MessageType } from 'src/common/enums/message.enum';
+import { channel } from 'diagnostics_channel';
 
 @Injectable()
 export class ConversationsService {
@@ -42,19 +43,6 @@ export class ConversationsService {
     @Inject(forwardRef(() => ChannelsService))
     private readonly channelService: ChannelsService,
   ) {}
-
-  async findByCustomerIdAndChannelId(
-    customerId: string,
-    channelId: number,
-  ): Promise<Conversation | null> {
-    return this.conversationRepository
-      .createQueryBuilder('conversation')
-      .leftJoin('conversation.members', 'members')
-      .leftJoin('conversation.channel', 'channel')
-      .where('members.customerId = :customerId', { customerId })
-      .andWhere('channel.id = :channelId', { channelId })
-      .getOne();
-  }
 
   async create(createConversationDto: CreateConversationDto, channel: Channel) {
     try {
@@ -278,15 +266,16 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id },
-        relations: [
-          'members',
-          'members.customer',
-          'members.user',
-          'members.lastMessage', // Cực kỳ quan trọng!
-          'channel',
-          'messages',
-          'tags',
-        ],
+        relations: {
+          members: {
+            customer: true,
+            user: true,
+            lastMessage: true,
+          },
+          channel: true,
+          messages: true,
+          tags: true,
+        },
         order: {
           messages: {
             createdAt: 'ASC',
@@ -441,7 +430,12 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
-        relations: ['members', 'members.lastMessage', 'messages'],
+        relations: {
+          members: {
+            lastMessage: true,
+          },
+          messages: true,
+        },
         order: {
           messages: {
             createdAt: 'ASC',
@@ -803,14 +797,7 @@ export class ConversationsService {
 
       lastestMessage:
         conversation?.messages && conversation.messages.length > 0
-          ? conversation.messages
-              .slice() // clone array để không mutate
-              .sort(
-                (a, b) =>
-                  new Date(a.createdAt).getTime() -
-                  new Date(b.createdAt).getTime(),
-              )
-              .at(-1)?.content // lấy message cuối cùng theo thời gian
+          ? conversation.messages.at(-1)?.content
           : '',
     };
   }

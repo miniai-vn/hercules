@@ -6,7 +6,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { AxiosResponse } from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import * as dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import { FACEBOOK_CONFIG } from './config/facebook.config';
@@ -232,6 +232,7 @@ export class FacebookService {
       message: {
         text: message,
       },
+      tag: 'ACCOUNT_UPDATE',
     };
     const response = await this.facebookHttpService.callFacebookAPI(
       endpoint,
@@ -343,26 +344,30 @@ export class FacebookService {
                 try {
                   resp = await this.getUserProfile(query);
                 } catch (error) {
-                  continue;
+                  resp = null;
                 }
 
                 customer = await this.customerService.findOrCreateByExternalId({
                   platform: Platform.FACEBOOK,
                   externalId: message.from.id,
                   name: message.from.name,
-                  avatar: resp.profile_pic,
+                  avatar: resp?.profile_pic || null,
                   channelId: facebookChannel.id,
                   shopId: facebookChannel.shop.id,
                 });
               }
 
-              await this.conversationService.sendMessageToConversation({
-                externalMessageId: message.id,
-                channel: facebookChannel,
-                customer: customer,
-                message: message.message,
-                type: 'text',
-              });
+              try {
+                await this.conversationService.sendMessageToConversation({
+                  externalMessageId: message.id,
+                  channel: facebookChannel,
+                  customer: customer,
+                  message: message.message,
+                  type: 'text',
+                });
+              } catch (error) {
+                continue;
+              }
             } else {
               await this.conversationService.sendMessageToConversationWithOthers(
                 {

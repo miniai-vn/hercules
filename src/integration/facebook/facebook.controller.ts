@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   HttpStatus,
+  Param,
   Post,
   Query,
   Res,
@@ -90,5 +91,25 @@ export class FacebookController {
     } catch (error) {
       return { status: 'error', message: error.message };
     }
+  }
+
+  @Post('sync-conversations/:pageId')
+  @ApiOperation({ summary: 'Sync Facebook conversations' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversations synced successfully',
+  })
+  async syncFacebookConversations(@Param('pageId') pageId: string) {
+    if (!pageId) {
+      throw new Error('Page ID is required');
+    }
+
+    const resultData =
+      await this.facebookService.syncFacebookConversation(pageId);
+
+    return {
+      message: 'Conversations synced successfully',
+      data: resultData.conversations,
+    };
   }
 }

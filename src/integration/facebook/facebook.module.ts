@@ -6,10 +6,14 @@ import { FacebookHttpService } from './facebook-http.service';
 import { FacebookTokenService } from './facebook-token.service';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ChatModule } from 'src/chat/chat.module';
+import { ConversationsModule } from 'src/conversations/conversations.module';
+import { CustomersModule } from 'src/customers/customers.module';
 
 @Module({
   imports: [
     ChannelsModule,
+    ConversationsModule,
+    CustomersModule,
     forwardRef(() => ChatModule),
     ScheduleModule.forRoot(),
   ],

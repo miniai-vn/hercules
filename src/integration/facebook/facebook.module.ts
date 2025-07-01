@@ -8,12 +8,14 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ChatModule } from 'src/chat/chat.module';
 import { ConversationsModule } from 'src/conversations/conversations.module';
 import { CustomersModule } from 'src/customers/customers.module';
+import { MessagesModule } from 'src/messages/messages.module';
 
 @Module({
   imports: [
     ChannelsModule,
     ConversationsModule,
     CustomersModule,
+    MessagesModule,
     forwardRef(() => ChatModule),
     ScheduleModule.forRoot(),
   ],

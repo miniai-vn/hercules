@@ -180,7 +180,6 @@ export class ChatService {
         });
       }
     } catch (error) {
-      console.error('SendMessage Error:', error);
       throw new Error(`Failed to send message other platform`);
     }
   }

@@ -20,16 +20,11 @@ import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
 import { TUserProfile } from './types/user.type';
 import { ChatService } from 'src/chat/chat.service';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
-import {
-  TConversationResponse,
-  TFacebookConversation,
-  TFacebookConversationResponse,
-} from './types/conversation.type';
+import { TFacebookConversation } from './types/conversation.type';
 import { ConversationsService } from 'src/conversations/conversations.service';
 import { CustomersService } from 'src/customers/customers.service';
 import { Platform } from 'src/customers/customers.dto';
-import { TFacebookMessage } from './types/message.type';
-import { Customer } from 'src/customers/customers.entity';
+import { MessagesService } from 'src/messages/messages.service';
 dotenv.config();
 Injectable();
 export class FacebookService {
@@ -42,6 +37,7 @@ export class FacebookService {
     private readonly facebookTokenService: FacebookTokenService,
     private readonly conversationService: ConversationsService,
     private readonly customerService: CustomersService,
+    private readonly messagesService: MessagesService,
   ) {}
 
   async connectToFacebook(): Promise<string> {
@@ -282,7 +278,7 @@ export class FacebookService {
   ): Promise<AxiosResponse> {
     const endpoint = `${pageId}/conversations`;
     const params: Record<string, any> = {
-      fields: `id,senders,snippet,updated_time,messages.limit(1){id,message,created_time,from,attachments}`,
+      fields: `id,senders,snippet,updated_time,messages.limit(5){id,message,created_time,from,attachments}`,
       access_token: accessTokenPage,
       limit,
     };
@@ -297,6 +293,53 @@ export class FacebookService {
     );
   }
 
+  // Lấy avatar user từ Facebook (nếu lỗi thì trả null)
+  async getFacebookAvatar(
+    psid: string,
+    accessToken: string,
+  ): Promise<string | null> {
+    try {
+      // Gọi API Graph Facebook để lấy profile_pic
+      const url = `https://graph.facebook.com/${psid}?fields=profile_pic&access_token=${accessToken}`;
+      const resp = await axios.get(url);
+      return resp.data?.profile_pic || null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Tìm hoặc tạo customer (chuẩn hóa logic)
+  async getOrCreateCustomer(
+    customerService: any,
+    platform: string,
+    externalId: string,
+    name: string,
+    avatar: string,
+    channelId: number,
+    shopId: string,
+  ) {
+    let customer = await customerService.findByExternalId(platform, externalId);
+    if (!customer) {
+      customer = await customerService.findOrCreateByExternalId({
+        platform,
+        externalId,
+        name,
+        avatar,
+        channelId,
+        shopId,
+      });
+    }
+    return customer;
+  }
+
+  getLatestUserMessage(messages: any[], pageId: string) {
+    const sorted = [...messages].sort(
+      (a, b) =>
+        new Date(b.created_time).getTime() - new Date(a.created_time).getTime(),
+    );
+    return sorted.find((m) => m.from?.id !== pageId);
+  }
+
   async syncFacebookConversation(pageId: string) {
     const allConversations: TFacebookConversation[] = [];
     try {
@@ -304,7 +347,6 @@ export class FacebookService {
         ChannelType.FACEBOOK,
         pageId,
       );
-
       if (!facebookChannel?.accessToken)
         throw new Error('No access token found.');
 
@@ -323,64 +365,58 @@ export class FacebookService {
         if (!conversations || conversations.length === 0) break;
 
         for (const conv of conversations) {
-          const user = conv.senders.data.find((u) => u.id !== pageId);
+          const messages = conv.messages?.data || [];
+          const userMessage = this.getLatestUserMessage(messages, pageId);
 
-          for (const message of conv.messages.data) {
-            let customer: Customer;
-            if (user) {
-              if (!customer) {
-                customer = await this.customerService.findByExternalId(
-                  Platform.FACEBOOK,
-                  user.id,
-                );
+          if (userMessage) {
+            // Lấy thông tin user (PSID, name)
+            const userId = userMessage.from.id;
+            const userName = userMessage.from.name;
 
-                const query = {
-                  access_token: facebookChannel.accessToken,
-                  fields: 'first_name,last_name,profile_pic,name',
-                  psid: message.from.id,
-                };
+            // Lấy avatar, nếu lỗi thì null
+            const avatar = await this.getFacebookAvatar(userId, accessToken);
 
-                let resp: any;
-                try {
-                  resp = await this.getUserProfile(query);
-                } catch (error) {
-                  resp = null;
-                }
+            // Lấy hoặc tạo customer
+            const customer = await this.getOrCreateCustomer(
+              this.customerService,
+              Platform.FACEBOOK,
+              userId,
+              userName,
+              avatar,
+              facebookChannel.id,
+              facebookChannel.shop.id,
+            );
 
-                customer = await this.customerService.findOrCreateByExternalId({
-                  platform: Platform.FACEBOOK,
-                  externalId: message.from.id,
-                  name: message.from.name,
-                  avatar: resp?.profile_pic || null,
-                  channelId: facebookChannel.id,
-                  shopId: facebookChannel.shop.id,
-                });
-              }
+            let conversation =
+              await this.conversationService.getConversationByChannelAndCustomer(
+                facebookChannel.id,
+                userId,
+              );
 
-              try {
-                await this.conversationService.sendMessageToConversation({
-                  externalMessageId: message.id,
-                  channel: facebookChannel,
-                  customer: customer,
-                  message: message.message,
-                  type: 'text',
-                });
-              } catch (error) {
-                continue;
-              }
+            if (!conversation) {
+              await this.conversationService.sendMessageToConversation({
+                externalMessageId: userMessage.id,
+                channel: facebookChannel,
+                customer: customer,
+                message: userMessage.message,
+                type: 'text',
+              });
             } else {
-              await this.conversationService.sendMessageToConversationWithOthers(
+              await this.messagesService.upsert(
                 {
-                  channel: facebookChannel,
-                  message,
-                  customer: customer,
+                  content: userMessage.message,
+                  contentType: 'text',
+                  externalId: userMessage.id,
+                  senderType: 'customer',
+                  senderId: customer.id,
                 },
+                conversation,
               );
             }
           }
         }
-        allConversations.push(...conversations);
 
+        allConversations.push(...conversations);
         afterCursor = response.data.paging?.cursors?.after;
         if (!afterCursor) break;
       }

@@ -5,6 +5,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -65,4 +66,13 @@ export class Resource {
     name: 'department_id',
   })
   department: Department;
+
+  @OneToMany(() => Resource, (resource) => resource.resources)
+  @JoinColumn({
+    name: 'parent_id',
+  })
+  resources: Resource[];
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  code?: string;
 }

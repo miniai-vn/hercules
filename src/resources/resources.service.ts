@@ -16,6 +16,7 @@ import {
 } from './dto/resources.dto';
 import { Resource } from './resources.entity';
 import { KafkaProducerService } from 'src/kafka/kafka.producer';
+import { AgentServiceService } from 'src/integration/agent-service/agent-service.service';
 
 @Injectable()
 export class ResourcesService {
@@ -23,10 +24,42 @@ export class ResourcesService {
   constructor(
     @InjectRepository(Resource)
     private readonly resourceRepository: Repository<Resource>,
-    private readonly kafkaProducerService: KafkaProducerService, // Assuming this is used for file uploads
+    private readonly kafkaProducerService: KafkaProducerService,
+    private readonly agentService: AgentServiceService, // Assuming this is the correct import path
   ) {
     this.producer = this.kafkaProducerService.getProducer();
   }
+
+  generateCodeFromFilename = (filename: string, dbId: number) => {
+    if (!filename || typeof filename !== 'string')
+      throw new Error('Invalid filename');
+    if (typeof dbId !== 'number') throw new Error('Invalid database ID');
+
+    const removeVietnameseTones = (str) => {
+      return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .replace(/[^\w\s]/gi, '')
+        .trim();
+    };
+
+    const cleaned = removeVietnameseTones(filename);
+
+    const parts = cleaned.split(/\s+/);
+    const initials = parts
+      .map((word, index) => {
+        if (index < parts.length - 1 && /^[A-Za-z]/.test(word))
+          return word[0].toUpperCase();
+        return word;
+      })
+      .join('');
+
+    const formattedId = dbId.toString().padStart(2, '0');
+
+    return `${initials}-${formattedId}`;
+  };
 
   async query(query: ResourceQueryDto): Promise<PaginatedResult<Resource>> {
     const {
@@ -92,6 +125,8 @@ export class ResourcesService {
         },
       });
       resource = await this.resourceRepository.save(resource);
+      resource.code = this.generateCodeFromFilename(resource.name, resource.id);
+      resource = await this.resourceRepository.save(resource);
       await this.producer.send({
         topic: 'mi9.etl.resource',
         messages: [
@@ -100,11 +135,12 @@ export class ResourcesService {
             value: JSON.stringify({
               id: resource.id,
               name: resource.name,
-              key: resource.s3Key,
+              s3Key: resource.s3Key,
               type: resource.type,
               status: resource.status,
               isActive: resource.isActive,
               departmentId: resource.department?.id,
+              code: resource.code,
             }),
           },
         ],

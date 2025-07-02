@@ -10,6 +10,7 @@ import {
   NotFoundException,
   HttpStatus,
   HttpCode,
+  Patch,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -93,6 +94,19 @@ export class ResourcesController {
     @Body() updateResourceDto: UpdateResourceDto,
   ): Promise<Resource> {
     const resource = await this.resourcesService.update(id, updateResourceDto);
+
+    if (!resource) {
+      throw new NotFoundException(`Resource with ID ${id} not found`);
+    }
+
+    return resource;
+  }
+
+  @Patch('/re-etl/:id')
+  async reEtlResource(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<Resource> {
+    const resource = await this.resourcesService.reEtlResource(id);
 
     if (!resource) {
       throw new NotFoundException(`Resource with ID ${id} not found`);

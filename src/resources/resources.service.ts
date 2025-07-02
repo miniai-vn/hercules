@@ -25,7 +25,6 @@ export class ResourcesService {
     @InjectRepository(Resource)
     private readonly resourceRepository: Repository<Resource>,
     private readonly kafkaProducerService: KafkaProducerService,
-    private readonly agentService: AgentServiceService, // Assuming this is the correct import path
   ) {
     this.producer = this.kafkaProducerService.getProducer();
   }
@@ -150,6 +149,47 @@ export class ResourcesService {
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to create resource',
+        error.message,
+      );
+    }
+  }
+
+  async reEtlResource(id: number): Promise<Resource | null> {
+    const resource = await this.resourceRepository.findOne({
+      where: { id },
+      relations: {
+        department: true,
+      },
+    });
+    if (!resource) {
+      throw new InternalServerErrorException('Resource not found');
+    }
+    try {
+      await this.producer.send({
+        topic: 'mi9.etl.resource',
+        messages: [
+          {
+            key: resource.id.toString(),
+            value: JSON.stringify({
+              id: resource.id,
+              name: resource.name,
+              s3Key: resource.s3Key,
+              type: resource.type,
+              status: resource.status,
+              isActive: resource.isActive,
+              departmentId: resource.department?.id,
+              code: resource.code,
+            }),
+          },
+        ],
+      });
+      await this.resourceRepository.update(id, {
+        status: ResourceStatus.PROCESSING,
+      });
+      return resource;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to re-ETL resource',
         error.message,
       );
     }

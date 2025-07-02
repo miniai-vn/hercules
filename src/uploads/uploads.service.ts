@@ -150,7 +150,7 @@ export class UploadsService {
         },
       );
       const data = res.data;
-      const converData = data.text.map((item: string) => {
+      const converData = data.chunks.map((item: string) => {
         return {
           type: 'text',
           text: item,

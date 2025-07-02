@@ -60,18 +60,19 @@ export class KafkaConsumerService implements OnModuleDestroy {
       process.env.KAFKA_ZALO_MESSAGE_TOPIC,
       async ({ message }) => {
         const data = JSON.parse(message.value.toString());
+
         await this.chatService.sendMessagesZaloToPlatform(data);
       },
     );
 
-    await this.createConsumer(
-      process.env.KAFKA_ETL_CONSUMER,
-      process.env.KAFKA_ETL_TOPIC,
-      async ({ message }) => {
-        const data = JSON.parse(message.value.toString());
-        await this.uploadService.sendDataToElt(data.s3Key, data.code);
-        // init handle  data with ERL like data {url: string, type: string, shopId, resourceUd:}
-      },
-    );
+    // await this.createConsumer(
+    //   process.env.KAFKA_ETL_CONSUMER,
+    //   process.env.KAFKA_ETL_TOPIC,
+    //   async ({ message }) => {
+    //     const data = JSON.parse(message.value.toString());
+    //     await this.uploadService.sendDataToElt(data.s3Key, data.code);
+    //     // init handle  data with ERL like data {url: string, type: string, shopId, resourceUd:}
+    //   },
+    // );
   }
 }

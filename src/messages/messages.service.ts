@@ -34,11 +34,13 @@ export class MessagesService {
     return this.toResponseDto(savedMessage);
   }
 
-  async upsert(createMessageDto: CreateMessageDto, conversation: Conversation) {
+  async upsert(createMessageDto: CreateMessageDto) {
     const upsertedMessage = await this.messageRepository.upsert(
       {
         ...createMessageDto,
-        conversation: conversation,
+        conversation: {
+          id: createMessageDto.conversationId,
+        },
         senderType: createMessageDto.senderType as any,
       },
       {

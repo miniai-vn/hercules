@@ -485,7 +485,6 @@ export class ZaloService {
   }
 
   private async handleTextMessage(payload: ZaloWebhookDto): Promise<void> {
-    // this.kafkaService.sendMessage(this.topic, payload);
     this.producer.send({
       topic: this.topic,
       messages: [

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
 import { AGENT_SERVICE_CONFIG } from './config/agent-service.config';
+import { Message } from 'src/messages/messages.entity';
 
 interface ChunkQueryParams {
   page?: number;
@@ -206,6 +207,44 @@ export class AgentServiceService {
       endpoint,
       method: HttpMethod.DELETE,
       params: { code },
+    });
+  }
+
+  /**
+   * Ask a question to the agent service
+   * POST /api/ask
+   * {
+   *   "prompt": "What is the status of proposal PROP001?",
+   * "history": [
+   *   {
+   *     "role": "user",
+   *      "content": "What is the status of proposal PROP001?"
+   *  },
+   *   "question": "What is the status of proposal PROP001?",
+   *   "context": "Additional context if needed"
+   * "modelName": "gpt-3.5-turbo"
+   * }
+   */
+  async askQuestion({
+    prompt,
+    history,
+    question,
+    modelName = 'gpt-3.5-turbo',
+  }: {
+    prompt: string;
+    history: Message[];
+    question: string;
+    modelName?: string;
+  }): Promise<AxiosResponse> {
+    return this.callAgentServiceAPI({
+      endpoint: AGENT_SERVICE_CONFIG.ENDPOINTS.ASK,
+      method: HttpMethod.POST,
+      data: {
+        history,
+        question,
+        custom_rag_prompt: prompt,
+        modelName: modelName,
+      },
     });
   }
 }

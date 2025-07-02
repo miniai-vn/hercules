@@ -47,7 +47,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           token,
           process.env.JWT_SECRET_KEY || 'your_jwt_secret',
         );
-        userId = decoded.user_id;
+        userId = decoded.userId;
         this.userToClient.set(userId, client.id);
       } catch (err) {
         client.disconnect();

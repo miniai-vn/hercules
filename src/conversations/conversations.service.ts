@@ -28,6 +28,7 @@ import {
 } from './dto/conversation.dto';
 import { ChannelsService } from 'src/channels/channels.service';
 import { MessageType } from 'src/common/enums/message.enum';
+import { channel } from 'diagnostics_channel';
 
 @Injectable()
 export class ConversationsService {
@@ -90,7 +91,10 @@ export class ConversationsService {
       });
 
       const conversation = await this.conversationRepository.findOne({
-        where: { externalId: createConversationDto.externalId },
+        where: {
+          externalId: createConversationDto.externalId,
+          channel: { id: channel.id },
+        },
         relations: {
           members: true,
           channel: true,
@@ -266,6 +270,7 @@ export class ConversationsService {
           members: {
             customer: true,
             user: true,
+            lastMessage: true,
           },
           channel: true,
           messages: true,
@@ -283,10 +288,27 @@ export class ConversationsService {
       }
 
       const messages = await Promise.all(
-        conversation.messages.map(async (message) => ({
-          ...message,
-          sender: await this.getInfoSenderMessages(message),
-        })),
+        conversation.messages.map(async (message) => {
+          const readBy = conversation.members
+            .filter(
+              (member) =>
+                member.lastMessage && member.lastMessage.id >= message.id,
+            )
+            .map((member) => ({
+              id: member.id,
+              name: member.user?.name || member.customer?.name || 'Unknown',
+              avatar: member.user?.avatar || member.customer?.avatar,
+              type: member.participantType,
+              userId: member.userId,
+              customerId: member.customerId,
+            }));
+
+          return {
+            ...message,
+            sender: await this.getInfoSenderMessages(message),
+            readBy,
+          };
+        }),
       );
 
       return {
@@ -409,7 +431,9 @@ export class ConversationsService {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
         relations: {
-          members: true,
+          members: {
+            lastMessage: true,
+          },
           messages: true,
         },
         order: {
@@ -519,14 +543,14 @@ export class ConversationsService {
 
   async getConversationByChannelAndCustomer(
     channelId: number,
-    customerId: string,
+    externalId: string,
   ): Promise<Conversation> {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: {
           members: {
             customer: {
-              externalId: customerId,
+              externalId: externalId,
             },
           },
           channel: {
@@ -571,6 +595,7 @@ export class ConversationsService {
           externalId: customer.externalId,
           customerParticipantIds: [customer.id],
           userParticipantIds: adminChannels.map((user) => user.id),
+          content: message,
         },
         channel,
       );
@@ -769,6 +794,11 @@ export class ConversationsService {
         systemId: member.customerId ?? member.userId,
         name: member.customer?.name || 'Unknown Customer',
       })),
+
+      lastestMessage:
+        conversation?.messages && conversation.messages.length > 0
+          ? conversation.messages.at(-1)?.content
+          : '',
     };
   }
 }

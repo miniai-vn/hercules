@@ -1,14 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { FACEBOOK_CONFIG } from './config/facebook.config';
 
 @Injectable()
 export class FacebookHttpService {
-  private readonly logger = new Logger(FacebookHttpService.name);
-
-  /**
-   * Gọi Facebook API chung (GET/POST)
-   */
   async callFacebookAPI(
     endpoint: string,
     method: 'GET' | 'POST' = 'POST',
@@ -39,15 +34,10 @@ export class FacebookHttpService {
     }
   }
 
-  /**
-   * Common method cho các OAuth API call của Facebook (ví dụ lấy token...)
-   */
   async callFacebookOAuthAPI(
     endpoint: string,
     data: Record<string, any>,
   ): Promise<AxiosResponse> {
-    // OAuth của Facebook không dùng secret_key header như Zalo mà dùng param hoặc basic auth,
-    // ở đây giả sử data chứa đủ params
     return this.callFacebookAPI(
       endpoint,
       'POST',
@@ -57,17 +47,12 @@ export class FacebookHttpService {
     );
   }
 
-  /**
-   * Common method cho các API call với access token (truyền token trong headers hoặc params)
-   */
   async callFacebookAuthenticatedAPI(
     endpoint: string,
     accessToken: string,
     method: 'GET' | 'POST' = 'GET',
     data?: Record<string, any>,
   ): Promise<AxiosResponse> {
-    // Facebook thường truyền access_token trong params chứ không trong header
-    // Nếu có header custom, bạn có thể thêm ở đâyF
     const params = {
       access_token: accessToken,
       ...(method === 'GET' && data ? data : {}),

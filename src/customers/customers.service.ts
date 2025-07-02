@@ -36,7 +36,7 @@ export class CustomersService {
     createCustomerDto: CreateCustomerDto,
   ): Promise<CustomerResponseDto> {
     try {
-      const { platform, externalId, name, shopId, channelId } =
+      const { platform, externalId, name, shopId, channelId, avatar } =
         createCustomerDto;
 
       // Check if shop exists using ShopService
@@ -72,6 +72,7 @@ export class CustomersService {
         name,
         shop,
         channel,
+        avatar,
       });
 
       const savedCustomer = await this.customerRepository.save(customer);

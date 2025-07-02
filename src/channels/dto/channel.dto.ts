@@ -68,6 +68,10 @@ export class CreateChannelDto {
   @IsString()
   @IsOptional()
   userId?: string; // Comma-separated user IDs
+
+  @IsOptional()
+  @IsString()
+  userToken?: string;
 }
 
 export class UpdateChannelDto {
@@ -112,6 +116,10 @@ export class UpdateChannelDto {
   @IsOptional()
   @Type(() => Date)
   expireTokenTime?: Date;
+
+  @IsOptional()
+  @IsString()
+  userToken?: string;
 }
 
 export class ChannelQueryParamsDto {

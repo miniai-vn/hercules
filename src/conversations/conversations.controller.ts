@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Put,
   Query,
@@ -116,7 +117,7 @@ export class ConversationsController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateConversationDto: UpdateConversationDto,
-  ): Promise<ApiResponse<ConversationResponseDto>> {
+  ) {
     const conversation = await this.conversationsService.update(
       id,
       updateConversationDto,
@@ -266,6 +267,18 @@ export class ConversationsController {
     return {
       message: 'Participants removed successfully',
       data: conversation,
+    };
+  }
+
+  @Patch('status-bot')
+  @ApiOperation({ summary: 'Update bot status for conversations' })
+  async updateBotStatus(@Body() body: { conversationId: number }) {
+    const updatedStatus = await this.conversationsService.updateBotStatus(
+      body.conversationId,
+    );
+    return {
+      message: 'Bot status updated successfully',
+      data: { status: updatedStatus },
     };
   }
 }

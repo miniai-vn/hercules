@@ -245,6 +245,17 @@ export class AgentsService {
     }
   }
 
+  async findByChannelId(channelId: number): Promise<Agent[]> {
+    const agents = await this.agentRepository.find({
+      where: {
+        channels: { id: channelId },
+      },
+      relations: ['channels', 'users', 'departments'],
+    });
+
+    return agents;
+  }
+
   async getAvailableModels(provider: ModelProvider) {
     const models = {
       [ModelProvider.OPENAI]: [

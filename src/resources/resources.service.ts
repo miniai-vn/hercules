@@ -1,24 +1,64 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Producer } from 'kafkajs';
+import { PaginatedResult } from 'src/common/types/reponse.type';
 import {
   FindManyOptions,
-  Repository,
   ILike,
-  MoreThanOrEqual,
   LessThanOrEqual,
+  MoreThanOrEqual,
+  Repository,
 } from 'typeorm';
+import {
+  CreateResourceDto,
+  ResourceQueryDto,
+  ResourceStatus,
+} from './dto/resources.dto';
 import { Resource } from './resources.entity';
-import { PaginatedResult } from 'src/common/types/reponse.type';
-import { CreateResourceDto, ResourceQueryDto } from './dto/resources.dto';
-import { DepartmentsService } from 'src/departments/departments.service';
+import { KafkaProducerService } from 'src/kafka/kafka.producer';
+import { AgentServiceService } from 'src/integration/agent-service/agent-service.service';
 
 @Injectable()
 export class ResourcesService {
+  private producer: Producer;
   constructor(
     @InjectRepository(Resource)
     private readonly resourceRepository: Repository<Resource>,
-    private readonly departmentService: DepartmentsService,
-  ) {}
+    private readonly kafkaProducerService: KafkaProducerService,
+  ) {
+    this.producer = this.kafkaProducerService.getProducer();
+  }
+
+  generateCodeFromFilename = (filename: string, dbId: number) => {
+    if (!filename || typeof filename !== 'string')
+      throw new Error('Invalid filename');
+    if (typeof dbId !== 'number') throw new Error('Invalid database ID');
+
+    const removeVietnameseTones = (str) => {
+      return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .replace(/[^\w\s]/gi, '')
+        .trim();
+    };
+
+    const cleaned = removeVietnameseTones(filename);
+
+    const parts = cleaned.split(/\s+/);
+    const initials = parts
+      .map((word, index) => {
+        if (index < parts.length - 1 && /^[A-Za-z]/.test(word))
+          return word[0].toUpperCase();
+        return word;
+      })
+      .join('');
+
+    const formattedId = dbId.toString().padStart(2, '0');
+
+    return `${initials}-${formattedId}`;
+  };
 
   async query(query: ResourceQueryDto): Promise<PaginatedResult<Resource>> {
     const {
@@ -74,18 +114,82 @@ export class ResourcesService {
     };
   }
 
-  async create(data: CreateResourceDto): Promise<Resource> {
+  async create(data: CreateResourceDto) {
     try {
-      const resource = this.resourceRepository.create({
+      let resource = this.resourceRepository.create({
         ...data,
-        department: data.departmentId
-          ? await this.departmentService.findOne(data.departmentId)
-          : null,
+        status: ResourceStatus.PROCESSING,
+        department: {
+          id: data.departmentId,
+        },
       });
-      return await this.resourceRepository.save(resource);
+      resource = await this.resourceRepository.save(resource);
+      resource.code = this.generateCodeFromFilename(resource.name, resource.id);
+      resource = await this.resourceRepository.save(resource);
+      await this.producer.send({
+        topic: 'mi9.etl.resource',
+        messages: [
+          {
+            key: resource.id.toString(),
+            value: JSON.stringify({
+              id: resource.id,
+              name: resource.name,
+              s3Key: resource.s3Key,
+              type: resource.type,
+              status: resource.status,
+              isActive: resource.isActive,
+              departmentId: resource.department?.id,
+              code: resource.code,
+            }),
+          },
+        ],
+      });
+
+      return resource;
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to create resource',
+        error.message,
+      );
+    }
+  }
+
+  async reEtlResource(id: number): Promise<Resource | null> {
+    const resource = await this.resourceRepository.findOne({
+      where: { id },
+      relations: {
+        department: true,
+      },
+    });
+    if (!resource) {
+      throw new InternalServerErrorException('Resource not found');
+    }
+    try {
+      await this.producer.send({
+        topic: 'mi9.etl.resource',
+        messages: [
+          {
+            key: resource.id.toString(),
+            value: JSON.stringify({
+              id: resource.id,
+              name: resource.name,
+              s3Key: resource.s3Key,
+              type: resource.type,
+              status: resource.status,
+              isActive: resource.isActive,
+              departmentId: resource.department?.id,
+              code: resource.code,
+            }),
+          },
+        ],
+      });
+      await this.resourceRepository.update(id, {
+        status: ResourceStatus.PROCESSING,
+      });
+      return resource;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to re-ETL resource',
         error.message,
       );
     }

@@ -1,11 +1,11 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
-import { EventPattern, Payload } from '@nestjs/microservices';
+import { Payload } from '@nestjs/microservices';
 
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ChatService, SendMessageData } from './chat.service';
-import { ZaloWebhookDto } from './dto/chat-zalo.dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 import { FacebookMessagingEventDTO } from 'src/integration/facebook/dto/facebook-webhook.dto';
+import { ChatService, SendMessageData } from './chat.service';
+import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 
 @ApiTags('chat')
 @Controller('chat')
@@ -42,10 +42,14 @@ export class ChatController {
     @Payload() data: SendMessageData,
   ) {
     try {
-      return await this.chatService.sendMessagePlatformToOmniChannel({
-        ...data,
-        userId: req.user.userId,
-      });
+      return {
+        status: 'success',
+        message: 'Message sent to Zalo successfully',
+        data: await this.chatService.sendMessagePlatformToOmniChannel({
+          ...data,
+          userId: req.user.userId,
+        }),
+      };
     } catch (error) {
       throw new Error(`Failed to send message: ${error.message}`);
     }

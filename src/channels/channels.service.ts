@@ -108,24 +108,15 @@ export class ChannelsService {
     }
   }
 
-  async updateShopIdAllChannels(shopId: string): Promise<number> {
-    return 0;
-    // try {
-    //   const result = await this.channelRepository.update(
-    //     {},
-    //     { shopId }, // Update all channels with the new shopId
-    //   );
-    //   return result.affected || 0; // Return number of affected rows
-    // } catch (error) {
-    //   this.logger.error(
-    //     `Failed to update shopId for all channels: ${error.message}`,
-    //     error.stack,
-    //   );
-    //   throw new InternalServerErrorException(
-    //     'Failed to update shopId for all channels',
-    //     error.message,
-    //   );
-    // }
+  async checkActiveAgent(channelId: number): Promise<boolean> {
+    const channel = await this.channelRepository.findOne({
+      where: { id: channelId },
+      relations: {
+        agents: true, // Include agents relation
+      },
+    });
+
+    return channel.agents.some((agent) => agent.status === 'active');
   }
 
   async delete(id: number): Promise<void> {

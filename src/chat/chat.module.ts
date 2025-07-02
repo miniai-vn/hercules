@@ -9,6 +9,8 @@ import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
 import { FacebookModule } from 'src/integration/facebook/facebook.module';
+import { AgentServiceModule } from 'src/integration/agent-service/agent-service.module';
+import { AgentsModule } from 'src/agents/agents.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { FacebookModule } from 'src/integration/facebook/facebook.module';
     FacebookModule,
     CustomersModule,
     UsersModule,
+    AgentsModule,
+    AgentServiceModule,
   ],
   controllers: [ChatController],
   providers: [ChatGateway, ChatService],

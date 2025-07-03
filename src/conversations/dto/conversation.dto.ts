@@ -9,6 +9,7 @@ import {
   IsDateString,
   IsBoolean,
   isNumber,
+  IsObject,
 } from 'class-validator';
 import { ConversationType } from '../conversations.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -53,6 +54,13 @@ export class CreateConversationDto {
   @IsString({ each: true })
   @IsOptional()
   userParticipantIds?: string[];
+
+  @IsObject()
+  @IsOptional()
+  conversation?: {
+    id: string; // Conversation ID
+    timestamp: Date; // Timestamp of the conversation
+  };
 }
 
 export class UpdateConversationDto {

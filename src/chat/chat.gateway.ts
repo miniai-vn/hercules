@@ -37,7 +37,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly conversationsService: ConversationsService, // Replace with actual service
   ) {}
   handleConnection(client: Socket) {
-    console.log(`Client connected: ${client.id}`);
     const token = client.handshake.auth.token;
     let userId: string;
     if (token) {
@@ -54,7 +53,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
     } else {
-      console.log('No token provided');
       client.emit('forceDisconnect', { reason: 'No token provided' });
       client.disconnect();
       return;
@@ -62,7 +60,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`Client disconnected: ${client.id}`);
     const userId = this.userToClient.get(client.id);
 
     // Remove user from all conversations they were participating in
@@ -135,9 +132,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       userIds: new Set(),
     });
     client.join(roomName);
-    console.log(
-      `Client ${client.id} joining conversation ${roomName} with userId ${userId}`,
-    );
   }
 
   @SubscribeMessage('sendMessageToConversation')
@@ -157,9 +151,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (this.eventSet.has(data.key)) {
       return;
     }
-    console.log(
-      `Sending message to conversation ${roomName} from user ${data.key}`,
-    );
+
     this.eventSet.add(data.key);
     this.server.to(roomName).emit('receiveMessage', {
       content: data.message,

@@ -439,7 +439,10 @@ export class FacebookService {
           channel: facebookChannel,
           customer: customer,
           message: msg.message,
-          externalConversationId: conversationId,
+          externalConversation: {
+            id: conversationId,
+            timestamp: msg.created_time,
+          },
           type: 'text',
         });
       }

@@ -67,6 +67,22 @@ export class MessagesService {
     return savedMessages.map((message) => this.toResponseDto(message));
   }
 
+  async get50MessagesByConversationId(
+    conversationId: number,
+    page: number = 1,
+    limit: number = 50,
+  ) {
+    return await this.messageRepository.findAndCount({
+      where: { conversation: { id: conversationId }, deletedAt: IsNull() },
+      relations: {
+        lastMessagesMembers: true,
+      },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+  }
+
   async findAll(
     page: number,
     limit: number,

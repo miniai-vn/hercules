@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ResourcesController } from './resources.controller';
 import { Resource } from './resources.entity';
@@ -9,7 +9,7 @@ import { AgentServiceModule } from 'src/integration/agent-service/agent-service.
 @Module({
   imports: [
     TypeOrmModule.forFeature([Resource]),
-    KafkaModule,
+    forwardRef(() => KafkaModule),
     AgentServiceModule,
   ],
   controllers: [ResourcesController],

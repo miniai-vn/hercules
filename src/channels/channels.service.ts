@@ -36,7 +36,6 @@ export class ChannelsService {
     private readonly departmentsService: DepartmentsService,
     @Inject(forwardRef(() => ConversationsService))
     private readonly conversationsService: ConversationsService, // Inject ConversationsService if needed
-    private readonly oaService: OAService, // Inject OAService
     private readonly usersService: UsersService, // Use UsersService instead of userRepository
   ) {}
 
@@ -116,7 +115,7 @@ export class ChannelsService {
       },
     });
 
-    return channel.agents.some((agent) => agent.status === 'active');
+    return channel.agents?.some((agent) => agent.status === 'active');
   }
 
   async delete(id: number): Promise<void> {

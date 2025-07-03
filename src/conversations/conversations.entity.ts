@@ -40,8 +40,8 @@ export class Conversation {
   @Column({ type: 'text', nullable: true, name: 'external_id' })
   externalId?: string;
 
-  @Column({ type: 'boolean', default: false, name: 'is_bot' })
-  isBot: boolean;
+  @Column({ type: 'boolean', nullable: true, name: 'is_bot' })
+  isBot?: boolean;
 
   @Column({
     type: 'text',

@@ -541,7 +541,7 @@ export class ConversationsService {
         },
       });
 
-      return conversation?.isBot;
+      return conversation === null ? true : conversation?.isBot;
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to get conversation by channel and customer',

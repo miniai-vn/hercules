@@ -26,6 +26,7 @@ import {
   ConversationQueryParamsDto,
   ConversationResponseDto,
   CreateConversationDto,
+  MarkReadPayloadDTO,
   UpdateConversationDto,
 } from './dto/conversation.dto';
 
@@ -319,10 +320,11 @@ export class ConversationsService {
         .leftJoinAndSelect('conversation.channel', 'channel')
         .leftJoinAndSelect('conversation.tags', 'tags')
         .leftJoinAndSelect('members.lastMessage', 'lastMessage')
+
         .where('channel.shop_id = :shopId', {
           shopId: queryParams.shopId,
         })
-        .limit(queryParams.limit || 20)
+        // .limit(20)
         .orderBy('lastMessage.createdAt', 'DESC');
 
       if (queryParams.channelType) {
@@ -371,7 +373,8 @@ export class ConversationsService {
           'EXISTS (SELECT 1 FROM conversation_members cm JOIN customers c ON cm.customer_id = c.id WHERE cm.conversation_id = conversation.id AND c.phone IS NOT NULL)',
         );
       }
-
+      // queryBuilder.limit(queryParams.limit || 20);
+      // queryBuilder.offset(0);
       const conversations = await queryBuilder
         .orderBy('conversation.createdAt', 'DESC')
         .getMany();
@@ -555,12 +558,14 @@ export class ConversationsService {
     externalMessageId,
     message = '',
     type,
+    externalConversationId,
   }: {
     channel: Channel;
     customer: Customer;
     externalMessageId: string;
     message: string;
     type?: string;
+    externalConversationId?: string;
   }) {
     try {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
@@ -703,10 +708,12 @@ export class ConversationsService {
     channel,
     message,
     customer,
+    externalConversationId,
   }: {
     channel: Channel;
     message: any;
     customer: Customer;
+    externalConversationId?: string;
   }) {
     try {
       const adminChannels = await this.userService.findAdminChannel(channel.id);

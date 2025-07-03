@@ -1,3 +1,4 @@
+import { Conversation } from 'src/conversations/conversations.entity';
 import { FacebookHttpService } from './facebook-http.service';
 import {
   BadRequestException,
@@ -25,6 +26,11 @@ import { ConversationsService } from 'src/conversations/conversations.service';
 import { CustomersService } from 'src/customers/customers.service';
 import { Platform } from 'src/customers/customers.dto';
 import { MessagesService } from 'src/messages/messages.service';
+import dayjs from 'dayjs';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { Customer } from 'src/customers/customers.entity';
+import { isAfter } from 'src/common/utils/utils';
 dotenv.config();
 Injectable();
 export class FacebookService {
@@ -38,6 +44,8 @@ export class FacebookService {
     private readonly conversationService: ConversationsService,
     private readonly customerService: CustomersService,
     private readonly messagesService: MessagesService,
+    @InjectQueue(process.env.REDIS_FACEBOOK_SYNC_TOPIC)
+    private readonly facebookSyncQueue: Queue,
   ) {}
 
   async connectToFacebook(): Promise<string> {
@@ -270,17 +278,35 @@ export class FacebookService {
     }
   }
 
+  fetchConversationWithinCustomer() {
+    // cónt befỏe3month
+    while (true) {
+      //callapi lay id cua conv -> theo limit 100 va after
+      // loop convs kiem tra update_timed create time < thoi gian 3 thang
+      //if true -> gui queue face-sync sync-facebook-conversations
+      // false break;
+    }
+  }
+
+  fetchMessageWithFbConvId(convId, channelId) {
+    // cónt befỏe3month
+    while (true) {
+      //callapi lay id cua conv -> theo limit 100 va after
+      // loop convs kiem tra update_timed create time < thoi gian 3 thang
+      //if true -> gui queue face-sync sync-facebook-conversations
+      // false break;
+    }
+  }
+
   async fetchConversationFromFacebook(
     pageId: string,
     accessTokenPage: string,
-    limit: 10,
     afterCursor?: string,
   ): Promise<AxiosResponse> {
     const endpoint = `${pageId}/conversations`;
     const params: Record<string, any> = {
-      fields: `id,senders,snippet,updated_time,messages.limit(5){id,message,created_time,from,attachments}`,
+      fields: `id,updated_time`,
       access_token: accessTokenPage,
-      limit,
     };
     if (afterCursor) params.after = afterCursor;
 
@@ -332,16 +358,46 @@ export class FacebookService {
     return customer;
   }
 
-  getLatestUserMessage(messages: any[], pageId: string) {
-    const sorted = [...messages].sort(
-      (a, b) =>
-        new Date(b.created_time).getTime() - new Date(a.created_time).getTime(),
-    );
-    return sorted.find((m) => m.from?.id !== pageId);
+  async fetchAllMessagesOfConversation(
+    conversationId: string,
+    accessToken: string,
+    limit: number,
+  ) {
+    let afterCursor: string | undefined = undefined;
+    const allMessages = [];
+
+    while (true) {
+      const endpoint = `${conversationId}/messages`;
+      const params: Record<string, any> = {
+        fields: 'id,message,created_time,from,attachments',
+        access_token: accessToken,
+        limit: limit,
+      };
+      if (afterCursor) params.after = afterCursor;
+
+      const response = await this.facebookHttpService.callFacebookAPI(
+        endpoint,
+        HttpMethod.GET,
+        params,
+        undefined,
+        FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
+      );
+
+      const messages = response.data.data;
+      if (!messages || messages.length === 0) break;
+
+      allMessages.push(...messages);
+      afterCursor = response.data.paging?.cursors?.after;
+      if (!afterCursor) break;
+    }
+
+    return allMessages;
   }
 
-  async syncFacebookConversation(pageId: string) {
-    const allConversations: TFacebookConversation[] = [];
+  async syncFacebookMesssageConversation(
+    pageId: string,
+    conversationId: string,
+  ) {
     try {
       const facebookChannel = await this.channelService.getByTypeAndAppId(
         ChannelType.FACEBOOK,
@@ -351,80 +407,107 @@ export class FacebookService {
         throw new Error('No access token found.');
 
       const accessToken = facebookChannel.accessToken;
-      let afterCursor: string | undefined = undefined;
 
-      while (true) {
-        const response = await this.fetchConversationFromFacebook(
-          pageId,
-          accessToken,
-          10,
-          afterCursor,
+      const messages = await this.fetchAllMessagesOfConversation(
+        conversationId,
+        accessToken,
+        100,
+      );
+
+      // if (!messages || messages.length === 0) break;
+      const userMessages = messages.filter((msg) => msg.from.id !== pageId);
+
+      let customer: Customer | null = null;
+      if (userMessages.length > 0) {
+        const userId = userMessages[0].from.id;
+        const userName = userMessages[0].from.name;
+        const avatar = await this.getFacebookAvatar(userId, accessToken);
+        customer = await this.getOrCreateCustomer(
+          this.customerService,
+          Platform.FACEBOOK,
+          userId,
+          userName,
+          avatar,
+          facebookChannel.id,
+          facebookChannel.shop.id,
         );
-
-        const conversations = response.data.data;
-        if (!conversations || conversations.length === 0) break;
-
-        for (const conv of conversations) {
-          const messages = conv.messages?.data || [];
-          const userMessage = this.getLatestUserMessage(messages, pageId);
-
-          if (userMessage) {
-            // Lấy thông tin user (PSID, name)
-            const userId = userMessage.from.id;
-            const userName = userMessage.from.name;
-
-            // Lấy avatar, nếu lỗi thì null
-            const avatar = await this.getFacebookAvatar(userId, accessToken);
-
-            // Lấy hoặc tạo customer
-            const customer = await this.getOrCreateCustomer(
-              this.customerService,
-              Platform.FACEBOOK,
-              userId,
-              userName,
-              avatar,
-              facebookChannel.id,
-              facebookChannel.shop.id,
-            );
-
-            let conversation =
-              await this.conversationService.getConversationByChannelAndCustomer(
-                facebookChannel.id,
-                userId,
-              );
-
-            if (!conversation) {
-              await this.conversationService.sendMessageToConversation({
-                externalMessageId: userMessage.id,
-                channel: facebookChannel,
-                customer: customer,
-                message: userMessage.message,
-                type: 'text',
-              });
-            } else {
-              await this.messagesService.upsert(
-                {
-                  content: userMessage.message,
-                  contentType: 'text',
-                  externalId: userMessage.id,
-                  senderType: 'customer',
-                  senderId: customer.id,
-                },
-                conversation,
-              );
-            }
-          }
-        }
-
-        allConversations.push(...conversations);
-        afterCursor = response.data.paging?.cursors?.after;
-        if (!afterCursor) break;
       }
 
-      return { success: true, conversations: allConversations };
+      for (const msg of userMessages.reverse()) {
+        await this.conversationService.sendMessageToConversation({
+          externalMessageId: msg.id,
+          channel: facebookChannel,
+          customer: customer,
+          message: msg.message,
+          externalConversationId: conversationId,
+          type: 'text',
+        });
+      }
     } catch (error) {
       throw new Error(`Failed to sync conversations: ${error.message}`);
     }
+  }
+
+  async syncConversationWithinCustomTimeFacebook(
+    pageId: string,
+    within: number,
+    type: dayjs.ManipulateType,
+  ) {
+    const facebookChannel = await this.channelService.getByTypeAndAppId(
+      ChannelType.FACEBOOK,
+      pageId,
+    );
+    if (!facebookChannel?.accessToken)
+      throw new Error('No access token found.');
+
+    let afterCursor: string | undefined = undefined;
+    const processedMessagesFacebook = [];
+    const accessToken = facebookChannel.accessToken;
+
+    while (true) {
+      const response = await this.fetchConversationFromFacebook(
+        pageId,
+        accessToken,
+        afterCursor,
+      );
+      if (!response || !response.data.data || response.data.data.length === 0)
+        break;
+
+      const conversations = response.data.data;
+      let shouldBreak = false;
+
+      for (let i = 0; i < conversations.length; i++) {
+        const conversation = conversations[i];
+        const isWithinCustomTime = isAfter(
+          conversation.updated_time,
+          within,
+          type,
+          true,
+        );
+
+        if (isWithinCustomTime) {
+          shouldBreak = true;
+          break;
+        }
+
+        processedMessagesFacebook.push({
+          name: 'sync-facebook-conversations',
+          data: {
+            pageId: pageId,
+            conversationId: conversation.id,
+          },
+        });
+      }
+
+      if (shouldBreak) {
+        break;
+      }
+      afterCursor = response.data.paging?.cursors?.after;
+    }
+
+    await this.facebookSyncQueue.addBulk(processedMessagesFacebook);
+
+    return processedMessagesFacebook;
   }
 
   @Cron(CronExpression.EVERY_HOUR)

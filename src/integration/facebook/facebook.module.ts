@@ -9,6 +9,8 @@ import { ChatModule } from 'src/chat/chat.module';
 import { ConversationsModule } from 'src/conversations/conversations.module';
 import { CustomersModule } from 'src/customers/customers.module';
 import { MessagesModule } from 'src/messages/messages.module';
+import { BullModule } from '@nestjs/bullmq';
+import { FacebookSyncProcessor } from './processors/facebook-sync.process';
 
 @Module({
   imports: [
@@ -18,8 +20,20 @@ import { MessagesModule } from 'src/messages/messages.module';
     MessagesModule,
     forwardRef(() => ChatModule),
     ScheduleModule.forRoot(),
+    BullModule.registerQueue({
+      name: process.env.REDIS_FACEBOOK_SYNC_TOPIC,
+      defaultJobOptions: {
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    }),
   ],
-  providers: [FacebookService, FacebookHttpService, FacebookTokenService],
+  providers: [
+    FacebookService,
+    FacebookHttpService,
+    FacebookTokenService,
+    FacebookSyncProcessor,
+  ],
   controllers: [FacebookController],
   exports: [FacebookService, FacebookTokenService],
 })

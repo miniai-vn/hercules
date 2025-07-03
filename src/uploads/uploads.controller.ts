@@ -29,9 +29,13 @@ export class UploadsController {
     };
   }
 
-  @Get('presigned/:key')
-  async presigned(@Param('key') key: string) {
-    const url = await this.s3.getPresignedUrl(key);
-    return { url };
+  @Get(':key')
+  // @RequirePermissions(PermissionCode.DEPARTMENT_READ)
+  async getFile(@Param('key') key: string) {
+    const file = await this.s3.sendDataToElt(key);
+    return {
+      data: file,
+      message: 'File retrieved successfully',
+    };
   }
 }

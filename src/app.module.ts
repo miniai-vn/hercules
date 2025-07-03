@@ -48,6 +48,7 @@ import { AgentsModule } from './agents/agents.module';
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ['.env', '.env.local', '.env.production'],
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],

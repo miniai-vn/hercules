@@ -20,6 +20,10 @@ export class CreateConversationDto {
   @IsNotEmpty()
   name: string;
 
+  @IsBoolean()
+  @IsOptional()
+  isBot?: boolean;
+
   @IsEnum(ConversationType)
   type: ConversationType;
 
@@ -244,6 +248,7 @@ export class ConversationResponseDto {
   type: ConversationType;
   avatar?: string; // Optional: avatar URL or path
   content?: string;
+  isBot?: boolean; // Optional: indicates if the conversation is a bot conversation
   createdAt: Date;
   updatedAt: Date;
   messages?: {

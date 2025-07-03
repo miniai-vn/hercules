@@ -2,15 +2,15 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Consumer, EachMessagePayload, Kafka } from 'kafkajs';
 import { ChatService } from 'src/chat/chat.service';
+import { UploadsService } from 'src/uploads/uploads.service';
 
 @Injectable()
 export class KafkaConsumerService implements OnModuleDestroy {
   private kafka = new Kafka({
-    clientId: 'kafka-app',
+    clientId: process.env.KAFKA_CLIENT_ID,
     brokers: [process.env.KAFKA_BROKERS],
     connectionTimeout: 10000,
     requestTimeout: 30000,
-
     retry: {
       initialRetryTime: 300,
       retries: 10,
@@ -26,7 +26,10 @@ export class KafkaConsumerService implements OnModuleDestroy {
 
   private consumers: Consumer[] = [];
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly uploadService: UploadsService,
+  ) {}
   async createConsumer(
     groupId: string,
     topic: string,
@@ -46,7 +49,6 @@ export class KafkaConsumerService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    // Disconnect all consumers
     for (const consumer of this.consumers) {
       await consumer.disconnect();
     }
@@ -58,7 +60,17 @@ export class KafkaConsumerService implements OnModuleDestroy {
       process.env.KAFKA_ZALO_MESSAGE_TOPIC,
       async ({ message }) => {
         const data = JSON.parse(message.value.toString());
+
         await this.chatService.sendMessagesZaloToPlatform(data);
+      },
+    );
+
+    await this.createConsumer(
+      process.env.KAFKA_ETL_CONSUMER,
+      process.env.KAFKA_ETL_TOPIC,
+      async ({ message }) => {
+        const data = JSON.parse(message.value.toString());
+        await this.uploadService.sendDataToElt(data.s3Key, data.code);
       },
     );
   }

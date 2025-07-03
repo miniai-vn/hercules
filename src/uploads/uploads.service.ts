@@ -5,17 +5,22 @@ import {
 } from '@aws-sdk/client-s3';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
+import FormData from 'form-data';
+import { Producer } from 'kafkajs';
 import mimeTypes from 'mime-types';
 import { Minetype } from 'src/common/enums/file.enum';
 import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
+
 @Injectable()
 export class UploadsService {
   private s3: S3Client;
   private bucket: string;
-
+  producer: Producer;
   constructor(private config: ConfigService) {
     this.bucket = this.config.getOrThrow('AWS_BUCKET_NAME');
+
     this.s3 = new S3Client({
       region: this.config.getOrThrow('AWS_REGION'),
       credentials: {
@@ -93,6 +98,7 @@ export class UploadsService {
       throw new Error(`Failed to upload JSON file: ${error.message}`);
     }
   }
+
   async getBinaryFile(key: string): Promise<Buffer> {
     const cmd = new GetObjectCommand({
       Bucket: this.config.get<string>('AWS_BUCKET_NAME')!,
@@ -114,23 +120,69 @@ export class UploadsService {
   }
 
   async streamToBuffer(stream: Readable): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      stream.on('data', (chunk) =>
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)),
+    const chunks = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  }
+
+  async sendDataToElt(key: string, code: string = '') {
+    try {
+      const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+      const response = await this.s3.send(cmd);
+      const buf = await this.streamToBuffer(response.Body as Readable);
+
+      const formData = new FormData();
+      formData.append('file', buf, {
+        filename: 'document.docx',
+        contentType:
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      });
+      formData.append('key', key);
+      formData.append('code', code);
+
+      const res = await axios.post(
+        `${process.env.AGENT_BASE_URL}/read-docx`,
+        formData,
+        {
+          headers: formData.getHeaders(),
+        },
       );
-      stream.on('error', reject);
-      stream.on('end', () => resolve(Buffer.concat(chunks)));
-    });
-  }
+      const data = res.data;
+      const converData = data.chunks.map((item: string) => {
+        return {
+          type: 'text',
+          text: item,
+        };
+      });
+      const jsonKey = key.replace(/\.[^/.]+$/, '.json');
+      const formatData = {
+        data: converData,
+        code: code,
+      };
+      await this.s3.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: jsonKey,
+          Body: JSON.stringify(formatData),
+          ContentType: 'application/json',
+        }),
+      );
+      const jsonUrl = `https://${process.env.AWS_BASE_URL}/${this.bucket}/${jsonKey}`;
 
-  async getPresignedUrl(key: string, expiresIn = 3600) {
-    const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
-  }
-
-  async getFile(key: string) {
-    const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
-    const response = await this.s3.send(cmd);
-    return response.Body;
+      return {
+        success: true,
+        fileKey: key,
+        fileSize: buf.length,
+        externalResponse: data,
+        jsonUrl,
+      };
+    } catch (error) {
+      console.error('Error in sendDataToElt:', error);
+      throw new InternalServerErrorException(
+        `Failed to process file: ${error.message}`,
+      );
+    }
   }
 }

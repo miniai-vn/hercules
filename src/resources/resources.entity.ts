@@ -5,6 +5,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -14,7 +15,7 @@ export class Resource {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'text', nullable: false })
+  @Column({ type: 'text' })
   path: string;
 
   @Column({ type: 'varchar', length: 255, nullable: false })
@@ -22,6 +23,9 @@ export class Resource {
 
   @Column({ type: 'json', nullable: true })
   extra?: Record<string, any>;
+
+  @Column({ type: 'text', name: 's3_key', nullable: true })
+  s3Key?: string;
 
   @Column({ type: 'varchar', length: 50, nullable: false })
   type: string;
@@ -37,7 +41,7 @@ export class Resource {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ type: 'varchar', length: 50, default: 'new', nullable: true })
+  @Column({ type: 'varchar', length: 50, default: 'new' })
   status?: string;
 
   @CreateDateColumn({
@@ -62,4 +66,13 @@ export class Resource {
     name: 'department_id',
   })
   department: Department;
+
+  @OneToMany(() => Resource, (resource) => resource.resources)
+  @JoinColumn({
+    name: 'parent_id',
+  })
+  resources: Resource[];
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  code?: string;
 }

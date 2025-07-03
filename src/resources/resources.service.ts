@@ -127,7 +127,7 @@ export class ResourcesService {
       resource.code = this.generateCodeFromFilename(resource.name, resource.id);
       resource = await this.resourceRepository.save(resource);
       await this.producer.send({
-        topic: 'mi9.etl.resource',
+        topic: process.env.KAFKA_ETL_TOPIC,
         messages: [
           {
             key: resource.id.toString(),
@@ -166,7 +166,7 @@ export class ResourcesService {
     }
     try {
       await this.producer.send({
-        topic: 'mi9.etl.resource',
+        topic: process.env.KAFKA_ETL_TOPIC,
         messages: [
           {
             key: resource.id.toString(),

@@ -7,7 +7,7 @@ import { UploadsService } from 'src/uploads/uploads.service';
 @Injectable()
 export class KafkaConsumerService implements OnModuleDestroy {
   private kafka = new Kafka({
-    clientId: 'kafka-app',
+    clientId: process.env.KAFKA_CLIENT_ID,
     brokers: [process.env.KAFKA_BROKERS],
     connectionTimeout: 10000,
     requestTimeout: 30000,
@@ -71,7 +71,6 @@ export class KafkaConsumerService implements OnModuleDestroy {
       async ({ message }) => {
         const data = JSON.parse(message.value.toString());
         await this.uploadService.sendDataToElt(data.s3Key, data.code);
-        // init handle  data with ERL like data {url: string, type: string, shopId, resourceUd:}
       },
     );
   }

@@ -4,7 +4,7 @@ import { Kafka } from 'kafkajs';
 @Injectable()
 export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   private kafka = new Kafka({
-    clientId: 'kafka-app',
+    clientId: process.env.KAFKA_CLIENT_ID,
     brokers: [process.env.KAFKA_BROKERS || 'localhost:9092'],
     connectionTimeout: 10000,
     requestTimeout: 30000,

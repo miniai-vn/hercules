@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { ConversationType } from '../conversations.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Platform } from 'src/customers/customers.dto';
 
 export { ConversationType };
 
@@ -294,4 +295,11 @@ export class RemoveParticipantsDto {
   @IsString({ each: true })
   @IsOptional()
   userIds?: string[];
+}
+
+export class MarkReadPayloadDTO {
+  platform: Platform; // 'facebook' | 'zalo' | 'shopee' | ...
+  externalConversationId: string; // id ngoài platform (page/conversationId)
+  externalUserId: string; // psid Facebook, zaloId, shopeeUserId
+  externalMessageId: string; // id message ngoài platform
 }

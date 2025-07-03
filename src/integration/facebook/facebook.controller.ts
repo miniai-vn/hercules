@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   HttpStatus,
+  Param,
   Post,
   Query,
   Res,
@@ -11,11 +12,17 @@ import {
 import { Response } from 'express';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq';
 
 @ApiTags('Facebook')
 @Controller('facebook')
 export class FacebookController {
-  constructor(private readonly facebookService: FacebookService) {}
+  constructor(
+    private readonly facebookService: FacebookService,
+    @InjectQueue(process.env.REDIS_FACEBOOK_SYNC_TOPIC)
+    private readonly facebookSyncQueue: Queue,
+  ) {}
 
   @Get('connect')
   async connectToFacebook(@Res() res: Response) {
@@ -90,5 +97,41 @@ export class FacebookController {
     } catch (error) {
       return { status: 'error', message: error.message };
     }
+  }
+
+  @Post('sync-conversations/:pageId')
+  @ApiOperation({ summary: 'Sync Facebook conversations' })
+  @ApiResponse({
+    status: 200,
+    description: 'Conversations synced successfully',
+  })
+  async syncFacebookConversations(@Param('pageId') pageId: string) {
+    if (!pageId) {
+      throw new Error('Page ID is required');
+    }
+
+    const job = await this.facebookSyncQueue.add('first-time-sync', {
+      pageId: pageId,
+    });
+
+    const schedulerId = `sync-conversations-${pageId}`;
+
+    this.facebookSyncQueue.upsertJobScheduler(
+      schedulerId,
+      {
+        every: 24 * 60 * 60 * 1000,
+        startDate: new Date(Date.now() + 10 * 60 * 1000),
+      },
+      {
+        name: 'sync-daily-facebook-conversations',
+        data: {
+          pageId,
+        },
+      },
+    );
+    return {
+      message: 'Conversations synced successfully',
+      data: job,
+    };
   }
 }

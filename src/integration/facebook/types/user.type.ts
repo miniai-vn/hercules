@@ -5,3 +5,9 @@ export type TUserProfile = {
   id: string;
   name: string;
 };
+
+export type TFacebookUser = {
+  id: string;
+  name: string;
+  email?: string;
+};

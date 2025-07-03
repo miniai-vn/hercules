@@ -33,7 +33,7 @@ export class ZaloController {
     const filePath = join(
       process.cwd(),
       'public',
-      'zalo_verifierGkRa5O6GTXL3ukCJdz5WJa_upMgZZXipCp0u.html',
+      'zalo_verifierFiE4T-VJBa0LsvnKxkqtMpZdfdRKaN0XC30m.html',
     );
     return res.sendFile(filePath);
   }

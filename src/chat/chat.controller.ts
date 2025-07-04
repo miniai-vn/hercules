@@ -3,7 +3,7 @@ import { Payload } from '@nestjs/microservices';
 
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
-import { FacebookMessagingEventDTO } from 'src/integration/facebook/dto/facebook-webhook.dto';
+import { FacebookEventDTO } from 'src/integration/facebook/dto/facebook-webhook.dto';
 import { ChatService, SendMessageData } from './chat.service';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 
@@ -55,7 +55,7 @@ export class ChatController {
     }
   }
 
-  async sendMessageFacebookToPlatform(@Body() data: FacebookMessagingEventDTO) {
+  async sendMessageFacebookToPlatform(@Body() data: FacebookEventDTO) {
     await this.chatService.sendMessagesFacebookToPlatform(data);
     return {
       status: 'success',

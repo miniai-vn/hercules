@@ -80,9 +80,17 @@ export class ZaloController {
     if (!appId) {
       throw new Error('App ID is required');
     }
-    const job = this.zaloSyncQueue.add('first-time-sync', {
-      appId: appId,
-    });
+    const job = this.zaloSyncQueue.add(
+      'first-time-sync',
+      {
+        appId: appId,
+      },
+      {
+        jobId: `sync-conversations-${appId}-test`,
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    );
 
     const schedulerId = `sync-conversations-${appId}`;
     // await this.zaloSyncQueue.removeJobScheduler(schedulerId);

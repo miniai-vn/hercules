@@ -19,7 +19,7 @@ export class FacebookSyncProcessor extends WorkerHost {
         case 'first-time-sync':
           await this.facebookService.syncConversationWithinCustomTimeFacebook(
             pageId,
-            1,
+            3,
             'month',
           );
           break;

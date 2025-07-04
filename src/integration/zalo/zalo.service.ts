@@ -260,7 +260,11 @@ export class ZaloService {
     );
   }
 
-  async handleSyncConversationsWithUserId(user_id: string, appId: string) {
+  async handleSyncConversationsWithUserId(
+    user_id: string,
+    appId: string,
+    messageCount: number = 30,
+  ) {
     try {
       const channel = await this.channelService.getByTypeAndAppId(
         ChannelType.ZALO,
@@ -306,6 +310,10 @@ export class ZaloService {
               customer: customer,
               message: message.message,
               type: message.type,
+              externalConversation: {
+                id: customer.externalId,
+                timestamp: new Date(message.time),
+              },
             });
           } else {
             await this.conversationService.sendMessageToConversationWithOthers({
@@ -315,7 +323,9 @@ export class ZaloService {
             });
           }
         }
-
+        if (messageCount && count >= messageCount) {
+          break;
+        }
         offset += count;
       }
     } catch (error) {
@@ -524,6 +534,7 @@ export class ZaloService {
     appId: string,
     within: number,
     type: dayjs.ManipulateType,
+    messageCount: number | null = 30,
   ) {
     const channel = await this.channelService.getByTypeAndAppId(
       ChannelType.ZALO,
@@ -566,6 +577,12 @@ export class ZaloService {
           data: {
             userId: userId,
             appId: appId,
+            messageCount,
+          },
+          opts: {
+            jobId: `${appId}-${userId}`,
+            removeOnComplete: true,
+            removeOnFail: true,
           },
         });
       }

@@ -67,6 +67,13 @@ export class Message {
   @Column({ type: 'jsonb', nullable: true, name: 'token_usage' })
   tokenUsage?: Record<string, any>;
 
+  @Column({
+    name: 'read_at',
+    type: 'timestamp with time zone',
+    nullable: true,
+  })
+  readAt?: Date;
+
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
 

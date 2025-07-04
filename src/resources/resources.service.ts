@@ -60,6 +60,17 @@ export class ResourcesService {
     return `${initials}-${formattedId}`;
   };
 
+  async updateStatusByKey(key: string, status: ResourceStatus): Promise<void> {
+    try {
+      await this.resourceRepository.update({ s3Key: key }, { status });
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to update resource status',
+        error.message,
+      );
+    }
+  }
+
   async query(query: ResourceQueryDto): Promise<PaginatedResult<Resource>> {
     const {
       createdAfter,

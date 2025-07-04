@@ -7,7 +7,7 @@ import {
   IsObject,
 } from 'class-validator';
 
-export class FacebookMessagingEventDTO {
+export class FacebookEventDTO {
   @IsObject()
   sender: { id: string };
 
@@ -25,6 +25,13 @@ export class FacebookMessagingEventDTO {
 
   @IsOptional()
   postback?: any;
+
+  // Bổ sung trường read cho message_read event
+  @IsOptional()
+  read?: {
+    watermark: number;
+    seq: number;
+  };
 }
 
 export class FacebookMessageEntryDTO {
@@ -36,8 +43,8 @@ export class FacebookMessageEntryDTO {
 
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => FacebookMessagingEventDTO)
-  messaging: FacebookMessagingEventDTO[];
+  @Type(() => FacebookEventDTO)
+  messaging: FacebookEventDTO[];
 }
 
 export class FacebookWebhookDTO {

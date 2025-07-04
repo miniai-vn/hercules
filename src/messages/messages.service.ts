@@ -67,6 +67,19 @@ export class MessagesService {
     return savedMessages.map((message) => this.toResponseDto(message));
   }
 
+  async get50MessagesByConversationId(
+    conversationId: number,
+    page: number = 1,
+    limit: number = 50,
+  ) {
+    return await this.messageRepository.find({
+      where: { conversation: { id: conversationId } },
+      order: { createdAt: 'ASC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+  }
+
   async findAll(
     page: number,
     limit: number,
@@ -334,6 +347,32 @@ export class MessagesService {
     }
 
     return { deletedCount: messages.length };
+  }
+
+  async markMessagesAsReadForPlatform({
+    platform,
+    conversationId,
+    userExternalId,
+    readToTime,
+  }: {
+    platform: string;
+    conversationId: number;
+    userExternalId: string;
+    readToTime: Date;
+  }): Promise<number> {
+    const result = await this.messageRepository
+      .createQueryBuilder()
+      .update()
+      .set({ readAt: readToTime })
+      .where('conversation_id = :conversationId', { conversationId })
+      .andWhere('sender_id != :userExternalId', { userExternalId }) // Đánh dấu các message người khác gửi
+      .andWhere('created_at <= :readToTime', { readToTime })
+      .andWhere('read_at IS NULL')
+      .execute();
+
+    console.log(` result:: `, result);
+
+    return result.affected ?? 0;
   }
 
   private toResponseDto(message: Message): MessageResponseDto {

@@ -10,6 +10,8 @@ import FormData from 'form-data';
 import { Producer } from 'kafkajs';
 import mimeTypes from 'mime-types';
 import { Minetype } from 'src/common/enums/file.enum';
+import { ResourceStatus } from 'src/resources/dto/resources.dto';
+import { ResourcesService } from 'src/resources/resources.service';
 import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -18,7 +20,10 @@ export class UploadsService {
   private s3: S3Client;
   private bucket: string;
   producer: Producer;
-  constructor(private config: ConfigService) {
+  constructor(
+    private config: ConfigService,
+    private readonly resourceService: ResourcesService,
+  ) {
     this.bucket = this.config.getOrThrow('AWS_BUCKET_NAME');
 
     this.s3 = new S3Client({
@@ -170,7 +175,10 @@ export class UploadsService {
         }),
       );
       const jsonUrl = `https://${process.env.AWS_BASE_URL}/${this.bucket}/${jsonKey}`;
-
+      await this.resourceService.updateStatusByKey(
+        key,
+        ResourceStatus.COMPLETED,
+      );
       return {
         success: true,
         fileKey: key,
@@ -179,7 +187,6 @@ export class UploadsService {
         jsonUrl,
       };
     } catch (error) {
-      console.error('Error in sendDataToElt:', error);
       throw new InternalServerErrorException(
         `Failed to process file: ${error.message}`,
       );

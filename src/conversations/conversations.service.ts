@@ -76,13 +76,13 @@ export class ConversationsService {
       const conversationUpsert = await this.conversationRepository.upsert(
         {
           ...createConversationDto,
+          updatedAt: createConversationDto.conversation.timestamp || new Date(),
           channel: {
             id: createConversationDto.channelId,
           },
         },
         {
           conflictPaths: ['externalId', 'channel.id'],
-          skipUpdateIfNoValuesChanged: true,
         },
       );
 
@@ -251,54 +251,21 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id },
-        relations: {
-          members: {
-            customer: true,
-            user: true,
-            lastMessage: true,
-          },
-          channel: true,
-          messages: true,
-          tags: true,
-        },
-        order: {
-          messages: {
-            createdAt: 'ASC',
-          },
-        },
       });
+      const message =
+        await this.messagesService.get50MessagesByConversationId(id);
 
-      if (!conversation) {
-        throw new NotFoundException('Conversation not found');
-      }
-
-      const messages = await Promise.all(
-        conversation.messages.map(async (message) => {
-          const readBy = conversation.members
-            .filter(
-              (member) =>
-                member.lastMessage && member.lastMessage.id >= message.id,
-            )
-            .map((member) => ({
-              id: member.id,
-              name: member.user?.name || member.customer?.name || 'Unknown',
-              avatar: member.user?.avatar || member.customer?.avatar,
-              type: member.participantType,
-              userId: member.userId,
-              customerId: member.customerId,
-            }));
-
+      const messageMappingSender = await Promise.all(
+        message.map(async (msg) => {
           return {
-            ...message,
-            sender: await this.getInfoSenderMessages(message),
-            readBy,
+            ...msg,
+            sender: await this.getInfoSenderMessages(msg),
           };
         }),
       );
-
       return {
         ...conversation,
-        messages: messages,
+        messages: messageMappingSender,
       };
     } catch (error) {
       throw new InternalServerErrorException(
@@ -431,9 +398,9 @@ export class ConversationsService {
         },
       });
 
-      const lastMessageId = conversation.members.find(
-        (member) => member.userId === userId,
-      )?.lastMessage?.id;
+      const lastMessageId =
+        conversation.members.find((member) => member.userId === userId)
+          ?.lastMessage?.id ?? 0;
 
       const messages = conversation.messages.filter(
         (msg) => msg.id > lastMessageId,
@@ -544,7 +511,7 @@ export class ConversationsService {
         },
       });
 
-      return conversation?.isBot;
+      return conversation === null ? true : conversation?.isBot;
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to get conversation by channel and customer',
@@ -558,14 +525,17 @@ export class ConversationsService {
     externalMessageId,
     message = '',
     type,
-    externalConversationId,
+    externalConversation,
   }: {
     channel: Channel;
     customer: Customer;
     externalMessageId: string;
     message: string;
     type?: string;
-    externalConversationId?: string;
+    externalConversation?: {
+      id: string;
+      timestamp: Date;
+    };
   }) {
     try {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
@@ -583,6 +553,11 @@ export class ConversationsService {
         isBot: checkedChannelActiveAgent && checkConversationActive,
         externalId: customer.externalId,
         channelId: channel.id,
+        conversation: {
+          id: externalConversation?.id || '',
+          timestamp: externalConversation?.timestamp || new Date(),
+        },
+
         customerParticipantIds: [customer.id],
         userParticipantIds: adminChannels.map((user) => user.id),
       });
@@ -610,7 +585,6 @@ export class ConversationsService {
 
   async getInfoSenderMessages(message: Message) {
     if (message.senderType === SenderType.channel) {
-      // const channel = await this
       const id = Number(message.senderId);
       const channel = await this.channelService.getOne(id);
       return {

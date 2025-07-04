@@ -1,3 +1,4 @@
+import { Conversation } from 'src/conversations/conversations.entity';
 import { FacebookHttpService } from './facebook-http.service';
 import {
   BadRequestException,
@@ -471,7 +472,6 @@ export class FacebookService {
         break;
 
       const conversations = response.data.data;
-
       let shouldBreak = false;
 
       for (let i = 0; i < conversations.length; i++) {

@@ -86,7 +86,9 @@ export class ZaloController {
         appId: appId,
       },
       {
-        jobId: `sync-conversations-${appId}`,
+        jobId: `sync-conversations-${appId}-test`,
+        removeOnComplete: true,
+        removeOnFail: true,
       },
     );
 

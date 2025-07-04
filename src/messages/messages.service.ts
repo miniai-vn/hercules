@@ -72,12 +72,9 @@ export class MessagesService {
     page: number = 1,
     limit: number = 50,
   ) {
-    return await this.messageRepository.findAndCount({
-      where: { conversation: { id: conversationId }, deletedAt: IsNull() },
-      relations: {
-        lastMessagesMembers: true,
-      },
-      order: { createdAt: 'DESC' },
+    return await this.messageRepository.find({
+      where: { conversation: { id: conversationId } },
+      order: { createdAt: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
     });

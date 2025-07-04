@@ -249,7 +249,24 @@ export class ConversationsService {
 
   async getFullInfoConversation(id: number) {
     try {
-      return await this.messagesService.get50MessagesByConversationId(id);
+      const conversation = await this.conversationRepository.findOne({
+        where: { id },
+      });
+      const message =
+        await this.messagesService.get50MessagesByConversationId(id);
+
+      const messageMappingSender = await Promise.all(
+        message.map(async (msg) => {
+          return {
+            ...msg,
+            sender: await this.getInfoSenderMessages(msg),
+          };
+        }),
+      );
+      return {
+        ...conversation,
+        messages: messageMappingSender,
+      };
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to get conversation messages',

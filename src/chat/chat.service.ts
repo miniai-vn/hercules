@@ -108,6 +108,10 @@ export class ChatService {
       const roomName = `conversation:${conversation.id}`;
       this.chatGateway.server.to(roomName).emit('receiveMessage', {
         ...messageData,
+        sender: {
+          avatar: customer.avatar,
+          name: customer.name,
+        },
         conversationId: conversation.id,
         channelType: ChannelType.ZALO,
       });

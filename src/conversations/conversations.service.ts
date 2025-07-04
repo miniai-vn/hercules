@@ -76,6 +76,7 @@ export class ConversationsService {
       const conversationUpsert = await this.conversationRepository.upsert(
         {
           ...createConversationDto,
+          // BUG: fill createdAt and updatedAt with the current date if not provided
           updatedAt: createConversationDto.conversation.timestamp || new Date(),
           channel: {
             id: createConversationDto.channelId,
@@ -551,7 +552,7 @@ export class ConversationsService {
         type: ConversationType.DIRECT,
         avatar: customer.avatar,
         isBot: checkedChannelActiveAgent && checkConversationActive,
-        externalId: customer.externalId,
+        externalId: externalConversation?.id,
         channelId: channel.id,
         conversation: {
           id: externalConversation?.id || '',
@@ -695,7 +696,7 @@ export class ConversationsService {
         name: customer.name || 'Unknown Customer',
         type: ConversationType.DIRECT,
         avatar: customer.avatar || '',
-        externalId: customer.externalId,
+        externalId: externalConversationId,
         channelId: channel.id,
         customerParticipantIds: [customer.id],
         userParticipantIds: adminChannels.map((user) => user.id),

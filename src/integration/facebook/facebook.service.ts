@@ -394,7 +394,6 @@ export class FacebookService {
         100,
       );
 
-      // if (!messages || messages.length === 0) break;
       const userMessages = messages.filter((msg) => msg.from.id !== pageId);
 
       let customer: Customer | null = null;
@@ -413,11 +412,10 @@ export class FacebookService {
         );
       }
 
-      for (const msg of messages) {
+      for (const msg of messages.reverse()) {
         const isFromUser = msg.from.id !== pageId;
 
         if (isFromUser) {
-          // User gửi
           await this.conversationService.sendMessageToConversation({
             externalMessageId: msg.id,
             channel: facebookChannel,
@@ -432,7 +430,11 @@ export class FacebookService {
         } else {
           await this.conversationService.sendMessageToConversationWithOthers({
             channel: facebookChannel,
-            message: msg,
+            message: {
+              type: 'text',
+              message: msg.message,
+              message_id: msg.id,
+            },
             customer: customer,
             externalConversationId: conversationId,
           });
@@ -469,20 +471,13 @@ export class FacebookService {
         break;
 
       const conversations = response.data.data;
+
       let shouldBreak = false;
 
       for (let i = 0; i < conversations.length; i++) {
         const conversation = conversations[i];
         const ms = new Date(conversation.updated_time).getTime();
         const isWithinCustomTime = isAfter(ms, within, type, true);
-
-        console.log({
-          updated_time: conversation.updated_time,
-          ms,
-          isWithinCustomTime,
-          now: new Date(),
-          three_months_ago: dayjs().subtract(within, type).toDate(),
-        });
 
         if (!isWithinCustomTime) {
           shouldBreak = true;

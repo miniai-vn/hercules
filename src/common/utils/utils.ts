@@ -5,16 +5,12 @@ const delay = (ms: number) => {
 };
 
 const isAfter = (
-  timestamp: string | number,
+  timestamp: number,
   amount: number,
   unit: dayjs.ManipulateType,
   isMilliseconds: boolean = false,
 ): boolean => {
   const targetTime = dayjs().subtract(amount, unit);
-
-  if (typeof timestamp === 'string') {
-    timestamp = parseInt(timestamp, 10);
-  }
   const messageTime = isMilliseconds ? dayjs(timestamp) : dayjs.unix(timestamp);
   return messageTime.isAfter(targetTime);
 };

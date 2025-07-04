@@ -482,13 +482,13 @@ export class FacebookService {
       for (let i = 0; i < conversations.length; i++) {
         const conversation = conversations[i];
         const isWithinCustomTime = isAfter(
-          conversation.updated_time,
+          new Date(conversation.updated_time).getTime(),
           within,
           type,
           true,
         );
 
-        if (isWithinCustomTime) {
+        if (!isWithinCustomTime) {
           shouldBreak = true;
           break;
         }
@@ -498,6 +498,11 @@ export class FacebookService {
           data: {
             pageId: pageId,
             conversationId: conversation.id,
+          },
+          opts: {
+            jobId: `${conversation.id}-${pageId}`,
+            removeOnComplete: true,
+            removeOnFail: true,
           },
         });
       }

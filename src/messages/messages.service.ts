@@ -41,7 +41,6 @@ export class MessagesService {
         conversation: {
           id: createMessageDto.conversationId,
         },
-        senderType: createMessageDto.senderType as any,
       },
       {
         conflictPaths: ['externalId'],
@@ -375,6 +374,17 @@ export class MessagesService {
     return result.affected ?? 0;
   }
 
+  async findByExternalId(externalId: string): Promise<Message | null> {
+    const message = await this.messageRepository.findOne({
+      where: { externalId, deletedAt: IsNull() },
+    });
+
+    if (!message) {
+      return null;
+    }
+
+    return message;
+  }
   private toResponseDto(message: Message): MessageResponseDto {
     return {
       id: message.id,

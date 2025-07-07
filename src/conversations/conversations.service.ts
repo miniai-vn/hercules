@@ -76,8 +76,6 @@ export class ConversationsService {
       const conversationUpsert = await this.conversationRepository.upsert(
         {
           ...createConversationDto,
-          createdAt: createConversationDto.conversation.timestamp || new Date(),
-          updatedAt: createConversationDto.conversation.timestamp || new Date(),
           channel: {
             id: createConversationDto.channelId,
           },
@@ -702,30 +700,48 @@ export class ConversationsService {
       createdAt?: Date;
     };
     customer: Customer;
-    externalConversation?: {
+    externalConversation: {
       id: string;
       timestamp: Date;
     };
   }) {
     try {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
-      const { conversation } = await this.upsert({
+
+      const existingMessages = await this.messagesService.findByExternalId(
+        message.message_id,
+      );
+
+      if (existingMessages) {
+        return {
+          isNewConversation: false,
+          conversation: null,
+          message: null,
+        };
+      }
+
+      const { conversation, isNewConversation } = await this.upsert({
         name: customer.name || 'Unknown Customer',
         type: ConversationType.DIRECT,
-        avatar: customer.avatar || '',
-        externalId: customer.externalId || '',
+        avatar: customer.avatar,
+        externalId: externalConversation.id,
         channelId: channel.id,
         conversation: {
-          id: externalConversation?.id || '',
-          timestamp: externalConversation?.timestamp || new Date(),
+          id: externalConversation?.id,
+          timestamp: externalConversation?.timestamp,
         },
 
         customerParticipantIds: [customer.id],
         userParticipantIds: adminChannels.map((user) => user.id),
       });
 
+      await this.conversationRepository.update(conversation.id, {
+        updatedAt: new Date(),
+      });
+
+      // check message is exsting with externalId
       const metadataMessage = await this.messagesService.upsert({
-        content: message.type === MessageType.TEXT ? message.content : '',
+        content: message.content ? message.content : '',
         contentType: message.type,
         senderType: SenderType.channel,
         senderId: channel.id.toString(),
@@ -740,8 +756,12 @@ export class ConversationsService {
       return {
         accessToken: channel.accessToken,
         message: metadataMessage,
-        customerId: conversation.members[0].customerId,
+        customerId: conversation.members.find(
+          (member) => member.participantType === ParticipantType.CUSTOMER,
+        )?.customerId,
         channelType: channel.type,
+        conversation,
+        isNewConversation,
       };
     } catch (error) {
       throw new InternalServerErrorException(

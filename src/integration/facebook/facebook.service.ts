@@ -31,6 +31,7 @@ import { TPageInfo } from './types/page.type';
 import { TUserProfile } from './types/user.type';
 import { Producer } from 'kafkajs';
 import { KafkaProducerService } from 'src/kafka/kafka.producer';
+import { MessageType } from 'src/common/enums/message.enum';
 dotenv.config();
 Injectable();
 export class FacebookService {
@@ -220,7 +221,7 @@ export class FacebookService {
 
     for (const entry of body.entry ?? []) {
       for (const event of entry.messaging) {
-        if (event.message?.text) {
+        if (event.message?.text || event.message.attachments?.length) {
           this.producer.send({
             topic: this.topic,
             messages: [

@@ -21,6 +21,7 @@ export class FacebookEventDTO {
   message?: {
     mid?: string;
     text?: string;
+    attachments?: FacebookAttachmentDTO[];
   };
 
   @IsOptional()
@@ -60,4 +61,21 @@ export class FacebookWebhookDTO {
   @ValidateNested({ each: true })
   @Type(() => FacebookMessageEntryDTO)
   entry?: FacebookMessageEntryDTO[];
+}
+
+export class FacebookAttachmentPayloadDTO {
+  @IsString()
+  @IsOptional()
+  url?: string;
+
+  @IsOptional()
+  sticker_id?: number; // sticker_id chỉ có khi là sticker
+}
+
+export class FacebookAttachmentDTO {
+  @IsString()
+  type: string; // image, audio, video, file, fallback
+
+  @IsObject()
+  payload: FacebookAttachmentPayloadDTO;
 }

@@ -235,6 +235,8 @@ export class ChatService {
         });
       }
 
+      const MessageContent = this.parseMessageContent(message);
+
       const { conversation, messageData, isNewConversation } =
         await this.conversationsService.sendMessageToConversation({
           channel: channel,
@@ -243,8 +245,11 @@ export class ChatService {
             content: message.text,
             id: message.mid,
             createdAt: new Date(timestamp),
+            url: MessageContent.url || null,
+            thumb: MessageContent.thumb || null,
+            links: MessageContent.links || null,
           },
-          type: 'text',
+          type: MessageContent.type,
           externalConversation: {
             id: sender.id,
             timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
@@ -273,6 +278,64 @@ export class ChatService {
       throw new InternalServerErrorException(
         `Failed to send message from Facebook to platform: ${error.message}`,
       );
+    }
+  }
+
+  private parseMessageContent(message: any): {
+    content?: string | null;
+    type: string;
+    url?: string | null;
+    thumb?: string | null;
+    links?: string[] | null;
+  } {
+    if (message.text) {
+      return {
+        content: message.text,
+        type: MessageType.TEXT,
+      };
+    }
+    if (message.attachments && message.attachments.length > 0) {
+      const attachment = message.attachments[0];
+      const attachmentUrl = attachment.payload?.url || attachment.url;
+
+      const attachmentTypeMap = {
+        image: MessageType.IMAGE,
+        video: MessageType.VIDEO,
+        audio: MessageType.AUDIO,
+        file: MessageType.FILE,
+        sticker: MessageType.STICKER,
+      };
+
+      const messageType = attachmentTypeMap[attachment.type] || 'attachment';
+
+      if (
+        attachment.type === MessageType.IMAGE ||
+        attachment.type === MessageType.STICKER
+      ) {
+        return {
+          content: null,
+          type: messageType,
+          url: attachmentUrl,
+          thumb: attachment.payload?.thumb || attachmentUrl,
+        };
+      }
+
+      if (
+        attachment.type === 'file' ||
+        attachment.type === 'video' ||
+        attachment.type === 'audio'
+      ) {
+        return {
+          content: null,
+          type: messageType,
+          links: [attachmentUrl],
+        };
+      }
+
+      return {
+        content: attachment.payload.url || '',
+        type: messageType,
+      };
     }
   }
 

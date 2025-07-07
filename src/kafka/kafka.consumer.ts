@@ -67,6 +67,10 @@ export class KafkaConsumerService implements OnModuleDestroy {
         if (data.event_name === ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT) {
           await this.chatService.handleOASendTextMessage(data);
         }
+
+        if (data.event_name === ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEEN_MESSAGE) {
+          await this.chatService.handleUserSeenMessage(data);
+        }
       },
     );
 

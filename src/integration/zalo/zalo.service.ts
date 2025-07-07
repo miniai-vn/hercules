@@ -491,13 +491,15 @@ export class ZaloService {
     try {
       switch (payload.event_name) {
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
-          await this.handleTextMessage(payload);
+          await this.handleProducerMessage(payload);
           break;
 
         case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
-          // Handle OA send text message
-          await this.handleTextMessage(payload);
+          await this.handleProducerMessage(payload);
           break;
+
+        // case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEEN_MESSAGE:
+        //   await this.handleProducerMessage(payload);
 
         default:
           // Silent ignore
@@ -508,7 +510,7 @@ export class ZaloService {
     }
   }
 
-  private async handleTextMessage(payload: ZaloWebhookDto): Promise<void> {
+  private async handleProducerMessage(payload: ZaloWebhookDto): Promise<void> {
     this.producer.send({
       topic: this.topic,
       messages: [

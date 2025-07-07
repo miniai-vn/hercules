@@ -251,15 +251,36 @@ export class ConversationsService {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id },
+        relations: {
+          members: {
+            user: true,
+            customer: true,
+            lastMessage: true,
+          },
+        },
       });
+
       const message =
         await this.messagesService.get50MessagesByConversationId(id);
 
       const messageMappingSender = await Promise.all(
         message.map(async (msg) => {
+          const readMembers = conversation.members.filter(
+            (member) => member.lastMessage?.id === msg.id,
+          );
+
+          const readBy = await Promise.all(
+            readMembers.map((member) =>
+              this.getInfoSenderMessages(member.lastMessage),
+            ),
+          );
+
+          const sender = await this.getInfoSenderMessages(msg);
+
           return {
             ...msg,
-            sender: await this.getInfoSenderMessages(msg),
+            readBy,
+            sender,
           };
         }),
       );
@@ -412,10 +433,7 @@ export class ConversationsService {
     }
   }
 
-  async markReadConversation(
-    conversationId: number,
-    userId: string,
-  ): Promise<void> {
+  async markReadConversation(conversationId: number, userId: string) {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
@@ -439,6 +457,10 @@ export class ConversationsService {
         currentMembersId,
         lastMessage,
       );
+      return {
+        ...lastMessage,
+        readBy: await this.getInfoSenderMessages(lastMessage),
+      };
     } catch (error) {
       throw new InternalServerErrorException(
         'Server error while marking conversation as read',

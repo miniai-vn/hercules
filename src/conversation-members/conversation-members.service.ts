@@ -232,7 +232,6 @@ export class ConversationMembersService {
       });
       return await this.memberRepository.findOne({
         where: { id: memberId },
-        relations: ['customer', 'user', 'lastMessage'],
       });
     } catch (error) {
       throw new InternalServerErrorException(

@@ -165,18 +165,31 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Mark messages as read
   @SubscribeMessage('markAsRead')
-  handleMarkAsRead(
+  async handleMarkAsRead(
     @MessageBody()
     data: { conversationId: number; userId: string; messageId?: number },
     @ConnectedSocket() client: Socket,
   ) {
-    const roomName = `conversation:${data.conversationId}`;
+    try {
+      const roomName = `conversation:${data.conversationId}`;
+      const lastMessage = await this.conversationsService.markReadConversation(
+        data.conversationId,
+        data.userId,
+      );
 
-    client.to(roomName).emit('messageRead', {
-      userId: data.userId,
-      conversationId: data.conversationId,
-      messageId: data.messageId,
-      timestamp: new Date(),
-    });
+      client.to(roomName).emit('messageRead', {
+        userId: data.userId,
+        conversationId: data.conversationId,
+        messageId: lastMessage.id,
+        readBy: lastMessage.readBy,
+        timestamp: new Date(),
+      });
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+      client.emit('error', {
+        message: 'Failed to mark messages as read',
+        error: error.message,
+      });
+    }
   }
 }

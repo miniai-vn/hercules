@@ -101,12 +101,14 @@ export class ChatService {
         });
 
       if (isNewConversation) {
-        conversation.members.forEach((member) => {
-          this.chatGateway.sendEventJoinConversation(
-            conversation.id,
-            member.userId,
-          );
-        });
+        conversation.members
+          .filter((member) => !!member.userId)
+          .forEach((member) => {
+            this.chatGateway.sendEventJoinConversation(
+              conversation.id,
+              member.userId,
+            );
+          });
       }
 
       const roomName = `conversation:${conversation.id}`;
@@ -276,45 +278,6 @@ export class ChatService {
     }
   }
 
-  // async handleMessageReadFacebook(data: FacebookEventDTO): Promise<void> {
-  //   const { sender, recipient, read } = data;
-
-  //   const senderId = sender.id;
-  //   const recipientId = recipient.id;
-  //   const watermark = read?.watermark;
-
-  //   if (!senderId || !recipientId || !watermark) {
-  //     throw new InternalServerErrorException(
-  //       'Invalid data received from Facebook read event',
-  //     );
-  //   }
-
-  //   const channel = await this.channelService.getByTypeAndAppId(
-  //     ChannelType.FACEBOOK,
-  //     recipientId,
-  //   );
-
-  //   const conversation =
-  //     await this.conversationsService.findOneByExternalIdAndChannelId(
-  //       senderId,
-  //       channel.id,
-  //     );
-
-  //   console.log('[DEBUG] Conversation:', conversation);
-
-  //   const result = await this.messagesService.markMessagesAsReadForPlatform({
-  //     platform: Platform.FACEBOOK,
-  //     conversationId: conversation.id,
-  //     userExternalId: senderId,
-  //     readToTime: new Date(watermark),
-  //   });
-
-  //   console.log(
-  //     `[DEBUG] Mark messages as read for conversationId=${conversation.id}:`,
-  //     result,
-  //   );
-  // }
-
   async botSendMessage(conversation: Conversation, message: string) {
     const agents = await this.agentService.findByChannelId(
       conversation.channel.id,
@@ -443,4 +406,6 @@ export class ChatService {
       );
     }
   }
+
+  async handleUserSeenMessage(data: ZaloWebhookDto) {}
 }

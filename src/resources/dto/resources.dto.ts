@@ -113,6 +113,10 @@ export class CreateResourceDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsString()
+  @IsOptional()
+  ext: string;
 }
 
 export class UpdateResourceDto {

@@ -11,6 +11,7 @@ import { Department } from './departments.entity';
 import { DepartmentPaginationQueryDto } from './dto/departments.dto';
 import { PaginatedResult } from 'src/common/types/reponse.type';
 import { CreateDepartmentDto } from './dto/create-department.dto';
+import { ResourceStatus } from 'src/resources/dto/resources.dto';
 
 @Injectable()
 export class DepartmentsService {
@@ -21,7 +22,7 @@ export class DepartmentsService {
 
   async query(
     query: DepartmentPaginationQueryDto,
-  ): Promise<PaginatedResult<Department>> {
+  ): Promise<PaginatedResult<Department & { syncStatus: boolean }>> {
     const {
       createdAfter,
       createdBefore,
@@ -49,14 +50,33 @@ export class DepartmentsService {
       relations: {
         shop: true,
         users: true,
+        resources: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        createdAt: true,
+        updatedAt: true,
+        resources: {
+          status: true,
+        },
       },
       take: limit,
       skip: (page - 1) * limit,
       withDeleted: includeDeleted,
     };
     const [data, total] = await this.departmentRepository.findAndCount(filter);
+
     return {
-      data,
+      data: data.map((department) => {
+        return {
+          ...department,
+          syncStatus: department.resources.some(
+            (src) => src.status !== ResourceStatus.COMPLETED,
+          ),
+        };
+      }),
       total,
       page,
       limit,

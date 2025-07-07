@@ -26,7 +26,6 @@ import {
   ConversationQueryParamsDto,
   ConversationResponseDto,
   CreateConversationDto,
-  MarkReadPayloadDTO,
   UpdateConversationDto,
 } from './dto/conversation.dto';
 
@@ -644,7 +643,9 @@ export class ConversationsService {
     messageType: string;
   }) {
     const conversation = await this.findOne(conversationId);
-
+    await this.conversationRepository.update(conversationId, {
+      updatedAt: message.timestamp || new Date(),
+    });
     if (!conversation) {
       throw new Error('Conversation not found');
     }

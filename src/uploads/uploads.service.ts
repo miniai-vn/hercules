@@ -41,7 +41,13 @@ export class UploadsService {
 
   async uploadFile(file: Express.Multer.File, shopId: string) {
     try {
-      const allowedMimeTypes = [Minetype.PDF, Minetype.DOCX, Minetype.TXT];
+      const allowedMimeTypes = [
+        Minetype.PDF,
+        Minetype.DOCX,
+        Minetype.TXT,
+        Minetype.CSV,
+        Minetype.XLSX,
+      ];
       const ext = allowedMimeTypes.includes(file.mimetype as Minetype)
         ? this.getFileExtensionFromMime(file.mimetype)
         : 'pdf';
@@ -61,6 +67,7 @@ export class UploadsService {
         extra: {
           size: file.size,
         },
+        ext: ext,
         key,
         url,
       };
@@ -68,39 +75,6 @@ export class UploadsService {
       throw new InternalServerErrorException(
         `Failed to upload file: ${error.message}`,
       );
-    }
-  }
-
-  async uploadJsonFile(
-    data: any,
-    shopId: string,
-    fileName: string = 'data.json',
-  ): Promise<{ key: string; url: string }> {
-    let jsonString: string;
-    try {
-      jsonString = JSON.stringify(data);
-      JSON.parse(jsonString);
-    } catch (error) {
-      throw new Error(`Invalid JSON data: ${error.message}`);
-    }
-
-    const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
-
-    const key = `${shopId}/${uuidv4()}-${sanitizedFileName}`;
-    try {
-      await this.s3.send(
-        new PutObjectCommand({
-          Bucket: this.bucket,
-          Key: key,
-          Body: jsonString,
-          ContentType: 'application/json',
-        }),
-      );
-
-      const url = `https://${process.env.AWS_BASE_URL}/${this.bucket}/${key}`;
-      return { key, url };
-    } catch (error) {
-      throw new Error(`Failed to upload JSON file: ${error.message}`);
     }
   }
 
@@ -132,40 +106,56 @@ export class UploadsService {
     return Buffer.concat(chunks);
   }
 
-  async sendDataToElt(key: string, code: string = '') {
+  async sendDataToElt(key: string, code: string = '', ext: string = '') {
     try {
+      // Get the extension from the key if not provided
+      if (!ext) {
+        ext = key.split('.').pop()?.toLowerCase();
+      }
+
+      // Get file from S3
       const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
       const response = await this.s3.send(cmd);
       const buf = await this.streamToBuffer(response.Body as Readable);
 
+      // Determine content type and endpoint based on file extension
+      const { contentType, endpoint, filename } = this.getFileConfig(ext);
+
+      // Prepare form data
       const formData = new FormData();
       formData.append('file', buf, {
-        filename: 'document.docx',
-        contentType:
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        filename,
+        contentType,
       });
       formData.append('key', key);
       formData.append('code', code);
 
+      // Call the appropriate API endpoint
       const res = await axios.post(
-        `${process.env.AGENT_BASE_URL}/read-docx`,
+        `${process.env.AGENT_BASE_URL}${endpoint}`,
         formData,
         {
           headers: formData.getHeaders(),
         },
       );
+
       const data = res.data;
-      const converData = data.chunks.map((item: string) => {
+      const converData = data.chunks.map((item: any) => {
         return {
           type: 'text',
-          text: item,
+          data: item,
         };
       });
+
+      // Save processed data to S3
       const jsonKey = key.replace(/\.[^/.]+$/, '.json');
       const formatData = {
         data: converData,
         code: code,
+        fileType: ext,
+        processedAt: new Date().toISOString(),
       };
+
       await this.s3.send(
         new PutObjectCommand({
           Bucket: this.bucket,
@@ -174,22 +164,67 @@ export class UploadsService {
           ContentType: 'application/json',
         }),
       );
+
       const jsonUrl = `https://${process.env.AWS_BASE_URL}/${this.bucket}/${jsonKey}`;
       await this.resourceService.updateStatusByKey(
         key,
         ResourceStatus.COMPLETED,
       );
+
       return {
         success: true,
         fileKey: key,
+        fileType: ext,
         fileSize: buf.length,
         externalResponse: data,
         jsonUrl,
       };
     } catch (error) {
       throw new InternalServerErrorException(
-        `Failed to process file: ${error.message}`,
+        `Failed to process ${ext} file: ${error.message}`,
       );
+    }
+  }
+
+  // Helper method to get file configuration based on extension
+  private getFileConfig(ext: string): {
+    contentType: string;
+    endpoint: string;
+    filename: string;
+  } {
+    switch (ext.toLowerCase()) {
+      case 'docx':
+        return {
+          contentType:
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          endpoint: '/read-docx',
+          filename: 'document.docx',
+        };
+      case 'pdf':
+        return {
+          contentType: 'application/pdf',
+          endpoint: '/read-pdf',
+          filename: 'document.pdf',
+        };
+      case 'csv':
+        return {
+          contentType: 'text/csv',
+          endpoint: '/read-csv',
+          filename: 'document.csv',
+        };
+      case 'xlsx':
+        return {
+          contentType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          endpoint: '/read-excel',
+          filename: 'document.xlsx',
+        };
+      default:
+        return {
+          contentType: 'application/octet-stream',
+          endpoint: '/read-document',
+          filename: `document.${ext}`,
+        };
     }
   }
 }

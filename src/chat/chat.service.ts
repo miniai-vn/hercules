@@ -1,22 +1,19 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { AgentsService } from 'src/agents/agents.service';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
+import { MessageType } from 'src/common/enums/message.enum';
+import { Conversation } from 'src/conversations/conversations.entity';
+import { Platform } from 'src/customers/customers.dto';
 import { CustomersService } from 'src/customers/customers.service';
+import { AgentServiceService } from 'src/integration/agent-service/agent-service.service';
+import { FacebookEventDTO } from 'src/integration/facebook/dto/facebook-webhook.dto';
+import { FacebookService } from 'src/integration/facebook/facebook.service';
 import { ZaloService } from 'src/integration/zalo/zalo.service';
+import { MessagesService } from 'src/messages/messages.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
-import { ParticipantType } from 'src/conversation-members/conversation-members.entity';
-import { FacebookEventDTO } from 'src/integration/facebook/dto/facebook-webhook.dto';
-import { FacebookService } from 'src/integration/facebook/facebook.service';
-import { Platform } from 'src/customers/customers.dto';
-import { ConversationType } from 'src/conversations/conversations.entity';
-import { Conversation } from 'src/conversations/conversations.entity';
-import { AgentServiceService } from 'src/integration/agent-service/agent-service.service';
-import { AgentsService } from 'src/agents/agents.service';
-import { MessageType } from 'src/common/enums/message.enum';
-import { MessagesService } from 'src/messages/messages.service';
-import { time } from 'console';
 
 export interface SendMessageData {
   conversationId: number;
@@ -162,7 +159,7 @@ export class ChatService {
             conversationId: data.conversationId,
             message: {
               content: data.content,
-              externalMessageId: res.data.message_id,
+              externalMessageId: res.data.data.message_id,
             },
             userId: data.userId,
             messageType: data.messageType,
@@ -363,6 +360,87 @@ export class ChatService {
         conversationId: conversation.id,
         channelType: ChannelType.ZALO,
       });
+    }
+  }
+
+  async handleOASendTextMessage(data: ZaloWebhookDto) {
+    try {
+      const { message, recipient, sender, timestamp } = data;
+      const zaloChannel = await this.channelService.getByTypeAndAppId(
+        ChannelType.ZALO,
+        sender.id,
+      );
+
+      if (!zaloChannel) {
+        return { message: 'Channel not found or not active' };
+      }
+
+      let customer = await this.customerService.findByExternalId(
+        ChannelType.ZALO,
+        recipient.id,
+      );
+
+      if (!customer) {
+        const metadataCustomerZalo = await this.zaloService.getUserProfile(
+          zaloChannel.accessToken,
+          recipient.id,
+        );
+
+        customer = await this.customerService.findOrCreateByExternalId({
+          platform: ChannelType.ZALO,
+          externalId: recipient.id,
+          avatar: metadataCustomerZalo.data.data.avatar,
+          name: metadataCustomerZalo.data.data.display_name,
+          channelId: zaloChannel.id,
+        });
+      }
+
+      const {
+        conversation,
+        message: messageData,
+        isNewConversation,
+      } = await this.conversationsService.sendMessageToConversationWithOthers({
+        channel: zaloChannel,
+        customer: customer,
+        externalConversation: {
+          id: customer.externalId,
+          timestamp: new Date(),
+        },
+        message: {
+          content: message.text,
+          type: MessageType.TEXT,
+          message_id: message.msg_id,
+          createdAt: new Date(Number(timestamp)),
+        },
+      });
+
+      if (!conversation) {
+        return;
+      }
+
+      if (isNewConversation) {
+        conversation.members.forEach((member) => {
+          this.chatGateway.sendEventJoinConversation(
+            conversation.id,
+            member.userId,
+          );
+        });
+      }
+
+      const roomName = `conversation:${conversation.id}`;
+      this.chatGateway.server.to(roomName).emit('receiveMessage', {
+        ...messageData,
+        sender: {
+          avatar: zaloChannel.avatar,
+          name: zaloChannel.name,
+        },
+        conversationId: conversation.id,
+        channelType: ChannelType.ZALO,
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to send OA message from Zalo to platform: ${error.message}`,
+      );
     }
   }
 }

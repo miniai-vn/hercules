@@ -1,11 +1,11 @@
-import { 
-  IsString, 
-  IsNumber, 
-  IsObject, 
-  ValidateNested, 
-  IsArray, 
-  IsOptional, 
-  IsNotEmpty 
+import {
+  IsString,
+  IsNumber,
+  IsObject,
+  ValidateNested,
+  IsArray,
+  IsOptional,
+  IsNotEmpty,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -13,17 +13,25 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class ZaloSenderDto {
   @ApiProperty({
     description: 'Sender ID',
-    example: '5400804943472463766'
+    example: '5400804943472463766',
   })
   @IsString()
   @IsNotEmpty()
   id: string;
+
+  @ApiProperty({
+    description: 'admin id',
+    example: '1234567890',
+  })
+  @IsString()
+  @IsNotEmpty()
+  admin_id: string;
 }
 
 export class ZaloRecipientDto {
   @ApiProperty({
-    description: 'Recipient ID', 
-    example: '579745863508352884'
+    description: 'Recipient ID',
+    example: '579745863508352884',
   })
   @IsString()
   @IsNotEmpty()
@@ -33,7 +41,7 @@ export class ZaloRecipientDto {
 export class ZaloLinkPayloadDto {
   @ApiProperty({
     description: 'URL to thumbnail image',
-    example: 'url_to_thumbnail'
+    example: 'url_to_thumbnail',
   })
   @IsString()
   @IsNotEmpty()
@@ -41,7 +49,7 @@ export class ZaloLinkPayloadDto {
 
   @ApiProperty({
     description: 'Description of the link',
-    example: 'description_of_link'
+    example: 'description_of_link',
   })
   @IsString()
   @IsNotEmpty()
@@ -49,7 +57,7 @@ export class ZaloLinkPayloadDto {
 
   @ApiProperty({
     description: 'The actual link URL',
-    example: 'link'
+    example: 'link',
   })
   @IsString()
   @IsNotEmpty()
@@ -59,7 +67,7 @@ export class ZaloLinkPayloadDto {
 export class ZaloImagePayloadDto {
   @ApiPropertyOptional({
     description: 'Image URL',
-    example: 'https://example.com/image.jpg'
+    example: 'https://example.com/image.jpg',
   })
   @IsOptional()
   @IsString()
@@ -67,7 +75,7 @@ export class ZaloImagePayloadDto {
 
   @ApiPropertyOptional({
     description: 'Image thumbnail URL',
-    example: 'https://example.com/thumbnail.jpg'
+    example: 'https://example.com/thumbnail.jpg',
   })
   @IsOptional()
   @IsString()
@@ -77,7 +85,7 @@ export class ZaloImagePayloadDto {
 export class ZaloFilePayloadDto {
   @ApiPropertyOptional({
     description: 'File URL',
-    example: 'https://example.com/file.pdf'
+    example: 'https://example.com/file.pdf',
   })
   @IsOptional()
   @IsString()
@@ -85,7 +93,7 @@ export class ZaloFilePayloadDto {
 
   @ApiPropertyOptional({
     description: 'File name',
-    example: 'document.pdf'
+    example: 'document.pdf',
   })
   @IsOptional()
   @IsString()
@@ -93,7 +101,7 @@ export class ZaloFilePayloadDto {
 
   @ApiPropertyOptional({
     description: 'File size in bytes',
-    example: 1024
+    example: 1024,
   })
   @IsOptional()
   @IsNumber()
@@ -104,7 +112,7 @@ export class ZaloAttachmentDto {
   @ApiProperty({
     description: 'Type of attachment',
     example: 'link',
-    enum: ['link', 'image', 'file', 'video', 'audio']
+    enum: ['link', 'image', 'file', 'video', 'audio'],
   })
   @IsString()
   @IsNotEmpty()
@@ -115,8 +123,8 @@ export class ZaloAttachmentDto {
     oneOf: [
       { $ref: '#/components/schemas/ZaloLinkPayloadDto' },
       { $ref: '#/components/schemas/ZaloImagePayloadDto' },
-      { $ref: '#/components/schemas/ZaloFilePayloadDto' }
-    ]
+      { $ref: '#/components/schemas/ZaloFilePayloadDto' },
+    ],
   })
   @IsObject()
   @ValidateNested()
@@ -127,7 +135,7 @@ export class ZaloAttachmentDto {
 export class ZaloMessageDto {
   @ApiProperty({
     description: 'Message ID',
-    example: 'This is message id'
+    example: 'This is message id',
   })
   @IsString()
   @IsNotEmpty()
@@ -135,7 +143,7 @@ export class ZaloMessageDto {
 
   @ApiPropertyOptional({
     description: 'Message text content',
-    example: 'This is testing message'
+    example: 'This is testing message',
   })
   @IsOptional()
   @IsString()
@@ -143,7 +151,7 @@ export class ZaloMessageDto {
 
   @ApiPropertyOptional({
     description: 'Message attachments',
-    type: [ZaloAttachmentDto]
+    type: [ZaloAttachmentDto],
   })
   @IsOptional()
   @IsArray()
@@ -154,8 +162,8 @@ export class ZaloMessageDto {
 
 export class ZaloWebhookDto {
   @ApiProperty({
-    description: 'Zalo App ID', 
-    example: '431280473888958120'
+    description: 'Zalo App ID',
+    example: '431280473888958120',
   })
   @IsString()
   @IsNotEmpty()
@@ -163,7 +171,7 @@ export class ZaloWebhookDto {
 
   @ApiProperty({
     description: 'User ID by App',
-    example: '3106990734015032864'
+    example: '3106990734015032864',
   })
   @IsString()
   @IsNotEmpty()
@@ -174,13 +182,13 @@ export class ZaloWebhookDto {
     example: 'user_send_link',
     enum: [
       'user_send_text',
-      'user_send_image', 
+      'user_send_image',
       'user_send_link',
       'user_send_file',
       'user_send_audio',
       'user_send_video',
-      'user_send_sticker'
-    ]
+      'user_send_sticker',
+    ],
   })
   @IsString()
   @IsNotEmpty()
@@ -188,7 +196,7 @@ export class ZaloWebhookDto {
 
   @ApiProperty({
     description: 'Event timestamp',
-    example: '1749526513984'
+    example: '1749526513984',
   })
   @IsString()
   @IsNotEmpty()
@@ -196,7 +204,7 @@ export class ZaloWebhookDto {
 
   @ApiProperty({
     description: 'Message sender information',
-    type: ZaloSenderDto
+    type: ZaloSenderDto,
   })
   @IsObject()
   @ValidateNested()
@@ -205,7 +213,7 @@ export class ZaloWebhookDto {
 
   @ApiProperty({
     description: 'Message recipient information',
-    type: ZaloRecipientDto
+    type: ZaloRecipientDto,
   })
   @IsObject()
   @ValidateNested()
@@ -214,7 +222,7 @@ export class ZaloWebhookDto {
 
   @ApiProperty({
     description: 'Message content and attachments',
-    type: ZaloMessageDto
+    type: ZaloMessageDto,
   })
   @IsObject()
   @ValidateNested()
@@ -226,7 +234,7 @@ export class ZaloWebhookDto {
 export class ZaloTextMessageDto extends ZaloWebhookDto {
   @ApiProperty({
     description: 'Event name for text messages',
-    example: 'user_send_text'
+    example: 'user_send_text',
   })
   event_name: 'user_send_text';
 }
@@ -234,15 +242,15 @@ export class ZaloTextMessageDto extends ZaloWebhookDto {
 export class ZaloImageMessageDto extends ZaloWebhookDto {
   @ApiProperty({
     description: 'Event name for image messages',
-    example: 'user_send_image'
+    example: 'user_send_image',
   })
   event_name: 'user_send_image';
 }
 
 export class ZaloLinkMessageDto extends ZaloWebhookDto {
   @ApiProperty({
-    description: 'Event name for link messages', 
-    example: 'user_send_link'
+    description: 'Event name for link messages',
+    example: 'user_send_link',
   })
   event_name: 'user_send_link';
 }
@@ -251,14 +259,14 @@ export class ZaloLinkMessageDto extends ZaloWebhookDto {
 export class ZaloWebhookResponseDto {
   @ApiProperty({
     description: 'Response status',
-    example: 'success'
+    example: 'success',
   })
   @IsString()
   status: string;
 
   @ApiPropertyOptional({
     description: 'Response message',
-    example: 'Message processed successfully'
+    example: 'Message processed successfully',
   })
   @IsOptional()
   @IsString()
@@ -266,7 +274,7 @@ export class ZaloWebhookResponseDto {
 
   @ApiPropertyOptional({
     description: 'Additional data',
-    example: { conversationId: 123, messageId: 456 }
+    example: { conversationId: 123, messageId: 456 },
   })
   @IsOptional()
   @IsObject()

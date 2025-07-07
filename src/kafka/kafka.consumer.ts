@@ -2,6 +2,7 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Consumer, EachMessagePayload, Kafka } from 'kafkajs';
 import { ChatService } from 'src/chat/chat.service';
+import { ZALO_CONFIG } from 'src/integration/zalo/config/zalo.config';
 import { UploadsService } from 'src/uploads/uploads.service';
 
 @Injectable()
@@ -60,8 +61,12 @@ export class KafkaConsumerService implements OnModuleDestroy {
       process.env.KAFKA_ZALO_MESSAGE_TOPIC,
       async ({ message }) => {
         const data = JSON.parse(message.value.toString());
-
-        await this.chatService.sendMessagesZaloToPlatform(data);
+        if (data.event_name === ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT) {
+          await this.chatService.sendMessagesZaloToPlatform(data);
+        }
+        if (data.event_name === ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT) {
+          await this.chatService.handleOASendTextMessage(data);
+        }
       },
     );
 

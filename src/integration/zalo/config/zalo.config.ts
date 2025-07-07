@@ -24,5 +24,7 @@ export const ZALO_CONFIG = {
     USER_SEND_LOCATION: 'user_send_location',
     USER_SUBMIT_INFO: 'user_submit_info',
     USER_CLICK_CHABOT_MENU: 'user_click_chabot_menu',
+    // OA
+    OA_SEND_TEXT: 'oa_send_text',
   },
 } as const;

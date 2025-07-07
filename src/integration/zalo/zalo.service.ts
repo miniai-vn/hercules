@@ -318,8 +318,16 @@ export class ZaloService {
           } else {
             await this.conversationService.sendMessageToConversationWithOthers({
               channel: channel,
-              message,
+              message: {
+                content: message.message,
+                type: message.type,
+                message_id: message.message_id,
+              },
               customer: customer,
+              externalConversation: {
+                id: customer.externalId,
+                timestamp: new Date(),
+              },
             });
           }
         }
@@ -356,6 +364,7 @@ export class ZaloService {
       baseUrl: ZALO_CONFIG.BASE_URL,
     });
   }
+
   async getAllUsers(appId: string) {
     const channel = await this.channelService.getByTypeAndAppId(
       ChannelType.ZALO,
@@ -482,6 +491,11 @@ export class ZaloService {
     try {
       switch (payload.event_name) {
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
+          await this.handleTextMessage(payload);
+          break;
+
+        case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
+          // Handle OA send text message
           await this.handleTextMessage(payload);
           break;
 

@@ -62,6 +62,10 @@ export class CreateMessageDto {
   @IsString()
   @IsOptional()
   url?: string; // URL for the message, if applicable
+
+  @IsString()
+  @IsOptional()
+  createdAt?: string; // ISO date string for when the message was created
 }
 
 export class UpdateMessageDto {

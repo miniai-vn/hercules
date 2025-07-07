@@ -12,7 +12,8 @@ export class FacebookSyncProcessor extends WorkerHost {
   }
 
   async process(job: Job) {
-    const { pageId, conversationId } = job.data;
+    const { conversationId, pageId } = job.data;
+
     console.log(job.name);
     try {
       switch (job.name) {

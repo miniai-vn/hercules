@@ -76,7 +76,7 @@ export class ConversationsService {
       const conversationUpsert = await this.conversationRepository.upsert(
         {
           ...createConversationDto,
-          // BUG: fill createdAt and updatedAt with the current date if not provided
+          createdAt: createConversationDto.conversation.timestamp || new Date(),
           updatedAt: createConversationDto.conversation.timestamp || new Date(),
           channel: {
             id: createConversationDto.channelId,
@@ -84,6 +84,7 @@ export class ConversationsService {
         },
         {
           conflictPaths: ['externalId', 'channel.id'],
+          skipUpdateIfNoValuesChanged: false,
         },
       );
 
@@ -551,8 +552,9 @@ export class ConversationsService {
         name: customer.name,
         type: ConversationType.DIRECT,
         avatar: customer.avatar,
+        content: message,
         isBot: checkedChannelActiveAgent && checkConversationActive,
-        externalId: externalConversation?.id,
+        externalId: customer.externalId,
         channelId: channel.id,
         conversation: {
           id: externalConversation?.id || '',
@@ -570,6 +572,7 @@ export class ConversationsService {
         conversationId: conversation.id,
         senderType: SenderType.customer,
         senderId: customer.id,
+        createdAt: externalConversation?.timestamp.toISOString(),
       });
 
       return {
@@ -670,6 +673,7 @@ export class ConversationsService {
       conversationId: conversation.id,
       senderType: SenderType.user,
       senderId: userId,
+      createdAt: message.createdAt,
     });
     return {
       accessToken: channel.accessToken,
@@ -683,12 +687,15 @@ export class ConversationsService {
     channel,
     message,
     customer,
-    externalConversationId,
+    externalConversation,
   }: {
     channel: Channel;
     message: any;
     customer: Customer;
-    externalConversationId?: string;
+    externalConversation?: {
+      id: string;
+      timestamp: Date;
+    };
   }) {
     try {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
@@ -696,8 +703,13 @@ export class ConversationsService {
         name: customer.name || 'Unknown Customer',
         type: ConversationType.DIRECT,
         avatar: customer.avatar || '',
-        externalId: externalConversationId,
+        externalId: customer.externalId || '',
         channelId: channel.id,
+        conversation: {
+          id: externalConversation?.id || '',
+          timestamp: externalConversation?.timestamp || new Date(),
+        },
+
         customerParticipantIds: [customer.id],
         userParticipantIds: adminChannels.map((user) => user.id),
       });

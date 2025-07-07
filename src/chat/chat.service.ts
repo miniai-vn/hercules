@@ -239,6 +239,10 @@ export class ChatService {
           externalMessageId: message.mid,
           message: message.text,
           type: 'text',
+          externalConversation: {
+            id: sender.id,
+            timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
+          },
           customer,
         });
 

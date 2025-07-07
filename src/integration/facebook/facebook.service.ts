@@ -414,6 +414,8 @@ export class FacebookService {
       }
 
       for (const msg of messages.reverse()) {
+        console.log('msg: ', msg);
+
         const isFromUser = msg.from.id !== pageId;
 
         if (isFromUser) {
@@ -423,8 +425,10 @@ export class FacebookService {
             customer: customer,
             message: msg.message,
             externalConversation: {
-              id: conversationId,
-              timestamp: msg.created_time,
+              id: customer.externalId,
+              timestamp: msg.created_time
+                ? new Date(msg.created_time)
+                : undefined,
             },
             type: 'text',
           });
@@ -437,7 +441,10 @@ export class FacebookService {
               message_id: msg.id,
             },
             customer: customer,
-            externalConversationId: conversationId,
+            externalConversation: {
+              id: conversationId,
+              timestamp: msg.created_time,
+            },
           });
         }
       }

@@ -116,9 +116,11 @@ export class FacebookController {
         pageId: pageId,
       },
       {
-        jobId: `sync-conversations-${pageId}`,
+        jobId: `sync-conversations-${pageId}`, // deduplicate
+        attempts: 3,
         removeOnComplete: true,
         removeOnFail: true,
+        delay: 1000,
       },
     );
 

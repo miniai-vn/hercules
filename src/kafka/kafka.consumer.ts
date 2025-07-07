@@ -66,6 +66,16 @@ export class KafkaConsumerService implements OnModuleDestroy {
     );
 
     await this.createConsumer(
+      process.env.KAFKA_FACEBOOK_MESSAGE_CONSUMER,
+      process.env.KAFKA_FACEBOOK_MESSAGE_TOPIC,
+      async ({ message }) => {
+        const data = JSON.parse(message.value.toString());
+
+        await this.chatService.sendMessagesFacebookToPlatform(data);
+      },
+    );
+
+    await this.createConsumer(
       process.env.KAFKA_ETL_CONSUMER,
       process.env.KAFKA_ETL_TOPIC,
       async ({ message }) => {

@@ -11,6 +11,7 @@ import { CustomersModule } from 'src/customers/customers.module';
 import { MessagesModule } from 'src/messages/messages.module';
 import { BullModule } from '@nestjs/bullmq';
 import { FacebookSyncProcessor } from './processors/facebook-sync.process';
+import { KafkaModule } from 'src/kafka/kafka.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { FacebookSyncProcessor } from './processors/facebook-sync.process';
     MessagesModule,
     forwardRef(() => ChatModule),
     ScheduleModule.forRoot(),
+    KafkaModule,
     BullModule.registerQueue({
       name: process.env.REDIS_FACEBOOK_SYNC_TOPIC,
       defaultJobOptions: {

@@ -76,6 +76,7 @@ export class ConversationsService {
       const conversationUpsert = await this.conversationRepository.upsert(
         {
           ...createConversationDto,
+          createdAt: createConversationDto.conversation.timestamp || new Date(),
           updatedAt: createConversationDto.conversation.timestamp || new Date(),
           channel: {
             id: createConversationDto.channelId,
@@ -83,6 +84,7 @@ export class ConversationsService {
         },
         {
           conflictPaths: ['externalId', 'channel.id'],
+          skipUpdateIfNoValuesChanged: false,
         },
       );
 
@@ -287,10 +289,10 @@ export class ConversationsService {
         .leftJoinAndSelect('conversation.channel', 'channel')
         .leftJoinAndSelect('conversation.tags', 'tags')
         .leftJoinAndSelect('members.lastMessage', 'lastMessage')
+
         .where('channel.shop_id = :shopId', {
           shopId: queryParams.shopId,
-        })
-        .orderBy('conversation.updated_at', 'DESC');
+        });
 
       if (queryParams.channelType) {
         queryBuilder.andWhere('channel.type = :channelType', {
@@ -338,7 +340,11 @@ export class ConversationsService {
           'EXISTS (SELECT 1 FROM conversation_members cm JOIN customers c ON cm.customer_id = c.id WHERE cm.conversation_id = conversation.id AND c.phone IS NOT NULL)',
         );
       }
-      const conversations = await queryBuilder.getMany();
+      // queryBuilder.limit(queryParams.limit || 20);
+      // queryBuilder.offset(0);
+      const conversations = await queryBuilder
+        .orderBy('conversation.updated_at', 'DESC')
+        .getMany();
 
       const conversationWithUnreadCount = await Promise.all(
         conversations.map(async (conv) => {
@@ -517,14 +523,18 @@ export class ConversationsService {
     channel,
     customer,
     externalMessageId,
-    message = '',
+    message,
     type,
     externalConversation,
   }: {
     channel: Channel;
     customer: Customer;
     externalMessageId: string;
-    message: string;
+    message: {
+      id: string;
+      content: string;
+      createdAt?: Date;
+    };
     type?: string;
     externalConversation?: {
       id: string;
@@ -544,6 +554,7 @@ export class ConversationsService {
         name: customer.name,
         type: ConversationType.DIRECT,
         avatar: customer.avatar,
+        content: message.content,
         isBot: checkedChannelActiveAgent && checkConversationActive,
         externalId: customer.externalId,
         channelId: channel.id,
@@ -557,12 +568,13 @@ export class ConversationsService {
       });
 
       const messageData = await this.messagesService.upsert({
-        content: message,
+        content: message.content,
         contentType: type || MessageType.TEXT,
         externalId: externalMessageId,
         conversationId: conversation.id,
         senderType: SenderType.customer,
         senderId: customer.id,
+        createdAt: message?.createdAt.toISOString() ?? new Date().toISOString(),
       });
 
       return {
@@ -663,6 +675,7 @@ export class ConversationsService {
       conversationId: conversation.id,
       senderType: SenderType.user,
       senderId: userId,
+      createdAt: message.createdAt,
     });
     return {
       accessToken: channel.accessToken,
@@ -676,12 +689,23 @@ export class ConversationsService {
     channel,
     message,
     customer,
-    externalConversationId,
+    externalConversation,
   }: {
     channel: Channel;
-    message: any;
+    message: {
+      content: string;
+      type?: string;
+      links?: string[];
+      thumb?: string;
+      url?: string;
+      message_id?: string; // For external message ID
+      createdAt?: Date;
+    };
     customer: Customer;
-    externalConversationId?: string;
+    externalConversation?: {
+      id: string;
+      timestamp: Date;
+    };
   }) {
     try {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
@@ -689,14 +713,19 @@ export class ConversationsService {
         name: customer.name || 'Unknown Customer',
         type: ConversationType.DIRECT,
         avatar: customer.avatar || '',
-        externalId: customer.externalId,
+        externalId: customer.externalId || '',
         channelId: channel.id,
+        conversation: {
+          id: externalConversation?.id || '',
+          timestamp: externalConversation?.timestamp || new Date(),
+        },
+
         customerParticipantIds: [customer.id],
         userParticipantIds: adminChannels.map((user) => user.id),
       });
 
       const metadataMessage = await this.messagesService.upsert({
-        content: message.type === MessageType.TEXT ? message.message : '',
+        content: message.type === MessageType.TEXT ? message.content : '',
         contentType: message.type,
         senderType: SenderType.channel,
         senderId: channel.id.toString(),
@@ -705,6 +734,7 @@ export class ConversationsService {
         conversationId: conversation.id,
         url: message.url,
         externalId: message.message_id,
+        createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
       });
 
       return {

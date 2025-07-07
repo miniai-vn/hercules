@@ -1,5 +1,4 @@
-import { Conversation } from 'src/conversations/conversations.entity';
-import { FacebookHttpService } from './facebook-http.service';
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   forwardRef,
@@ -7,34 +6,37 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import axios, { AxiosResponse } from 'axios';
+import { Queue } from 'bullmq';
+import dayjs from 'dayjs';
 import * as dotenv from 'dotenv';
-import { v4 as uuidv4 } from 'uuid';
-import { FACEBOOK_CONFIG } from './config/facebook.config';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
-import { TPageInfo } from './types/page.type';
-import { FacebookTokenService } from './facebook-token.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { FacebookUserProfileQueryDTO } from './dto/facebook.dto';
-import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
-import { TUserProfile } from './types/user.type';
 import { ChatService } from 'src/chat/chat.service';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
-import { TFacebookConversation } from './types/conversation.type';
-import { ConversationsService } from 'src/conversations/conversations.service';
-import { CustomersService } from 'src/customers/customers.service';
-import { Platform } from 'src/customers/customers.dto';
-import { MessagesService } from 'src/messages/messages.service';
-import dayjs from 'dayjs';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { Customer } from 'src/customers/customers.entity';
 import { isAfter } from 'src/common/utils/utils';
+import { ConversationsService } from 'src/conversations/conversations.service';
+import { Platform } from 'src/customers/customers.dto';
+import { Customer } from 'src/customers/customers.entity';
+import { CustomersService } from 'src/customers/customers.service';
+import { v4 as uuidv4 } from 'uuid';
+import { FACEBOOK_CONFIG } from './config/facebook.config';
+import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
+import { FacebookUserProfileQueryDTO } from './dto/facebook.dto';
+import { FacebookHttpService } from './facebook-http.service';
+import { FacebookTokenService } from './facebook-token.service';
+import { TPageInfo } from './types/page.type';
+
+import { TUserProfile } from './types/user.type';
+import { Producer } from 'kafkajs';
+import { KafkaProducerService } from 'src/kafka/kafka.producer';
 dotenv.config();
 Injectable();
 export class FacebookService {
   private readonly hubMode = 'subscribe';
+  private readonly topic = process.env.KAFKA_ZALO_MESSAGE_TOPIC;
+  private producer: Producer;
   constructor(
     private readonly channelService: ChannelsService,
     @Inject(forwardRef(() => ChatService))
@@ -43,10 +45,12 @@ export class FacebookService {
     private readonly facebookTokenService: FacebookTokenService,
     private readonly conversationService: ConversationsService,
     private readonly customerService: CustomersService,
-    private readonly messagesService: MessagesService,
+    private readonly kafkaProducerService: KafkaProducerService,
     @InjectQueue(process.env.REDIS_FACEBOOK_SYNC_TOPIC)
     private readonly facebookSyncQueue: Queue,
-  ) {}
+  ) {
+    this.producer = this.kafkaProducerService.getProducer();
+  }
 
   async connectToFacebook(): Promise<string> {
     const csrf = uuidv4();
@@ -217,8 +221,21 @@ export class FacebookService {
     for (const entry of body.entry ?? []) {
       for (const event of entry.messaging) {
         if (event.message?.text) {
+          this.producer.send({
+            topic: this.topic,
+            messages: [
+              {
+                key: event.sender.id,
+                value: JSON.stringify(event),
+              },
+            ],
+          });
           await this.chatService.sendMessagesFacebookToPlatform(event);
         }
+
+        // if (event.read) {
+        //   await this.chatService.handleMessageReadFacebook(event);
+        // }
       }
     }
   }
@@ -275,26 +292,6 @@ export class FacebookService {
       return response.data;
     } catch (error) {
       throw new Error(`${error.message || error}`);
-    }
-  }
-
-  fetchConversationWithinCustomer() {
-    // cónt befỏe3month
-    while (true) {
-      //callapi lay id cua conv -> theo limit 100 va after
-      // loop convs kiem tra update_timed create time < thoi gian 3 thang
-      //if true -> gui queue face-sync sync-facebook-conversations
-      // false break;
-    }
-  }
-
-  fetchMessageWithFbConvId(convId, channelId) {
-    // cónt befỏe3month
-    while (true) {
-      //callapi lay id cua conv -> theo limit 100 va after
-      // loop convs kiem tra update_timed create time < thoi gian 3 thang
-      //if true -> gui queue face-sync sync-facebook-conversations
-      // false break;
     }
   }
 
@@ -414,7 +411,7 @@ export class FacebookService {
         100,
       );
 
-      // if (!messages || messages.length === 0) break;
+      // nguoi gửi
       const userMessages = messages.filter((msg) => msg.from.id !== pageId);
 
       let customer: Customer | null = null;
@@ -433,21 +430,46 @@ export class FacebookService {
         );
       }
 
-      for (const msg of userMessages.reverse()) {
-        await this.conversationService.sendMessageToConversation({
-          externalMessageId: msg.id,
-          channel: facebookChannel,
-          customer: customer,
-          message: msg.message,
-          externalConversation: {
-            id: conversationId,
-            timestamp: msg.created_time,
-          },
-          type: 'text',
-        });
+      for (const msg of messages) {
+        const isFromUser = msg.from.id !== pageId;
+
+        if (isFromUser) {
+          await this.conversationService.sendMessageToConversation({
+            externalMessageId: msg.id,
+            channel: facebookChannel,
+            customer: customer,
+            message: {
+              id: msg.id,
+              content: msg.message || '',
+              createdAt: new Date(msg.created_time),
+            },
+            externalConversation: {
+              id: customer.externalId,
+              timestamp: new Date(msg.created_time),
+            },
+            type: 'text',
+          });
+        } else {
+          await this.conversationService.sendMessageToConversationWithOthers({
+            channel: facebookChannel,
+            message: {
+              type: 'text',
+              content: msg.message,
+              message_id: msg.id,
+              createdAt: new Date(msg.created_time),
+            },
+            customer: customer,
+            externalConversation: {
+              id: conversationId,
+              timestamp: new Date(msg.created_time),
+            },
+          });
+        }
       }
     } catch (error) {
       throw new Error(`Failed to sync conversations: ${error.message}`);
+    } finally {
+      console.log(`Sync conversation ${conversationId} completed.`);
     }
   }
 
@@ -481,12 +503,8 @@ export class FacebookService {
 
       for (let i = 0; i < conversations.length; i++) {
         const conversation = conversations[i];
-        const isWithinCustomTime = isAfter(
-          new Date(conversation.updated_time).getTime(),
-          within,
-          type,
-          true,
-        );
+        const ms = new Date(conversation.updated_time).getTime();
+        const isWithinCustomTime = isAfter(ms, within, type, true);
 
         if (!isWithinCustomTime) {
           shouldBreak = true;
@@ -500,9 +518,10 @@ export class FacebookService {
             conversationId: conversation.id,
           },
           opts: {
-            jobId: `${conversation.id}-${pageId}`,
+            jobId: `sync-facebook-conversations-${conversation.id}`,
             removeOnComplete: true,
             removeOnFail: true,
+            delay: i * 1000,
           },
         });
       }

@@ -3,7 +3,9 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 
-@Processor(process.env.REDIS_FACEBOOK_SYNC_TOPIC)
+@Processor(process.env.REDIS_FACEBOOK_SYNC_TOPIC, {
+  concurrency: 20,
+})
 export class FacebookSyncProcessor extends WorkerHost {
   private readonly logger = new Logger(FacebookSyncProcessor.name);
 
@@ -12,7 +14,8 @@ export class FacebookSyncProcessor extends WorkerHost {
   }
 
   async process(job: Job) {
-    const { pageId, conversationId } = job.data;
+    const { conversationId, pageId } = job.data;
+
     console.log(job.name);
     try {
       switch (job.name) {

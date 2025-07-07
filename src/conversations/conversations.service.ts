@@ -292,9 +292,7 @@ export class ConversationsService {
 
         .where('channel.shop_id = :shopId', {
           shopId: queryParams.shopId,
-        })
-        // .limit(20)
-        .orderBy('lastMessage.createdAt', 'DESC');
+        });
 
       if (queryParams.channelType) {
         queryBuilder.andWhere('channel.type = :channelType', {
@@ -345,7 +343,7 @@ export class ConversationsService {
       // queryBuilder.limit(queryParams.limit || 20);
       // queryBuilder.offset(0);
       const conversations = await queryBuilder
-        .orderBy('conversation.createdAt', 'DESC')
+        .orderBy('conversation.updated_at', 'DESC')
         .getMany();
 
       const conversationWithUnreadCount = await Promise.all(
@@ -525,14 +523,18 @@ export class ConversationsService {
     channel,
     customer,
     externalMessageId,
-    message = '',
+    message,
     type,
     externalConversation,
   }: {
     channel: Channel;
     customer: Customer;
     externalMessageId: string;
-    message: string;
+    message: {
+      id: string;
+      content: string;
+      createdAt?: Date;
+    };
     type?: string;
     externalConversation?: {
       id: string;
@@ -552,7 +554,7 @@ export class ConversationsService {
         name: customer.name,
         type: ConversationType.DIRECT,
         avatar: customer.avatar,
-        content: message,
+        content: message.content,
         isBot: checkedChannelActiveAgent && checkConversationActive,
         externalId: customer.externalId,
         channelId: channel.id,
@@ -566,13 +568,13 @@ export class ConversationsService {
       });
 
       const messageData = await this.messagesService.upsert({
-        content: message,
+        content: message.content,
         contentType: type || MessageType.TEXT,
         externalId: externalMessageId,
         conversationId: conversation.id,
         senderType: SenderType.customer,
         senderId: customer.id,
-        createdAt: externalConversation?.timestamp.toISOString(),
+        createdAt: message?.createdAt.toISOString() ?? new Date().toISOString(),
       });
 
       return {
@@ -690,7 +692,15 @@ export class ConversationsService {
     externalConversation,
   }: {
     channel: Channel;
-    message: any;
+    message: {
+      content: string;
+      type?: string;
+      links?: string[];
+      thumb?: string;
+      url?: string;
+      message_id?: string; // For external message ID
+      createdAt?: Date;
+    };
     customer: Customer;
     externalConversation?: {
       id: string;
@@ -715,7 +725,7 @@ export class ConversationsService {
       });
 
       const metadataMessage = await this.messagesService.upsert({
-        content: message.type === MessageType.TEXT ? message.message : '',
+        content: message.type === MessageType.TEXT ? message.content : '',
         contentType: message.type,
         senderType: SenderType.channel,
         senderId: channel.id.toString(),
@@ -724,6 +734,7 @@ export class ConversationsService {
         conversationId: conversation.id,
         url: message.url,
         externalId: message.message_id,
+        createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
       });
 
       return {

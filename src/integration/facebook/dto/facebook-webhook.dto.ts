@@ -32,6 +32,10 @@ export class FacebookEventDTO {
     watermark: number;
     seq: number;
   };
+
+  @IsString()
+  @IsOptional()
+  time: string;
 }
 
 export class FacebookMessageEntryDTO {

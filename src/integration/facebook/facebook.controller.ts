@@ -110,9 +110,19 @@ export class FacebookController {
       throw new Error('Page ID is required');
     }
 
-    const job = await this.facebookSyncQueue.add('first-time-sync', {
-      pageId: pageId,
-    });
+    const job = await this.facebookSyncQueue.add(
+      'first-time-sync',
+      {
+        pageId: pageId,
+      },
+      {
+        jobId: `sync-conversations-${pageId}`, // deduplicate
+        attempts: 3,
+        removeOnComplete: true,
+        removeOnFail: true,
+        delay: 1000,
+      },
+    );
 
     const schedulerId = `sync-conversations-${pageId}`;
 

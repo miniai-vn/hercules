@@ -16,6 +16,7 @@ import { AgentServiceService } from 'src/integration/agent-service/agent-service
 import { AgentsService } from 'src/agents/agents.service';
 import { MessageType } from 'src/common/enums/message.enum';
 import { MessagesService } from 'src/messages/messages.service';
+import { time } from 'console';
 
 export interface SendMessageData {
   conversationId: number;
@@ -93,7 +94,11 @@ export class ChatService {
       const { conversation, messageData, isNewConversation } =
         await this.conversationsService.sendMessageToConversation({
           externalMessageId: message.msg_id,
-          message: message.text,
+          message: {
+            content: message.text,
+            id: message.msg_id,
+            createdAt: new Date(),
+          },
           channel: zaloChannel,
           customer,
         });
@@ -201,7 +206,7 @@ export class ChatService {
 
   async sendMessagesFacebookToPlatform(data: FacebookEventDTO) {
     try {
-      const { message, recipient, sender } = data;
+      const { message, recipient, sender, timestamp } = data;
       const channel = await this.channelService.getByTypeAndAppId(
         ChannelType.FACEBOOK,
         recipient.id,
@@ -237,7 +242,11 @@ export class ChatService {
         await this.conversationsService.sendMessageToConversation({
           channel: channel,
           externalMessageId: message.mid,
-          message: message.text,
+          message: {
+            content: message.text,
+            id: message.mid,
+            createdAt: new Date(timestamp),
+          },
           type: 'text',
           externalConversation: {
             id: sender.id,

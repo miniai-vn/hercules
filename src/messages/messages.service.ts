@@ -35,44 +35,23 @@ export class MessagesService {
   }
 
   async upsert(createMessageDto: CreateMessageDto) {
-    const existed = await this.messageRepository.findOne({
-      where: { externalId: createMessageDto.externalId },
-    });
-
-    if (existed) {
-      return existed;
-    }
-
-    await this.messageRepository.insert({
-      ...createMessageDto,
-      conversation: { id: createMessageDto.conversationId },
-      senderType: createMessageDto.senderType as any,
-      createdAt: createMessageDto.createdAt || new Date(),
-    });
+    const upsertedMessage = await this.messageRepository.upsert(
+      {
+        ...createMessageDto,
+        conversation: {
+          id: createMessageDto.conversationId,
+        },
+        senderType: createMessageDto.senderType as any,
+      },
+      {
+        conflictPaths: ['externalId'],
+      },
+    );
 
     return await this.messageRepository.findOne({
-      where: { externalId: createMessageDto.externalId },
+      where: { id: upsertedMessage.identifiers[0].id },
     });
   }
-
-  // async upsert(createMessageDto: CreateMessageDto) {
-  //   const upsertedMessage = await this.messageRepository.upsert(
-  //     {
-  //       ...createMessageDto,
-  //       conversation: {
-  //         id: createMessageDto.conversationId,
-  //       },
-  //       senderType: createMessageDto.senderType as any,
-  //     },
-  //     {
-  //       conflictPaths: ['externalId'],
-  //     },
-  //   );
-
-  //   // return await this.messageRepository.findOne({
-  //   //   where: { id: upsertedMessage.identifiers[0].id },
-  //   // });
-  // }
 
   async bulkCreate(
     bulkCreateDto: BulkCreateMessagesDto,

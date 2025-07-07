@@ -1,5 +1,4 @@
-import { Conversation } from 'src/conversations/conversations.entity';
-import { FacebookHttpService } from './facebook-http.service';
+import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   forwardRef,
@@ -7,32 +6,37 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import axios, { AxiosResponse } from 'axios';
+import { Queue } from 'bullmq';
+import dayjs from 'dayjs';
 import * as dotenv from 'dotenv';
-import { v4 as uuidv4 } from 'uuid';
-import { FACEBOOK_CONFIG } from './config/facebook.config';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
-import { TPageInfo } from './types/page.type';
-import { FacebookTokenService } from './facebook-token.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { FacebookUserProfileQueryDTO } from './dto/facebook.dto';
-import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
-import { TUserProfile } from './types/user.type';
 import { ChatService } from 'src/chat/chat.service';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
-import { ConversationsService } from 'src/conversations/conversations.service';
-import { CustomersService } from 'src/customers/customers.service';
-import { Platform } from 'src/customers/customers.dto';
-import dayjs from 'dayjs';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { Customer } from 'src/customers/customers.entity';
 import { isAfter } from 'src/common/utils/utils';
+import { ConversationsService } from 'src/conversations/conversations.service';
+import { Platform } from 'src/customers/customers.dto';
+import { Customer } from 'src/customers/customers.entity';
+import { CustomersService } from 'src/customers/customers.service';
+import { v4 as uuidv4 } from 'uuid';
+import { FACEBOOK_CONFIG } from './config/facebook.config';
+import { FacebookWebhookDTO } from './dto/facebook-webhook.dto';
+import { FacebookUserProfileQueryDTO } from './dto/facebook.dto';
+import { FacebookHttpService } from './facebook-http.service';
+import { FacebookTokenService } from './facebook-token.service';
+import { TPageInfo } from './types/page.type';
+
+import { TUserProfile } from './types/user.type';
+import { Producer } from 'kafkajs';
+import { KafkaProducerService } from 'src/kafka/kafka.producer';
 dotenv.config();
 Injectable();
 export class FacebookService {
   private readonly hubMode = 'subscribe';
+  private readonly topic = process.env.KAFKA_ZALO_MESSAGE_TOPIC;
+  private producer: Producer;
   constructor(
     private readonly channelService: ChannelsService,
     @Inject(forwardRef(() => ChatService))
@@ -41,9 +45,12 @@ export class FacebookService {
     private readonly facebookTokenService: FacebookTokenService,
     private readonly conversationService: ConversationsService,
     private readonly customerService: CustomersService,
+    private readonly kafkaProducerService: KafkaProducerService,
     @InjectQueue(process.env.REDIS_FACEBOOK_SYNC_TOPIC)
     private readonly facebookSyncQueue: Queue,
-  ) {}
+  ) {
+    this.producer = this.kafkaProducerService.getProducer();
+  }
 
   async connectToFacebook(): Promise<string> {
     const csrf = uuidv4();
@@ -214,6 +221,15 @@ export class FacebookService {
     for (const entry of body.entry ?? []) {
       for (const event of entry.messaging) {
         if (event.message?.text) {
+          this.producer.send({
+            topic: this.topic,
+            messages: [
+              {
+                key: event.sender.id,
+                value: JSON.stringify(event),
+              },
+            ],
+          });
           await this.chatService.sendMessagesFacebookToPlatform(event);
         }
 
@@ -395,6 +411,7 @@ export class FacebookService {
         100,
       );
 
+      // nguoi gửi
       const userMessages = messages.filter((msg) => msg.from.id !== pageId);
 
       let customer: Customer | null = null;
@@ -413,9 +430,7 @@ export class FacebookService {
         );
       }
 
-      for (const msg of messages.reverse()) {
-        console.log('msg: ', msg);
-
+      for (const msg of messages) {
         const isFromUser = msg.from.id !== pageId;
 
         if (isFromUser) {
@@ -423,12 +438,14 @@ export class FacebookService {
             externalMessageId: msg.id,
             channel: facebookChannel,
             customer: customer,
-            message: msg.message,
+            message: {
+              id: msg.id,
+              content: msg.message || '',
+              createdAt: new Date(msg.created_time),
+            },
             externalConversation: {
               id: customer.externalId,
-              timestamp: msg.created_time
-                ? new Date(msg.created_time)
-                : undefined,
+              timestamp: new Date(msg.created_time),
             },
             type: 'text',
           });
@@ -437,19 +454,22 @@ export class FacebookService {
             channel: facebookChannel,
             message: {
               type: 'text',
-              message: msg.message,
+              content: msg.message,
               message_id: msg.id,
+              createdAt: new Date(msg.created_time),
             },
             customer: customer,
             externalConversation: {
               id: conversationId,
-              timestamp: msg.created_time,
+              timestamp: new Date(msg.created_time),
             },
           });
         }
       }
     } catch (error) {
       throw new Error(`Failed to sync conversations: ${error.message}`);
+    } finally {
+      console.log(`Sync conversation ${conversationId} completed.`);
     }
   }
 
@@ -496,6 +516,12 @@ export class FacebookService {
           data: {
             pageId: pageId,
             conversationId: conversation.id,
+          },
+          opts: {
+            jobId: `sync-facebook-conversations-${conversation.id}`,
+            removeOnComplete: true,
+            removeOnFail: true,
+            delay: i * 1000,
           },
         });
       }

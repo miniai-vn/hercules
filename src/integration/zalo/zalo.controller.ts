@@ -13,7 +13,6 @@ import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Queue } from 'bullmq';
 import { Response } from 'express';
 import { join } from 'path';
-import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
 import { ZaloService } from './zalo.service';
 
 @ApiTags('Integration')
@@ -59,7 +58,7 @@ export class ZaloController {
   async receiveZaloWebhook(
     @Query() query: any,
     @Res() res: Response,
-    @Body() body: ZaloWebhookDto,
+    @Body() body,
   ) {
     try {
       res.status(HttpStatus.OK).json({});

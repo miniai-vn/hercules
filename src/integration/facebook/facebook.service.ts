@@ -221,7 +221,7 @@ export class FacebookService {
 
     for (const entry of body.entry ?? []) {
       for (const event of entry.messaging) {
-        if (event.message?.text || event.message.attachments?.length) {
+        if (event.message?.text) {
           this.producer.send({
             topic: this.topic,
             messages: [
@@ -234,11 +234,47 @@ export class FacebookService {
           await this.chatService.sendMessagesFacebookToPlatform(event);
         }
 
+        if (event.message?.attachments?.length) {
+          for (const attachment of event.message.attachments) {
+            switch (attachment.type) {
+              case MessageType.IMAGE:
+              case MessageType.VIDEO:
+              case MessageType.AUDIO:
+              case MessageType.FILE:
+              case MessageType.STICKER:
+              case MessageType.LOCATION:
+                await this.handleFacebookAttachment(event, attachment);
+                break;
+              default:
+                throw new BadRequestException(
+                  `Unsupported attachment type: ${attachment.type}`,
+                );
+            }
+          }
+          continue;
+        }
+
         // if (event.read) {
         //   await this.chatService.handleMessageReadFacebook(event);
         // }
       }
     }
+  }
+
+  private async handleFacebookAttachment(event, attachment) {
+    this.producer.send({
+      topic: this.topic,
+      messages: [
+        {
+          key: event.sender.id,
+          value: JSON.stringify({ ...event, attachment }),
+        },
+      ],
+    });
+    await this.chatService.sendMessagesFacebookToPlatform({
+      ...event,
+      message: { ...event.message, attachments: [attachment] },
+    });
   }
 
   async sendMessageFacebook(

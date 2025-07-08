@@ -21,6 +21,7 @@ export interface SendMessageData {
   userId: string;
   messageType?: string;
   shopId: string;
+  isEcho: boolean;
 }
 
 export interface TypingData {
@@ -235,7 +236,7 @@ export class ChatService {
         });
       }
 
-      const MessageContent = this.parseMessageContent(message);
+      const messageContent = this.parseMessageContent(message);
 
       const { conversation, messageData, isNewConversation } =
         await this.conversationsService.sendMessageToConversation({
@@ -245,11 +246,11 @@ export class ChatService {
             content: message.text,
             id: message.mid,
             createdAt: new Date(timestamp),
-            url: MessageContent.url || null,
-            thumb: MessageContent.thumb || null,
-            links: MessageContent.links || null,
+            url: messageContent.url,
+            thumb: messageContent.thumb,
+            links: messageContent.links,
           },
-          type: MessageContent.type,
+          type: messageContent.type,
           externalConversation: {
             id: sender.id,
             timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
@@ -281,13 +282,17 @@ export class ChatService {
     }
   }
 
-  private parseMessageContent(message: any): {
-    content?: string | null;
-    type: string;
-    url?: string | null;
-    thumb?: string | null;
-    links?: string[] | null;
-  } {
+  private parseMessageContent(message: {
+    text?: string;
+    attachments?: {
+      type: string;
+      url?: string;
+      payload?: {
+        url?: string;
+        thumb?: string;
+      };
+    }[];
+  }) {
     if (message.text) {
       return {
         content: message.text,
@@ -295,8 +300,11 @@ export class ChatService {
       };
     }
     if (message.attachments && message.attachments.length > 0) {
+      const urls = message.attachments.map(
+        (att) => att.payload?.url || att.url,
+      );
       const attachment = message.attachments[0];
-      const attachmentUrl = attachment.payload?.url || attachment.url;
+      const firstAttachment = message.attachments[0];
 
       const attachmentTypeMap = {
         image: MessageType.IMAGE,
@@ -315,20 +323,21 @@ export class ChatService {
         return {
           content: null,
           type: messageType,
-          url: attachmentUrl,
-          thumb: attachment.payload?.thumb || attachmentUrl,
+          url: urls[0],
+          thumb: firstAttachment.payload?.thumb || urls[0],
+          links: urls.length > 1 ? urls : undefined,
         };
       }
 
       if (
-        attachment.type === 'file' ||
-        attachment.type === 'video' ||
-        attachment.type === 'audio'
+        attachment.type === MessageType.FILE ||
+        attachment.type === MessageType.VIDEO ||
+        attachment.type === MessageType.AUDIO
       ) {
         return {
           content: null,
           type: messageType,
-          links: [attachmentUrl],
+          links: urls,
         };
       }
 

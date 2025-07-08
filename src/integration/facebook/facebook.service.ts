@@ -36,7 +36,7 @@ dotenv.config();
 Injectable();
 export class FacebookService {
   private readonly hubMode = 'subscribe';
-  private readonly topic = process.env.KAFKA_ZALO_MESSAGE_TOPIC;
+  private readonly topic = process.env.KAFKA_FACEBOOK_MESSAGE_TOPIC;
   private producer: Producer;
   constructor(
     private readonly channelService: ChannelsService,
@@ -235,22 +235,7 @@ export class FacebookService {
         }
 
         if (event.message?.attachments?.length) {
-          for (const attachment of event.message.attachments) {
-            switch (attachment.type) {
-              case MessageType.IMAGE:
-              case MessageType.VIDEO:
-              case MessageType.AUDIO:
-              case MessageType.FILE:
-              case MessageType.STICKER:
-              case MessageType.LOCATION:
-                await this.handleFacebookAttachment(event, attachment);
-                break;
-              default:
-                throw new BadRequestException(
-                  `Unsupported attachment type: ${attachment.type}`,
-                );
-            }
-          }
+          await this.handleFacebookAttachment(event, event.message.attachments);
           continue;
         }
 
@@ -261,19 +246,19 @@ export class FacebookService {
     }
   }
 
-  private async handleFacebookAttachment(event, attachment) {
+  private async handleFacebookAttachment(event, attachments) {
     this.producer.send({
       topic: this.topic,
       messages: [
         {
           key: event.sender.id,
-          value: JSON.stringify({ ...event, attachment }),
+          value: JSON.stringify({ ...event, attachments }),
         },
       ],
     });
     await this.chatService.sendMessagesFacebookToPlatform({
       ...event,
-      message: { ...event.message, attachments: [attachment] },
+      message: { ...event.message, attachments },
     });
   }
 

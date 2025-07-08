@@ -198,7 +198,9 @@ export class ChatService {
         });
       }
     } catch (error) {
-      throw new Error(`Failed to send message other platform`);
+      throw new InternalServerErrorException(
+        `Failed to send message to other platform: ${error.message}`,
+      );
     }
   }
 
@@ -300,52 +302,61 @@ export class ChatService {
       };
     }
     if (message.attachments && message.attachments.length > 0) {
-      const urls = message.attachments.map(
-        (att) => att.payload?.url || att.url,
-      );
-      const attachment = message.attachments[0];
       const firstAttachment = message.attachments[0];
+      const type = firstAttachment.type;
 
-      const attachmentTypeMap = {
-        image: MessageType.IMAGE,
-        video: MessageType.VIDEO,
-        audio: MessageType.AUDIO,
-        file: MessageType.FILE,
-        sticker: MessageType.STICKER,
-      };
+      const urls = message.attachments
+        .filter((att) => att.type === type)
+        .map((att) => att.payload?.url || att.url)
+        .filter(Boolean);
 
-      const messageType = attachmentTypeMap[attachment.type] || 'attachment';
-
-      if (
-        attachment.type === MessageType.IMAGE ||
-        attachment.type === MessageType.STICKER
-      ) {
+      if (type === MessageType.IMAGE || type === MessageType.STICKER) {
+        if (urls.length === 1) {
+          return {
+            content: null,
+            type,
+            url: urls[0],
+            thumb: firstAttachment.payload?.thumb || urls[0],
+          };
+        }
         return {
           content: null,
-          type: messageType,
-          url: urls[0],
-          thumb: firstAttachment.payload?.thumb || urls[0],
-          links: urls.length > 1 ? urls : undefined,
-        };
-      }
-
-      if (
-        attachment.type === MessageType.FILE ||
-        attachment.type === MessageType.VIDEO ||
-        attachment.type === MessageType.AUDIO
-      ) {
-        return {
-          content: null,
-          type: messageType,
+          type,
           links: urls,
         };
       }
 
+      if (
+        type === MessageType.FILE ||
+        type === MessageType.VIDEO ||
+        type === MessageType.AUDIO
+      ) {
+        if (urls.length === 1) {
+          return {
+            content: null,
+            type,
+            url: urls[0],
+          };
+        }
+        return {
+          content: null,
+          type,
+          links: urls,
+        };
+      }
+
+      // Các loại khác
       return {
-        content: attachment.payload.url || '',
-        type: messageType,
+        content: urls[0] || '',
+        type,
+        links: urls.length > 1 ? urls : undefined,
       };
     }
+    // Nếu không có text và không có attachments
+    return {
+      content: '',
+      type: 'unknown',
+    };
   }
 
   // async handleMessageReadFacebook(data: FacebookEventDTO): Promise<void> {

@@ -38,20 +38,29 @@ export class AgentsService {
         temperature: 0.7,
         max_tokens: 1000,
         top_p: 1,
+        top_k: 40,
       },
       [ModelProvider.DEEPSEEK]: {
         temperature: 0.7,
         max_tokens: 1000,
         top_p: 0.95,
+        top_k: 40,
+        frequency_penalty: 0,
+        presence_penalty: 0,
       },
       [ModelProvider.GOOGLE]: {
         temperature: 0.7,
         maxOutputTokens: 1000,
         topP: 1,
+        topK: 40,
       },
       [ModelProvider.LOCAL]: {
         temperature: 0.7,
         max_tokens: 1000,
+        top_p: 0.9,
+        top_k: 40,
+        frequency_penalty: 0,
+        presence_penalty: 0,
       },
     };
 
@@ -59,70 +68,123 @@ export class AgentsService {
   }
 
   /**
-   * Validate model name for specific provider
+   * Merge user-provided config with defaults
    */
-  private validateModelName(
+  private mergeModelConfig(
     provider: ModelProvider,
     modelName: string,
-  ): boolean {
-    const validModels = {
-      [ModelProvider.OPENAI]: [
-        'gpt-4',
-        'gpt-4-turbo',
-        'gpt-3.5-turbo',
-        'gpt-4o',
-        'gpt-4o-mini',
-      ],
-      [ModelProvider.ANTHROPIC]: [
-        'claude-3-opus',
-        'claude-3-sonnet',
-        'claude-3-haiku',
-        'claude-3-5-sonnet',
-      ],
-      [ModelProvider.DEEPSEEK]: [
-        'deepseek-chat',
-        'deepseek-coder',
-        'deepseek-v3',
-        'deepseek-v2',
-      ],
-      [ModelProvider.GOOGLE]: [
-        'gemini-pro',
-        'gemini-pro-vision',
-        'gemini-1.5-pro',
-        'gemini-1.5-flash',
-      ],
-      [ModelProvider.LOCAL]: [], // Allow any model name for local
-    };
+    userConfig?: any,
+  ): any {
+    const defaultConfig = this.getDefaultModelConfig(provider, modelName);
 
-    if (provider === ModelProvider.LOCAL) return true;
-    return validModels[provider]?.includes(modelName) || false;
+    if (!userConfig) {
+      return defaultConfig;
+    }
+
+    // Merge user config with defaults, user config takes precedence
+    return {
+      ...defaultConfig,
+      ...userConfig,
+    };
+  }
+
+  /**
+   * Validate and normalize model config for specific provider
+   */
+  private validateAndNormalizeModelConfig(
+    provider: ModelProvider,
+    config: any,
+  ): any {
+    const normalized = { ...config };
+
+    // Validate ranges
+    if (normalized.temperature !== undefined) {
+      if (normalized.temperature < 0 || normalized.temperature > 2) {
+        throw new BadRequestException('Temperature must be between 0 and 2');
+      }
+    }
+
+    if (normalized.top_p !== undefined || normalized.topP !== undefined) {
+      const topP = normalized.top_p || normalized.topP;
+      if (topP < 0 || topP > 1) {
+        throw new BadRequestException('top_p must be between 0 and 1');
+      }
+    }
+
+    if (
+      normalized.max_tokens !== undefined ||
+      normalized.maxOutputTokens !== undefined
+    ) {
+      const maxTokens = normalized.max_tokens || normalized.maxOutputTokens;
+      if (maxTokens < 1 || maxTokens > 4096) {
+        throw new BadRequestException('max_tokens must be between 1 and 4096');
+      }
+    }
+
+    // Provider-specific normalization
+    switch (provider) {
+      case ModelProvider.GOOGLE:
+        // Convert snake_case to camelCase for Google
+        if (normalized.max_tokens) {
+          normalized.maxOutputTokens = normalized.max_tokens;
+          delete normalized.max_tokens;
+        }
+        if (normalized.top_p) {
+          normalized.topP = normalized.top_p;
+          delete normalized.top_p;
+        }
+        if (normalized.top_k) {
+          normalized.topK = normalized.top_k;
+          delete normalized.top_k;
+        }
+        // Remove unsupported parameters
+        delete normalized.frequency_penalty;
+        delete normalized.presence_penalty;
+        break;
+
+      case ModelProvider.ANTHROPIC:
+        // Remove unsupported parameters
+        delete normalized.frequency_penalty;
+        delete normalized.presence_penalty;
+        delete normalized.topK;
+        delete normalized.maxOutputTokens;
+        delete normalized.topP;
+        break;
+
+      case ModelProvider.OPENAI:
+        // Remove unsupported parameters
+        delete normalized.top_k;
+        delete normalized.topK;
+        delete normalized.maxOutputTokens;
+        delete normalized.topP;
+        break;
+
+      default:
+        break;
+    }
+
+    return normalized;
   }
 
   async create(createAgentDto: CreateAgentDto): Promise<Agent> {
-    // Validate model name
-    if (
-      !this.validateModelName(
-        createAgentDto.modelProvider.toLocaleLowerCase() as ModelProvider,
-        createAgentDto.modelName.toLocaleLowerCase(),
-      )
-    ) {
-      throw new BadRequestException(
-        `Invalid model name '${createAgentDto.modelName}' for provider '${createAgentDto.modelProvider}'`,
-      );
-    }
+    // Merge user config with defaults and validate
+    const mergedConfig = this.mergeModelConfig(
+      createAgentDto.modelProvider.toLowerCase() as ModelProvider,
+      createAgentDto.modelName.toLowerCase(),
+      createAgentDto.modelConfig,
+    );
 
-    // Set default model config if not provided
-    if (!createAgentDto.modelConfig) {
-      createAgentDto.modelConfig = this.getDefaultModelConfig(
-        createAgentDto.modelProvider.toLocaleLowerCase() as ModelProvider,
-        createAgentDto.modelName.toLocaleLowerCase(),
-      );
-    }
+    const normalizedConfig = this.validateAndNormalizeModelConfig(
+      createAgentDto.modelProvider.toLowerCase() as ModelProvider,
+      mergedConfig,
+    );
 
     const agent = this.agentRepository.create({
       ...createAgentDto,
-      departments: createAgentDto?.departmentIds.map((id) => ({ id })),
+      modelConfig: normalizedConfig,
+      departments: createAgentDto?.departmentIds?.map((id) => ({ id })),
     });
+
     return await this.agentRepository.save(agent);
   }
 
@@ -182,18 +244,20 @@ export class AgentsService {
   async update(id: number, updateAgentDto: UpdateAgentDto): Promise<Agent> {
     const agent = await this.findOne(id);
 
-    // Validate model name if being updated
-    if (updateAgentDto.modelProvider && updateAgentDto.modelName) {
-      if (
-        !this.validateModelName(
-          updateAgentDto.modelProvider,
-          updateAgentDto.modelName,
-        )
-      ) {
-        throw new BadRequestException(
-          `Invalid model name '${updateAgentDto.modelName}' for provider '${updateAgentDto.modelProvider}'`,
-        );
-      }
+    // Handle model config update
+    if (updateAgentDto.modelConfig) {
+      const provider = (updateAgentDto.modelProvider ||
+        agent.modelProvider) as ModelProvider;
+      const modelName = updateAgentDto.modelName || agent.modelName;
+
+      // Merge with existing config if partially updating
+      const currentConfig = agent.modelConfig || {};
+      const mergedConfig = { ...currentConfig, ...updateAgentDto.modelConfig };
+
+      updateAgentDto.modelConfig = this.validateAndNormalizeModelConfig(
+        provider,
+        mergedConfig,
+      );
     }
 
     Object.assign(agent, updateAgentDto);

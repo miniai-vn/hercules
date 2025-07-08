@@ -52,9 +52,8 @@ export class ChatService {
     private readonly zaloService: ZaloService,
     private readonly customerService: CustomersService,
     private readonly facebookService: FacebookService,
-    private readonly messagesService: MessagesService, // Assuming messagesService is similar to conversationsService
-    private readonly agentService: AgentsService, // Assuming agentService is similar to customerService
-    private readonly agentServiceService: AgentServiceService, // Assuming agentServiceService is similar to customerService
+    private readonly agentService: AgentsService, 
+    private readonly agentServiceService: AgentServiceService,
   ) {}
   async sendMessagesZaloToPlatform(data: ZaloWebhookDto) {
     try {
@@ -121,9 +120,9 @@ export class ChatService {
         conversationId: conversation.id,
         channelType: ChannelType.ZALO,
       });
-      if (conversation.isBot) {
-        this.botSendMessage(conversation, message.text);
-      }
+      // if (conversation.isBot) {
+      //   this.botSendMessage(conversation, message.text);
+      // }
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to send message from Zalo to platform: ${error.message}`,

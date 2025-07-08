@@ -167,7 +167,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('markAsRead')
   async handleMarkAsRead(
     @MessageBody()
-    data: { conversationId: number; userId: string; messageId?: number },
+    data: { conversationId: number; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
     try {

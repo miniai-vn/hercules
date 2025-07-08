@@ -26,7 +26,6 @@ import {
   ConversationQueryParamsDto,
   ConversationResponseDto,
   CreateConversationDto,
-  MarkReadPayloadDTO,
   UpdateConversationDto,
 } from './dto/conversation.dto';
 
@@ -270,9 +269,14 @@ export class ConversationsService {
           );
 
           const readBy = await Promise.all(
-            readMembers.map((member) =>
-              this.getInfoSenderMessages(member.lastMessage),
-            ),
+            readMembers.map(async (member) => {
+              const user = await this.userService.getOne(member.userId);
+              return {
+                avatar: user.avatar,
+                name: user.name,
+                id: user.id,
+              };
+            }),
           );
 
           const sender = await this.getInfoSenderMessages(msg);

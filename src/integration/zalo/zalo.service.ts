@@ -16,7 +16,7 @@ import { Platform } from 'src/customers/customers.dto';
 import { CustomersService } from 'src/customers/customers.service';
 import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import { ZALO_CONFIG } from './config/zalo.config';
-import { ZaloWebhookDto } from './dto/zalo-webhook.dto';
+import { ZaloIntegrateWebhookDto } from './dto/zalo-webhook.dto';
 
 dotenv.config();
 
@@ -487,7 +487,7 @@ export class ZaloService {
     }
   }
 
-  async handleWebhook(payload: ZaloWebhookDto): Promise<void> {
+  async handleWebhook(payload: ZaloIntegrateWebhookDto): Promise<void> {
     try {
       switch (payload.event_name) {
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
@@ -510,7 +510,7 @@ export class ZaloService {
     }
   }
 
-  private async handleProducerMessage(payload: ZaloWebhookDto): Promise<void> {
+  private async handleProducerMessage(payload: ZaloIntegrateWebhookDto): Promise<void> {
     this.producer.send({
       topic: this.topic,
       messages: [

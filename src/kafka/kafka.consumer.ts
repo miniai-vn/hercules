@@ -1,6 +1,6 @@
 // kafka.service.ts
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import { Consumer, EachMessagePayload, Kafka } from 'kafkajs';
+import { Consumer, EachMessagePayload, Kafka, logLevel } from 'kafkajs';
 import { ChatService } from 'src/chat/chat.service';
 import { ZALO_CONFIG } from 'src/integration/zalo/config/zalo.config';
 import { UploadsService } from 'src/uploads/uploads.service';
@@ -23,6 +23,7 @@ export class KafkaConsumerService implements OnModuleDestroy {
       username: process.env.KAFKA_USER,
       password: process.env.KAFKA_PASSWORD,
     },
+    logLevel: logLevel.NOTHING,
   });
 
   private consumers: Consumer[] = [];
@@ -66,6 +67,10 @@ export class KafkaConsumerService implements OnModuleDestroy {
         }
         if (data.event_name === ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT) {
           await this.chatService.handleOASendTextMessage(data);
+        }
+
+        if (data.event_name === ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEEN_MESSAGE) {
+          await this.chatService.handleUserSeenMessage(data);
         }
       },
     );

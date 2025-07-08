@@ -1,19 +1,34 @@
-export class ZaloWebhookDto {
-  app_id: string;
-  user_id_by_app: string;
+import { ApiProperty } from '@nestjs/swagger';
+
+export class ZaloTextWebhookDto {
+  @ApiProperty()
   event_name: string;
-  timestamp: number;
-  message?: {
-    text: string;
-    msg_id: string;
-    attachments?: any[];
-  };
-  sender?: {
-    id: string;
-  };
-  recipient?: {
-    id: string;
-  };
+
+  @ApiProperty()
+  app_id: string;
+
+  // ... other properties for text webhook
+}
+
+export class ZaloImageWebhookDto {
+  @ApiProperty()
+  event_name: string;
+
+  @ApiProperty()
+  app_id: string;
+
+  // ... other properties for image webhook
+}
+
+// Base webhook DTO
+export class ZaloIntegrateWebhookDto {
+  @ApiProperty()
+  event_name: string;
+
+  @ApiProperty()
+  app_id: string;
+
+  // ... common properties
 }
 
 export class ZaloMessageDto {

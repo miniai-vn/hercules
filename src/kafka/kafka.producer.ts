@@ -1,5 +1,5 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Kafka } from 'kafkajs';
+import { Kafka, logLevel } from 'kafkajs';
 
 @Injectable()
 export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
@@ -19,6 +19,7 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       username: process.env.KAFKA_USER,
       password: process.env.KAFKA_PASSWORD,
     },
+    logLevel: logLevel.NOTHING,
   });
   private producer = this.kafka.producer({
     allowAutoTopicCreation: true,

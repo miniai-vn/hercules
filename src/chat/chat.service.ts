@@ -53,7 +53,7 @@ export class ChatService {
     private readonly zaloService: ZaloService,
     private readonly customerService: CustomersService,
     private readonly facebookService: FacebookService,
-    private readonly agentService: AgentsService, 
+    private readonly agentService: AgentsService,
     private readonly agentServiceService: AgentServiceService,
   ) {}
   async sendMessagesZaloToPlatform(data: ZaloWebhookDto) {
@@ -205,6 +205,50 @@ export class ChatService {
     }
   }
 
+  async handleFacebookFileAttachment(data: FacebookEventDTO) {
+    const { message } = data;
+    if (!message.attachments) return;
+
+    const fileAttachments = message.attachments.filter(
+      (att) =>
+        att.type === MessageType.FILE ||
+        att.type === MessageType.VIDEO ||
+        att.type === MessageType.AUDIO,
+    );
+
+    if (fileAttachments.length === 0) return;
+
+    const fileData = {
+      ...data,
+      message: {
+        ...message,
+        attachments: fileAttachments,
+      },
+    };
+    await this.sendMessagesFacebookToPlatform(fileData);
+  }
+
+  async handleFacebookImageAttachment(data: FacebookEventDTO) {
+    const { message } = data;
+    if (!message.attachments) return;
+
+    const imageAttachments = message.attachments.filter(
+      (att) =>
+        att.type === MessageType.IMAGE || att.type === MessageType.STICKER,
+    );
+
+    if (imageAttachments.length === 0) return;
+
+    const imageData = {
+      ...data,
+      message: {
+        ...message,
+        attachments: imageAttachments,
+      },
+    };
+    await this.sendMessagesFacebookToPlatform(imageData);
+  }
+
   async sendMessagesFacebookToPlatform(data: FacebookEventDTO) {
     try {
       const { message, recipient, sender, timestamp } = data;
@@ -239,7 +283,7 @@ export class ChatService {
         });
       }
 
-      const messageContent = this.parseMessageContent(message);
+      const messageContent = this.extractFacebookMessageContent(message);
 
       const { conversation, messageData, isNewConversation } =
         await this.conversationsService.sendMessageToConversation({
@@ -285,7 +329,7 @@ export class ChatService {
     }
   }
 
-  private parseMessageContent(message: {
+  private extractFacebookMessageContent(message: {
     text?: string;
     attachments?: {
       type: string;
@@ -303,57 +347,27 @@ export class ChatService {
       };
     }
     if (message.attachments && message.attachments.length > 0) {
-      const firstAttachment = message.attachments[0];
-      const type = firstAttachment.type;
-
+      const type = message.attachments[0].type;
       const urls = message.attachments
         .filter((att) => att.type === type)
         .map((att) => att.payload?.url || att.url)
         .filter(Boolean);
 
-      if (type === MessageType.IMAGE || type === MessageType.STICKER) {
-        if (urls.length === 1) {
-          return {
-            content: null,
-            type,
-            url: urls[0],
-            thumb: firstAttachment.payload?.thumb || urls[0],
-          };
-        }
+      if (urls.length === 1) {
         return {
           content: null,
           type,
-          links: urls,
+          url: urls[0],
+          thumb: message.attachments[0].payload?.thumb || urls[0],
         };
       }
-
-      if (
-        type === MessageType.FILE ||
-        type === MessageType.VIDEO ||
-        type === MessageType.AUDIO
-      ) {
-        if (urls.length === 1) {
-          return {
-            content: null,
-            type,
-            url: urls[0],
-          };
-        }
-        return {
-          content: null,
-          type,
-          links: urls,
-        };
-      }
-
-      // Các loại khác
       return {
-        content: urls[0] || '',
+        content: null,
         type,
-        links: urls.length > 1 ? urls : undefined,
+        links: urls,
       };
     }
-    // Nếu không có text và không có attachments
+
     return {
       content: '',
       type: 'unknown',

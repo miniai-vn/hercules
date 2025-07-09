@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
@@ -221,6 +222,19 @@ export class FacebookService {
 
     for (const entry of body.entry ?? []) {
       for (const event of entry.messaging) {
+        if (event.message?.attachments?.length) {
+          this.producer.send({
+            topic: this.topic,
+            messages: [
+              {
+                key: event.sender.id,
+                value: JSON.stringify(event),
+              },
+            ],
+          });
+          continue;
+        }
+
         if (event.message?.text) {
           this.producer.send({
             topic: this.topic,
@@ -231,35 +245,13 @@ export class FacebookService {
               },
             ],
           });
-          await this.chatService.sendMessagesFacebookToPlatform(event);
         }
-
-        if (event.message?.attachments?.length) {
-          await this.handleFacebookAttachment(event, event.message.attachments);
-          continue;
-        }
-
-        // if (event.read) {
-        //   await this.chatService.handleMessageReadFacebook(event);
-        // }
       }
-    }
-  }
 
-  private async handleFacebookAttachment(event, attachments) {
-    this.producer.send({
-      topic: this.topic,
-      messages: [
-        {
-          key: event.sender.id,
-          value: JSON.stringify({ ...event, attachments }),
-        },
-      ],
-    });
-    await this.chatService.sendMessagesFacebookToPlatform({
-      ...event,
-      message: { ...event.message, attachments },
-    });
+      // if (event.read) {
+      //   await this.chatService.handleMessageReadFacebook(event);
+      // }
+    }
   }
 
   async sendMessageFacebook(
@@ -453,6 +445,7 @@ export class FacebookService {
       }
 
       for (const msg of messages) {
+        console.log(` msg:: `, msg);
         const isFromUser = msg.from.id !== pageId;
 
         if (isFromUser) {

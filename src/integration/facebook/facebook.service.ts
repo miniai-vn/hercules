@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
@@ -31,11 +32,12 @@ import { TPageInfo } from './types/page.type';
 import { TUserProfile } from './types/user.type';
 import { Producer } from 'kafkajs';
 import { KafkaProducerService } from 'src/kafka/kafka.producer';
+import { MessageType } from 'src/common/enums/message.enum';
 dotenv.config();
 Injectable();
 export class FacebookService {
   private readonly hubMode = 'subscribe';
-  private readonly topic = process.env.KAFKA_ZALO_MESSAGE_TOPIC;
+  private readonly topic = process.env.KAFKA_FACEBOOK_MESSAGE_TOPIC;
   private producer: Producer;
   constructor(
     private readonly channelService: ChannelsService,
@@ -220,6 +222,19 @@ export class FacebookService {
 
     for (const entry of body.entry ?? []) {
       for (const event of entry.messaging) {
+        if (event.message?.attachments?.length) {
+          this.producer.send({
+            topic: this.topic,
+            messages: [
+              {
+                key: event.sender.id,
+                value: JSON.stringify(event),
+              },
+            ],
+          });
+          continue;
+        }
+
         if (event.message?.text) {
           this.producer.send({
             topic: this.topic,
@@ -230,13 +245,12 @@ export class FacebookService {
               },
             ],
           });
-          await this.chatService.sendMessagesFacebookToPlatform(event);
         }
-
-        // if (event.read) {
-        //   await this.chatService.handleMessageReadFacebook(event);
-        // }
       }
+
+      // if (event.read) {
+      //   await this.chatService.handleMessageReadFacebook(event);
+      // }
     }
   }
 
@@ -431,6 +445,7 @@ export class FacebookService {
       }
 
       for (const msg of messages) {
+        console.log(` msg:: `, msg);
         const isFromUser = msg.from.id !== pageId;
 
         if (isFromUser) {

@@ -146,6 +146,17 @@ export class UploadsService {
     return Buffer.concat(chunks);
   }
 
+  async getCotentFile(key: string): Promise<Buffer> {
+    const cmd = new GetObjectCommand({
+      Bucket: this.config.get<string>('AWS_BUCKET_NAME')!,
+      Key: key,
+    });
+    const res = await this.s3.send(cmd);
+    const buf = await this.streamToBuffer(res.Body as Readable);
+    console.log('buf', buf.toString('utf-8'));
+    return buf;
+  }
+
   async sendDataToElt(key: string, code: string = '') {
     try {
       const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });

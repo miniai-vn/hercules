@@ -97,7 +97,7 @@ export class ResourcesController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateResourceDto: UpdateResourceDto,
-  ): Promise<Resource> {
+  ) {
     return await this.resourcesService.update(id, updateResourceDto);
   }
 

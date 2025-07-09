@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Producer } from 'kafkajs';
 import { PaginatedResult } from 'src/common/types/reponse.type';
+import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import {
   FindManyOptions,
   ILike,
@@ -13,10 +14,10 @@ import {
   CreateResourceDto,
   ResourceQueryDto,
   ResourceStatus,
+  UpdateResourceDto,
 } from './dto/resources.dto';
 import { Resource } from './resources.entity';
-import { KafkaProducerService } from 'src/kafka/kafka.producer';
-import { AgentServiceService } from 'src/integration/agent-service/agent-service.service';
+import { UploadsService } from 'src/uploads/uploads.service';
 
 @Injectable()
 export class ResourcesService {
@@ -25,14 +26,14 @@ export class ResourcesService {
     @InjectRepository(Resource)
     private readonly resourceRepository: Repository<Resource>,
     private readonly kafkaProducerService: KafkaProducerService,
+    private readonly uploadsService: UploadsService,
   ) {
     this.producer = this.kafkaProducerService.getProducer();
   }
 
-  generateCodeFromFilename = (filename: string, dbId: number) => {
+  generateCodeFromFilename = (filename: string) => {
     if (!filename || typeof filename !== 'string')
       throw new Error('Invalid filename');
-    if (typeof dbId !== 'number') throw new Error('Invalid database ID');
 
     const removeVietnameseTones = (str) => {
       return str
@@ -55,9 +56,7 @@ export class ResourcesService {
       })
       .join('');
 
-    const formattedId = dbId.toString().padStart(2, '0');
-
-    return `${initials}-${formattedId}`;
+    return initials;
   };
 
   async updateStatusByKey(key: string, status: ResourceStatus): Promise<void> {
@@ -103,6 +102,7 @@ export class ResourcesService {
       },
       relations: {
         department: true,
+        resources: true,
       },
       take: limit,
       skip: (page - 1) * limit,
@@ -125,18 +125,49 @@ export class ResourcesService {
     };
   }
 
-  async create(data: CreateResourceDto) {
+  async create(file: Express.Multer.File, data: CreateResourceDto) {
     try {
-      let resource = this.resourceRepository.create({
+      if (!file) {
+        throw new InternalServerErrorException('File is required');
+      }
+
+      const buffer = Buffer.from(file.originalname, 'latin1');
+      const decodedName = buffer.toString('utf8').split('.')[0];
+
+      const parentResource = await this.resourceRepository.findOne({
+        where: { id: data.parentId },
+        relations: {
+          department: true,
+        },
+      });
+
+      const code = this.generateCodeFromFilename(decodedName);
+      const parrentCode = parentResource?.code ? parentResource.code : '';
+
+      const dataFromFile = await this.uploadsService.uploadFile({
+        file: {
+          ...file,
+          originalname: decodedName,
+        },
+        departmentId: data.departmentId,
+        shopId: data.shopId,
+        parentCode: parrentCode,
+        code: code,
+      });
+
+      const resource = await this.resourceRepository.save({
         ...data,
+        name: decodedName,
         status: ResourceStatus.PROCESSING,
+        s3Key: dataFromFile.key,
+        path: dataFromFile.url,
+        type: dataFromFile.type,
+        code: parrentCode ? parrentCode : '' + code,
         department: {
           id: data.departmentId,
         },
       });
-      resource = await this.resourceRepository.save(resource);
-      resource.code = this.generateCodeFromFilename(resource.name, resource.id);
-      resource = await this.resourceRepository.save(resource);
+
       await this.producer.send({
         topic: process.env.KAFKA_ETL_TOPIC,
         messages: [
@@ -156,7 +187,7 @@ export class ResourcesService {
         ],
       });
 
-      return resource;
+      return resource.code;
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to create resource',
@@ -215,7 +246,7 @@ export class ResourcesService {
     });
   }
 
-  async update(id: number, data: Partial<Resource>): Promise<Resource | null> {
+  async update(id: number, data: UpdateResourceDto): Promise<Resource | null> {
     try {
       await this.resourceRepository.update(id, data);
       return this.findOne(id);

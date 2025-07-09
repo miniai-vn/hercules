@@ -1,30 +1,14 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Kafka, logLevel } from 'kafkajs';
+import { Producer } from 'kafkajs';
+import { KafkaConfigService } from './kafka.config';
 
 @Injectable()
 export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
-  private kafka = new Kafka({
-    clientId: process.env.KAFKA_CLIENT_ID,
-    brokers: [process.env.KAFKA_BROKERS || 'localhost:9092'],
-    connectionTimeout: 10000,
-    requestTimeout: 30000,
-    retry: {
-      initialRetryTime: 300,
-      retries: 10,
-      maxRetryTime: 30000,
-      factor: 0.2,
-    },
-    sasl: {
-      mechanism: 'plain',
-      username: process.env.KAFKA_USER,
-      password: process.env.KAFKA_PASSWORD,
-    },
-    logLevel: logLevel.NOTHING,
-  });
-  private producer = this.kafka.producer({
-    allowAutoTopicCreation: true,
-    transactionTimeout: 30000,
-  });
+  private producer: Producer;
+
+  constructor(private readonly kafkaConfig: KafkaConfigService) {
+    this.producer = this.kafkaConfig.createProducer();
+  }
 
   async onModuleInit() {
     await this.producer.connect();
@@ -37,5 +21,20 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
 
   getProducer() {
     return this.producer;
+  }
+
+  async sendMessage(topic: string, message: any, key?: string) {
+    try {
+      await this.producer.send({
+        topic,
+        messages: [{
+          key,
+          value: JSON.stringify(message),
+        }],
+      });
+    } catch (error) {
+      console.error(`[Kafka] Failed to send message to topic ${topic}:`, error);
+      throw error;
+    }
   }
 }

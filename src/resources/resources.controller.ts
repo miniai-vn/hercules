@@ -11,6 +11,10 @@ import {
   HttpStatus,
   HttpCode,
   Patch,
+  UploadedFile,
+  UseInterceptors,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -27,9 +31,15 @@ import {
   ResourceQueryDto,
 } from './dto/resources.dto';
 import { PaginatedResult } from 'src/common/types/reponse.type';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
+import { PermissionsGuard } from 'src/auth/gaurds/permission.guard';
+import { PermissionCode } from 'src/common/enums/permission.enum';
+import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
 
 @ApiTags('resources')
 @Controller('resources')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ResourcesController {
   constructor(private readonly resourcesService: ResourcesService) {}
 
@@ -38,7 +48,7 @@ export class ResourcesController {
   async query(
     @Query() query: ResourceQueryDto,
   ): Promise<PaginatedResult<Resource>> {
-    return this.resourcesService.query(query);
+    return await this.resourcesService.query(query);
   }
 
   @Get(':id')
@@ -50,21 +60,24 @@ export class ResourcesController {
     example: 1,
   })
   async findOne(@Param('id', ParseIntPipe) id: number): Promise<Resource> {
-    const resource = await this.resourcesService.findOne(id);
-
-    if (!resource) {
-      throw new NotFoundException(`Resource with ID ${id} not found`);
-    }
-
-    return resource;
+    return await this.resourcesService.findOne(id);
   }
 
   @Post()
   @ApiOperation({ summary: 'Create a new resource' })
+  @UseInterceptors(FileInterceptor('file'))
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createResourceDto: CreateResourceDto) {
+  @RequirePermissions(PermissionCode.DEPARTMENT_CREATE)
+  async create(
+    @Req() req,
+    @Body() createResourceDto: CreateResourceDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
     return {
-      data: await this.resourcesService.create(createResourceDto),
+      data: await this.resourcesService.create(file, {
+        ...createResourceDto,
+        shopId: req.shop.id,
+      }),
       message: 'Resource created successfully',
     };
   }
@@ -81,37 +94,17 @@ export class ResourcesController {
     status: 200,
     description: 'Resource updated successfully',
   })
-  @ApiResponse({
-    status: 404,
-    description: 'Resource not found',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Bad request - validation failed',
-  })
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateResourceDto: UpdateResourceDto,
   ): Promise<Resource> {
-    const resource = await this.resourcesService.update(id, updateResourceDto);
-
-    if (!resource) {
-      throw new NotFoundException(`Resource with ID ${id} not found`);
-    }
-
-    return resource;
+    return await this.resourcesService.update(id, updateResourceDto);
   }
 
   @Patch('/re-etl/:id')
   async reEtlResource(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<Resource> {
-    const resource = await this.resourcesService.reEtlResource(id);
-
-    if (!resource) {
-      throw new NotFoundException(`Resource with ID ${id} not found`);
-    }
-
-    return resource;
+    return await this.resourcesService.reEtlResource(id);
   }
 }

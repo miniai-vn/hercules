@@ -369,7 +369,6 @@ export class MessagesService {
       .andWhere('read_at IS NULL')
       .execute();
 
-    console.log(` result:: `, result);
 
     return result.affected ?? 0;
   }

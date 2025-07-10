@@ -549,17 +549,14 @@ export class ConversationsService {
     }
   }
 
-  async sendMessageToConversation({
+  async handerUserMessage({
     channel,
     customer,
-    externalMessageId,
     message,
-    type,
     externalConversation,
   }: {
     channel: Channel;
     customer: Customer;
-    externalMessageId: string;
     message: {
       id: string;
       content: string;
@@ -567,8 +564,8 @@ export class ConversationsService {
       links?: string[];
       thumb?: string;
       url?: string;
+      type?: string; // For message type
     };
-    type?: string;
     externalConversation?: {
       id: string;
       timestamp: Date;
@@ -589,10 +586,10 @@ export class ConversationsService {
         avatar: customer.avatar,
         content: message.content,
         isBot: checkedChannelActiveAgent && checkConversationActive,
-        externalId: customer.externalId,
+        externalId: externalConversation.id,
         channelId: channel.id,
         conversation: {
-          id: externalConversation?.id || '',
+          id: externalConversation?.id,
           timestamp: externalConversation?.timestamp || new Date(),
         },
 
@@ -602,15 +599,15 @@ export class ConversationsService {
 
       const messageData = await this.messagesService.upsert({
         content: message.content,
-        contentType: type || MessageType.TEXT,
-        externalId: externalMessageId,
+        contentType: message.type,
+        externalId: message.id,
         conversationId: conversation.id,
         senderType: SenderType.customer,
         senderId: customer.id,
         links: message.links,
         thumb: message.thumb,
         url: message.url,
-        createdAt: message?.createdAt.toISOString() ?? new Date().toISOString(),
+        createdAt: message?.createdAt.toISOString(),
       });
 
       return {
@@ -734,7 +731,7 @@ export class ConversationsService {
       links?: string[];
       thumb?: string;
       url?: string;
-      message_id?: string; // For external message ID
+      id?: string; // For external message ID
       createdAt?: Date;
     };
     customer: Customer;
@@ -747,7 +744,7 @@ export class ConversationsService {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
 
       const existingMessages = await this.messagesService.findByExternalId(
-        message.message_id,
+        message.id,
       );
 
       if (existingMessages) {
@@ -773,10 +770,6 @@ export class ConversationsService {
         userParticipantIds: adminChannels.map((user) => user.id),
       });
 
-      await this.conversationRepository.update(conversation.id, {
-        updatedAt: new Date(),
-      });
-
       // check message is exsting with externalId
       const metadataMessage = await this.messagesService.upsert({
         content: message.content ? message.content : '',
@@ -787,7 +780,7 @@ export class ConversationsService {
         thumb: message.thumb,
         conversationId: conversation.id,
         url: message.url,
-        externalId: message.message_id,
+        externalId: message.id,
         createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
       });
 

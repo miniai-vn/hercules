@@ -116,7 +116,7 @@ export class FacebookController {
         pageId: pageId,
       },
       {
-        jobId: `sync-conversations-${pageId}`, // deduplicate
+        jobId: `sync-conversations-${pageId}`,
         attempts: 3,
         removeOnComplete: true,
         removeOnFail: true,

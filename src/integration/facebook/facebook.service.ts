@@ -33,6 +33,7 @@ import { TUserProfile } from './types/user.type';
 import { Producer } from 'kafkajs';
 import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import { MessageType } from 'src/common/enums/message.enum';
+import { Channel } from 'src/channels/channels.entity';
 dotenv.config();
 Injectable();
 export class FacebookService {
@@ -347,23 +348,26 @@ export class FacebookService {
 
   // Tìm hoặc tạo customer (chuẩn hóa logic)
   async getOrCreateCustomer(
-    customerService: any,
-    platform: string,
     externalId: string,
     name: string,
-    avatar: string,
-    channelId: number,
-    shopId: string,
+    channel: Channel,
   ) {
-    let customer = await customerService.findByExternalId(platform, externalId);
+    let customer = await this.customerService.findByExternalId(
+      ChannelType.FACEBOOK,
+      externalId,
+    );
     if (!customer) {
-      customer = await customerService.findOrCreateByExternalId({
-        platform,
+      const avatar = await this.getFacebookAvatar(
+        externalId,
+        channel.accessToken,
+      );
+      customer = await this.customerService.findOrCreateByExternalId({
+        platform: ChannelType.FACEBOOK,
         externalId,
         name,
         avatar,
-        channelId,
-        shopId,
+        channelId: channel.id,
+        shopId: channel.shop.id,
       });
     }
     return customer;
@@ -414,6 +418,7 @@ export class FacebookService {
         ChannelType.FACEBOOK,
         pageId,
       );
+
       if (!facebookChannel?.accessToken)
         throw new Error('No access token found.');
 
@@ -425,52 +430,40 @@ export class FacebookService {
         100,
       );
 
-      // nguoi gửi
-      const userMessages = messages.filter((msg) => msg.from.id !== pageId);
-
-      let customer: Customer | null = null;
-      if (userMessages.length > 0) {
-        const userId = userMessages[0].from.id;
-        const userName = userMessages[0].from.name;
-        const avatar = await this.getFacebookAvatar(userId, accessToken);
-        customer = await this.getOrCreateCustomer(
-          this.customerService,
-          Platform.FACEBOOK,
-          userId,
-          userName,
-          avatar,
-          facebookChannel.id,
-          facebookChannel.shop.id,
-        );
-      }
+      console.log(
+        `Syncing conversation ${conversationId} with ${messages.length} messages...`,
+      );
 
       for (const msg of messages) {
-        console.log(` msg:: `, msg);
         const isFromUser = msg.from.id !== pageId;
+        const customer = await this.getOrCreateCustomer(
+          msg.from.id,
+          msg.from.name,
+          facebookChannel,
+        );
 
         if (isFromUser) {
-          await this.conversationService.sendMessageToConversation({
-            externalMessageId: msg.id,
+          await this.conversationService.handerUserMessage({
             channel: facebookChannel,
             customer: customer,
             message: {
               id: msg.id,
               content: msg.message || '',
+              type: MessageType.TEXT,
               createdAt: new Date(msg.created_time),
             },
             externalConversation: {
-              id: customer.externalId,
+              id: conversationId,
               timestamp: new Date(msg.created_time),
             },
-            type: 'text',
           });
         } else {
           await this.conversationService.sendMessageToConversationWithOthers({
             channel: facebookChannel,
             message: {
-              type: 'text',
+              type: MessageType.TEXT,
               content: msg.message,
-              message_id: msg.id,
+              id: msg.id,
               createdAt: new Date(msg.created_time),
             },
             customer: customer,

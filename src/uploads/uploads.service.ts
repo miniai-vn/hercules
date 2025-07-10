@@ -153,7 +153,6 @@ export class UploadsService {
     });
     const res = await this.s3.send(cmd);
     const buf = await this.streamToBuffer(res.Body as Readable);
-    console.log('buf', buf.toString('utf-8'));
     return buf;
   }
 

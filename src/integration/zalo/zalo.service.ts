@@ -304,12 +304,17 @@ export class ZaloService {
           });
 
           if (isFromUser) {
-            await this.conversationService.sendMessageToConversation({
-              externalMessageId: message.message_id,
+            await this.conversationService.handerUserMessage({
               channel: channel,
               customer: customer,
-              message: message.message,
-              type: message.type,
+              message: {
+                content: message.message,
+                type: message.type,
+                id: message.message_id,
+                links: message.links,
+                thumb: message.thumb,
+                url: message.url,
+              },
               externalConversation: {
                 id: customer.externalId,
                 timestamp: new Date(message.time),
@@ -321,7 +326,7 @@ export class ZaloService {
               message: {
                 content: message.message,
                 type: message.type,
-                message_id: message.message_id,
+                id: message.message_id,
               },
               customer: customer,
               externalConversation: {
@@ -510,7 +515,9 @@ export class ZaloService {
     }
   }
 
-  private async handleProducerMessage(payload: ZaloIntegrateWebhookDto): Promise<void> {
+  private async handleProducerMessage(
+    payload: ZaloIntegrateWebhookDto,
+  ): Promise<void> {
     this.producer.send({
       topic: this.topic,
       messages: [

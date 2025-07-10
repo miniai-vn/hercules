@@ -10,11 +10,8 @@ import FormData from 'form-data';
 import { Producer } from 'kafkajs';
 import mimeTypes from 'mime-types';
 import { Minetype } from 'src/common/enums/file.enum';
-import { ResourceStatus } from 'src/resources/dto/resources.dto';
-import { ResourcesService } from 'src/resources/resources.service';
 import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
-
 @Injectable()
 export class UploadsService {
   private s3: S3Client;
@@ -22,7 +19,7 @@ export class UploadsService {
   producer: Producer;
   constructor(
     private config: ConfigService,
-    private readonly resourceService: ResourcesService,
+    // private readonly resourceService: ResourcesService,
   ) {
     this.bucket = this.config.getOrThrow('AWS_BUCKET_NAME');
 
@@ -39,14 +36,30 @@ export class UploadsService {
     return mimeTypes.extension(mime) || 'jpg';
   }
 
-  async uploadFile(file: Express.Multer.File, shopId: string) {
+  async uploadFile({
+    file,
+    departmentId,
+    shopId,
+    parentCode = '',
+    code,
+  }: {
+    file: Express.Multer.File;
+    departmentId: number;
+    shopId: string;
+    parentCode?: string;
+    code: string;
+  }) {
     try {
       const allowedMimeTypes = [Minetype.PDF, Minetype.DOCX, Minetype.TXT];
       const ext = allowedMimeTypes.includes(file.mimetype as Minetype)
         ? this.getFileExtensionFromMime(file.mimetype)
         : 'pdf';
 
-      const key = `${shopId}/${uuidv4()}-${file.originalname}.${ext}`;
+      if (parentCode) {
+        code = `${parentCode}/${code}`;
+      }
+
+      const key = `${shopId}/${departmentId}/${code}-${file.originalname}-${uuidv4()}.${ext}`;
       await this.s3.send(
         new PutObjectCommand({
           Bucket: this.bucket,
@@ -61,6 +74,7 @@ export class UploadsService {
         extra: {
           size: file.size,
         },
+        type: ext,
         key,
         url,
       };
@@ -132,6 +146,17 @@ export class UploadsService {
     return Buffer.concat(chunks);
   }
 
+  async getCotentFile(key: string): Promise<Buffer> {
+    const cmd = new GetObjectCommand({
+      Bucket: this.config.get<string>('AWS_BUCKET_NAME')!,
+      Key: key,
+    });
+    const res = await this.s3.send(cmd);
+    const buf = await this.streamToBuffer(res.Body as Readable);
+    console.log('buf', buf.toString('utf-8'));
+    return buf;
+  }
+
   async sendDataToElt(key: string, code: string = '') {
     try {
       const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
@@ -175,10 +200,10 @@ export class UploadsService {
         }),
       );
       const jsonUrl = `https://${process.env.AWS_BASE_URL}/${this.bucket}/${jsonKey}`;
-      await this.resourceService.updateStatusByKey(
-        key,
-        ResourceStatus.COMPLETED,
-      );
+      // await this.resourceService.updateStatusByKey(
+      //   key,
+      //   ResourceStatus.COMPLETED,
+      // );
       return {
         success: true,
         fileKey: key,

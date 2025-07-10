@@ -305,17 +305,23 @@ export class ConversationsService {
     try {
       const queryBuilder = this.conversationRepository
         .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.messages', 'messages')
         .leftJoinAndSelect('conversation.members', 'members')
         .leftJoinAndSelect('members.customer', 'customer')
         .leftJoinAndSelect('members.user', 'user')
         .leftJoinAndSelect('conversation.channel', 'channel')
         .leftJoinAndSelect('conversation.tags', 'tags')
-        .leftJoinAndSelect('members.lastMessage', 'lastMessage')
-
+        .leftJoinAndSelect(
+          'conversation.messages',
+          'latestMessage',
+          'latestMessage.id = (SELECT MAX(m.id) FROM messages m WHERE m.conversation_id = conversation.id LIMIT 1)',
+        )
         .where('channel.shop_id = :shopId', {
           shopId: queryParams.shopId,
-        });
+        })
+
+        .andWhere(
+          'EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = conversation.id)',
+        );
 
       if (queryParams.channelType) {
         queryBuilder.andWhere('channel.type = :channelType', {
@@ -366,7 +372,7 @@ export class ConversationsService {
       // queryBuilder.limit(queryParams.limit || 20);
       // queryBuilder.offset(0);
       const conversations = await queryBuilder
-        .orderBy('conversation.updated_at', 'DESC')
+        .orderBy('latestMessage.created_at', 'DESC')
         .getMany();
 
       const conversationWithUnreadCount = await Promise.all(
@@ -860,8 +866,12 @@ export class ConversationsService {
         throw new NotFoundException('Conversation not found');
       }
 
-      conversation.isBot = !conversation.isBot;
-      await this.conversationRepository.save(conversation);
+      conversation.updatedAt = conversation.updatedAt;
+      await this.conversationRepository.save({
+        ...conversation,
+        isBot: !conversation.isBot,
+        updatedAt: conversation.updatedAt,
+      });
 
       return conversation.isBot;
     } catch (error) {

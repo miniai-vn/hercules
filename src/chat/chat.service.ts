@@ -94,7 +94,7 @@ export class ChatService {
           message: {
             content: message.text,
             id: message.msg_id,
-            createdAt: new Date(),
+            createdAt:  new Date(),
           },
           channel: zaloChannel,
           customer,
@@ -121,9 +121,9 @@ export class ChatService {
         conversationId: conversation.id,
         channelType: ChannelType.ZALO,
       });
-      // if (conversation.isBot) {
-      //   this.botSendMessage(conversation, message.text);
-      // }
+      if (conversation.isBot) {
+        this.botSendMessage(conversation, message.text);
+      }
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to send message from Zalo to platform: ${error.message}`,
@@ -446,7 +446,7 @@ export class ChatService {
           customer: customer,
           message: {
             content: aiResponse.data.data.answer,
-            externalMessageId: zaloMsg.data.message_id,
+            externalMessageId: zaloMsg.data.data.message_id,
             type: MessageType.TEXT,
           },
         });

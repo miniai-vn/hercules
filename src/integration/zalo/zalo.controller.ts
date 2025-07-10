@@ -9,7 +9,12 @@ import {
   Query,
   Res,
 } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags
+} from '@nestjs/swagger';
 import { Queue } from 'bullmq';
 import { Response } from 'express';
 import { join } from 'path';
@@ -53,6 +58,10 @@ export class ZaloController {
     }
   }
   @Post('zalo/webhook/receive')
+  @ApiBody({
+    description: 'Zalo webhook event data',
+    type: Object,
+  })
   @ApiOperation({ summary: 'Receive Zalo webhook events' })
   @ApiResponse({ status: 200, description: 'Webhook event received' })
   async receiveZaloWebhook(

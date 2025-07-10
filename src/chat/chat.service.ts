@@ -21,6 +21,7 @@ export interface SendMessageData {
   userId: string;
   messageType?: string;
   shopId: string;
+  isEcho: boolean;
 }
 
 export interface TypingData {
@@ -52,7 +53,7 @@ export class ChatService {
     private readonly zaloService: ZaloService,
     private readonly customerService: CustomersService,
     private readonly facebookService: FacebookService,
-    private readonly agentService: AgentsService, 
+    private readonly agentService: AgentsService,
     private readonly agentServiceService: AgentServiceService,
   ) {}
   async sendMessagesZaloToPlatform(data: ZaloWebhookDto) {
@@ -198,8 +199,54 @@ export class ChatService {
         });
       }
     } catch (error) {
-      throw new Error(`Failed to send message other platform`);
+      throw new InternalServerErrorException(
+        `Failed to send message to other platform: ${error.message}`,
+      );
     }
+  }
+
+  async handleFacebookFileAttachment(data: FacebookEventDTO) {
+    const { message } = data;
+    if (!message.attachments) return;
+
+    const fileAttachments = message.attachments.filter(
+      (att) =>
+        att.type === MessageType.FILE ||
+        att.type === MessageType.VIDEO ||
+        att.type === MessageType.AUDIO,
+    );
+
+    if (fileAttachments.length === 0) return;
+
+    const fileData = {
+      ...data,
+      message: {
+        ...message,
+        attachments: fileAttachments,
+      },
+    };
+    await this.sendMessagesFacebookToPlatform(fileData);
+  }
+
+  async handleFacebookImageAttachment(data: FacebookEventDTO) {
+    const { message } = data;
+    if (!message.attachments) return;
+
+    const imageAttachments = message.attachments.filter(
+      (att) =>
+        att.type === MessageType.IMAGE || att.type === MessageType.STICKER,
+    );
+
+    if (imageAttachments.length === 0) return;
+
+    const imageData = {
+      ...data,
+      message: {
+        ...message,
+        attachments: imageAttachments,
+      },
+    };
+    await this.sendMessagesFacebookToPlatform(imageData);
   }
 
   async sendMessagesFacebookToPlatform(data: FacebookEventDTO) {
@@ -236,6 +283,8 @@ export class ChatService {
         });
       }
 
+      const messageContent = this.extractFacebookMessageContent(message);
+
       const { conversation, messageData, isNewConversation } =
         await this.conversationsService.sendMessageToConversation({
           channel: channel,
@@ -244,8 +293,11 @@ export class ChatService {
             content: message.text,
             id: message.mid,
             createdAt: new Date(timestamp),
+            url: messageContent.url,
+            thumb: messageContent.thumb,
+            links: messageContent.links,
           },
-          type: 'text',
+          type: messageContent.type,
           externalConversation: {
             id: sender.id,
             timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
@@ -276,6 +328,90 @@ export class ChatService {
       );
     }
   }
+
+  private extractFacebookMessageContent(message: {
+    text?: string;
+    attachments?: {
+      type: string;
+      url?: string;
+      payload?: {
+        url?: string;
+        thumb?: string;
+      };
+    }[];
+  }) {
+    if (message.text) {
+      return {
+        content: message.text,
+        type: MessageType.TEXT,
+      };
+    }
+    if (message.attachments && message.attachments.length > 0) {
+      const type = message.attachments[0].type;
+      const urls = message.attachments
+        .filter((att) => att.type === type)
+        .map((att) => att.payload?.url || att.url)
+        .filter(Boolean);
+
+      if (urls.length === 1) {
+        return {
+          content: null,
+          type,
+          url: urls[0],
+          thumb: message.attachments[0].payload?.thumb || urls[0],
+        };
+      }
+      return {
+        content: null,
+        type,
+        links: urls,
+      };
+    }
+
+    return {
+      content: '',
+      type: 'unknown',
+    };
+  }
+
+  // async handleMessageReadFacebook(data: FacebookEventDTO): Promise<void> {
+  //   const { sender, recipient, read } = data;
+
+  //   const senderId = sender.id;
+  //   const recipientId = recipient.id;
+  //   const watermark = read?.watermark;
+
+  //   if (!senderId || !recipientId || !watermark) {
+  //     throw new InternalServerErrorException(
+  //       'Invalid data received from Facebook read event',
+  //     );
+  //   }
+
+  //   const channel = await this.channelService.getByTypeAndAppId(
+  //     ChannelType.FACEBOOK,
+  //     recipientId,
+  //   );
+
+  //   const conversation =
+  //     await this.conversationsService.findOneByExternalIdAndChannelId(
+  //       senderId,
+  //       channel.id,
+  //     );
+
+  //   console.log('[DEBUG] Conversation:', conversation);
+
+  //   const result = await this.messagesService.markMessagesAsReadForPlatform({
+  //     platform: Platform.FACEBOOK,
+  //     conversationId: conversation.id,
+  //     userExternalId: senderId,
+  //     readToTime: new Date(watermark),
+  //   });
+
+  //   console.log(
+  //     `[DEBUG] Mark messages as read for conversationId=${conversation.id}:`,
+  //     result,
+  //   );
+  // }
 
   async botSendMessage(conversation: Conversation, message: string) {
     const agents = await this.agentService.findByChannelId(

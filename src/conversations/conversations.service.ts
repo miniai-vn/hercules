@@ -564,6 +564,9 @@ export class ConversationsService {
       id: string;
       content: string;
       createdAt?: Date;
+      links?: string[];
+      thumb?: string;
+      url?: string;
     };
     type?: string;
     externalConversation?: {
@@ -604,7 +607,10 @@ export class ConversationsService {
         conversationId: conversation.id,
         senderType: SenderType.customer,
         senderId: customer.id,
-        createdAt: message?.createdAt.toISOString(),
+        links: message.links,
+        thumb: message.thumb,
+        url: message.url,
+        createdAt: message?.createdAt.toISOString() ?? new Date().toISOString(),
       });
 
       return {

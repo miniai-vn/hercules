@@ -2,6 +2,8 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Consumer, EachMessagePayload } from 'kafkajs';
 import { ChatService } from 'src/chat/chat.service';
+import { MessageType } from 'src/common/enums/message.enum';
+import { FacebookAttachment } from 'src/integration/facebook/types/message.type';
 import { ZALO_CONFIG } from 'src/integration/zalo/config/zalo.config';
 import { UploadsService } from 'src/uploads/uploads.service';
 import { KafkaConfigService } from './kafka.config';
@@ -78,8 +80,47 @@ export class KafkaConsumerService implements OnModuleDestroy {
       process.env.KAFKA_FACEBOOK_MESSAGE_CONSUMER || 'facebook-message-group',
       process.env.KAFKA_FACEBOOK_MESSAGE_TOPIC || 'facebook-messages',
       async ({ message }) => {
-        const data = JSON.parse(message.value?.toString() || '{}');
-        await this.chatService.sendMessagesFacebookToPlatform(data);
+        const data = JSON.parse(message.value.toString());
+        const msg = data.message;
+
+        if (msg?.attachments?.length) {
+          const imageAttachments = (
+            msg.attachments as FacebookAttachment[]
+          ).filter(
+            (att) =>
+              att.type === MessageType.IMAGE ||
+              att.type === MessageType.STICKER,
+          );
+          if (imageAttachments.length > 0) {
+            const imageData = {
+              ...data,
+              message: { ...msg, attachments: imageAttachments },
+            };
+            await this.chatService.handleFacebookImageAttachment(imageData);
+          }
+
+          const fileAttachments = (
+            msg.attachments as FacebookAttachment[]
+          ).filter(
+            (att) =>
+              att.type === MessageType.FILE ||
+              att.type === MessageType.VIDEO ||
+              att.type === MessageType.AUDIO,
+          );
+          if (fileAttachments.length > 0) {
+            const fileData = {
+              ...data,
+              message: { ...msg, attachments: fileAttachments },
+            };
+            await this.chatService.handleFacebookFileAttachment(fileData);
+          }
+          return;
+        }
+
+        if (msg?.text) {
+          await this.chatService.sendMessagesFacebookToPlatform(data);
+          return;
+        }
       },
     );
 

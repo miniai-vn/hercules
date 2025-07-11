@@ -33,6 +33,7 @@ import { ResourceModule } from './resources/resources.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { getRedisConfig } from './configs/redis.config';
 import { AgentsModule } from './agents/agents.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { AgentsModule } from './agents/agents.module';
     ResourceModule,
     UploadsModule,
     AgentsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService, ChatGateway],

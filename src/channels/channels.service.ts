@@ -343,6 +343,22 @@ export class ChannelsService {
     });
   }
 
+  async upsert(data: CreateChannelDto | UpdateChannelDto): Promise<Channel> {
+    const upsert = await this.channelRepository.upsert(
+      {
+        ...data,
+      },
+      {
+        conflictPaths: ['appId'],
+        skipUpdateIfNoValuesChanged: true,
+      },
+    );
+    if (!upsert.identifiers || upsert.identifiers.length === 0) {
+      throw new InternalServerErrorException('Failed to upsert channel');
+    }
+    return this.getOne(upsert.identifiers[0].id);
+  }
+
   async updateShopId(
     shop: Shop,
     appId: string,

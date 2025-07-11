@@ -58,6 +58,11 @@ export class ChatService {
     private readonly agentService: AgentsService,
     private readonly agentServiceService: AgentServiceService,
   ) {}
+
+  /**
+   * Handles incoming messages from Zalo and sends them to the platform.
+   */
+
   async sendMessagesZaloToPlatform(data: ZaloWebhookDto) {
     try {
       const { message, recipient, sender } = data;
@@ -142,6 +147,10 @@ export class ChatService {
     }
   }
 
+  /**
+   * Sends a message from the platform to an Omni-channel conversation.
+   */
+
   async sendMessagePlatformToOmniChannel(data: SendMessageData) {
     try {
       const roomName = `conversation:${data.conversationId}`;
@@ -217,49 +226,9 @@ export class ChatService {
     }
   }
 
-  async handleFacebookFileAttachment(data: FacebookEventDTO) {
-    const { message } = data;
-    if (!message.attachments) return;
-
-    const fileAttachments = message.attachments.filter(
-      (att) =>
-        att.type === MessageType.FILE ||
-        att.type === MessageType.VIDEO ||
-        att.type === MessageType.AUDIO,
-    );
-
-    if (fileAttachments.length === 0) return;
-
-    const fileData = {
-      ...data,
-      message: {
-        ...message,
-        attachments: fileAttachments,
-      },
-    };
-    await this.handleMessageFaceBook(fileData);
-  }
-
-  async handleFacebookImageAttachment(data: FacebookEventDTO) {
-    const { message } = data;
-    if (!message.attachments) return;
-
-    const imageAttachments = message.attachments.filter(
-      (att) =>
-        att.type === MessageType.IMAGE || att.type === MessageType.STICKER,
-    );
-
-    if (imageAttachments.length === 0) return;
-
-    const imageData = {
-      ...data,
-      message: {
-        ...message,
-        attachments: imageAttachments,
-      },
-    };
-    await this.handleMessageFaceBook(imageData);
-  }
+  /**
+   * Handle message facebook
+   */
 
   async handleMessageFaceBook(data: FacebookEventDTO) {
     try {
@@ -295,8 +264,6 @@ export class ChatService {
         });
       }
 
-      const messageContent = this.extractFacebookMessageContent(message);
-
       const { conversation, messageData, isNewConversation } =
         await this.conversationsService.handerUserMessage({
           channel: channel,
@@ -305,7 +272,7 @@ export class ChatService {
             id: message.mid,
             createdAt: new Date(timestamp),
             // links: messageContent.links,
-            contentType: messageContent.type,
+            contentType: 'text',
             senderType: 'user',
           },
           externalConversation: {
@@ -339,50 +306,9 @@ export class ChatService {
     }
   }
 
-  private extractFacebookMessageContent(message: {
-    text?: string;
-    attachments?: {
-      type: string;
-      url?: string;
-      payload?: {
-        url?: string;
-        thumb?: string;
-      };
-    }[];
-  }) {
-    if (message.text) {
-      return {
-        content: message.text,
-        type: MessageType.TEXT,
-      };
-    }
-    if (message.attachments && message.attachments.length > 0) {
-      const type = message.attachments[0].type;
-      const urls = message.attachments
-        .filter((att) => att.type === type)
-        .map((att) => att.payload?.url || att.url)
-        .filter(Boolean);
-
-      if (urls.length === 1) {
-        return {
-          content: null,
-          type,
-          url: urls[0],
-          thumb: message.attachments[0].payload?.thumb || urls[0],
-        };
-      }
-      return {
-        content: null,
-        type,
-        links: urls,
-      };
-    }
-
-    return {
-      content: '',
-      type: 'unknown',
-    };
-  }
+  /**
+   * Handles sending a message from the bot to the conversation.
+   */
 
   async botSendMessage(conversation: Conversation, message: string) {
     const agents = await this.agentService.findByChannelId(
@@ -515,6 +441,4 @@ export class ChatService {
       );
     }
   }
-
-  async handleUserSeenMessage(data: ZaloWebhookDto) {}
 }

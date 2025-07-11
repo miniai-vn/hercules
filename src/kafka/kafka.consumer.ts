@@ -61,9 +61,6 @@ export class KafkaConsumerService implements OnModuleDestroy {
           case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
             await this.chatService.handleOASendTextMessage(data);
             break;
-          case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEEN_MESSAGE:
-            await this.chatService.handleUserSeenMessage(data);
-            break;
 
           default:
             console.warn(`[Kafka] Unknown Zalo event: ${data.event_name}`);
@@ -78,40 +75,6 @@ export class KafkaConsumerService implements OnModuleDestroy {
       async ({ message }) => {
         const data = JSON.parse(message.value.toString());
         const msg = data.message;
-        // maintain backward compatibility
-        if (msg?.attachments?.length) {
-          const imageAttachments = (
-            msg.attachments as FacebookAttachment[]
-          ).filter(
-            (att) =>
-              att.type === MessageType.IMAGE ||
-              att.type === MessageType.STICKER,
-          );
-          if (imageAttachments.length > 0) {
-            const imageData = {
-              ...data,
-              message: { ...msg, attachments: imageAttachments },
-            };
-            await this.chatService.handleFacebookImageAttachment(imageData);
-          }
-
-          const fileAttachments = (
-            msg.attachments as FacebookAttachment[]
-          ).filter(
-            (att) =>
-              att.type === MessageType.FILE ||
-              att.type === MessageType.VIDEO ||
-              att.type === MessageType.AUDIO,
-          );
-          if (fileAttachments.length > 0) {
-            const fileData = {
-              ...data,
-              message: { ...msg, attachments: fileAttachments },
-            };
-            await this.chatService.handleFacebookFileAttachment(fileData);
-          }
-          return;
-        }
 
         if (msg?.text) {
           await this.chatService.handleMessageFaceBook(data);

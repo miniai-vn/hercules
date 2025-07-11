@@ -1,4 +1,3 @@
-import { Type } from 'class-transformer';
 import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
@@ -18,8 +17,6 @@ import { ChatService } from 'src/chat/chat.service';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
 import { isAfter } from 'src/common/utils/utils';
 import { ConversationsService } from 'src/conversations/conversations.service';
-import { Platform } from 'src/customers/customers.dto';
-import { Customer } from 'src/customers/customers.entity';
 import { CustomersService } from 'src/customers/customers.service';
 import { v4 as uuidv4 } from 'uuid';
 import { FACEBOOK_CONFIG } from './config/facebook.config';
@@ -29,11 +26,10 @@ import { FacebookHttpService } from './facebook-http.service';
 import { FacebookTokenService } from './facebook-token.service';
 import { TPageInfo } from './types/page.type';
 
-import { TUserProfile } from './types/user.type';
 import { Producer } from 'kafkajs';
-import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import { MessageType } from 'src/common/enums/message.enum';
-import { Channel } from 'src/channels/channels.entity';
+import { KafkaProducerService } from 'src/kafka/kafka.producer';
+import { TUserProfile } from './types/user.type';
 dotenv.config();
 Injectable();
 export class FacebookService {
@@ -389,19 +385,12 @@ export class FacebookService {
         pageId,
       );
 
-      if (!facebookChannel?.accessToken)
-        throw new Error('No access token found.');
-
       const accessToken = facebookChannel.accessToken;
 
       const messages = await this.fetchAllMessagesOfConversation(
         conversationId,
         accessToken,
         100,
-      );
-
-      console.log(
-        `Syncing conversation ${conversationId} with ${messages.length} messages...`,
       );
 
       for (const msg of messages) {
@@ -440,8 +429,6 @@ export class FacebookService {
       }
     } catch (error) {
       throw new Error(`Failed to sync conversations: ${error.message}`);
-    } finally {
-      console.log(`Sync conversation ${conversationId} completed.`);
     }
   }
 

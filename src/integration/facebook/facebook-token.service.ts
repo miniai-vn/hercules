@@ -70,7 +70,6 @@ export class FacebookTokenService {
 
   async isTokenNearExpiry(
     token: string,
-    channelId: number,
     thresholdSeconds = 7 * 24 * 3600,
   ): Promise<boolean> {
     try {

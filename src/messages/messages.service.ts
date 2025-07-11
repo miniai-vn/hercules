@@ -51,12 +51,13 @@ export class MessagesService {
     page: number = 1,
     limit: number = 50,
   ) {
-    return await this.messageRepository.find({
+    const msgs = await this.messageRepository.find({
       where: { conversation: { id: conversationId } },
-      order: { createdAt: 'ASC' },
+      order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
+    return msgs.reverse();
   }
 
   async findAll(

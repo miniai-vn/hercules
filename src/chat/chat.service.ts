@@ -15,6 +15,7 @@ import { ConversationsService } from '../conversations/conversations.service';
 import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 import { SenderType } from 'src/messages/messages.dto';
+import { link } from 'fs';
 
 export interface SendMessageData {
   conversationId: number;
@@ -76,13 +77,14 @@ export class ChatService {
 
       const transferMessage = {
         content: message.text,
+        links: message.links,
         id: message.msg_id,
         createdAt: new Date(),
-        contentType: MessageType.TEXT,
+        contentType: message.contentType,
         senderType: SenderType.user,
       };
 
-      if (!customer.avatar || !customer.name) {
+      if (!customer) {
         const metadataCustomerZalo = await this.zaloService.getUserProfile(
           zaloChannel.accessToken,
           sender.id,
@@ -102,6 +104,10 @@ export class ChatService {
           message: transferMessage,
           channel: zaloChannel,
           customer,
+          externalConversation: {
+            id: customer.externalId,
+            timestamp: new Date(),
+          },
         });
 
       if (isNewConversation) {
@@ -445,7 +451,7 @@ export class ChatService {
         recipient.id,
       );
 
-      if (!customer.name || !customer.avatar) {
+      if (!customer) {
         const metadataCustomerZalo = await this.zaloService.getUserProfile(
           zaloChannel.accessToken,
           recipient.id,

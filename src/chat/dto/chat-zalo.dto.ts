@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MessageType } from 'src/common/enums/message.enum';
 
 export class ZaloSenderDto {
   @ApiProperty({
@@ -158,6 +159,22 @@ export class ZaloMessageDto {
   @ValidateNested({ each: true })
   @Type(() => ZaloAttachmentDto)
   attachments?: ZaloAttachmentDto[];
+
+  @IsArray()
+  @IsString({ each: true })
+  @ApiPropertyOptional({
+    description: 'Message type',
+    example: 'text',
+    enum: ['text', 'image', 'link', 'file', 'audio', 'video', 'sticker'],
+  })
+  links: string[];
+
+  @IsString()
+  @ApiProperty({
+    description: 'Message type',
+    example: 'text',
+  })
+  contentType: MessageType;
 }
 
 export class ZaloWebhookDto {

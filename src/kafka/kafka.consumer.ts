@@ -29,15 +29,7 @@ export class KafkaConsumerService implements OnModuleDestroy {
 
     await consumer.run({
       eachMessage: async (payload) => {
-        try {
-          await handler(payload);
-        } catch (error) {
-          console.error(
-            `[Kafka] Error processing message from topic ${topic}:`,
-            error,
-          );
-          // You might want to implement dead letter queue or retry logic here
-        }
+        await handler(payload);
       },
     });
 
@@ -54,21 +46,25 @@ export class KafkaConsumerService implements OnModuleDestroy {
   async start() {
     // Zalo message consumer
     await this.createConsumer(
-      process.env.KAFKA_ZALO_MESSAGE_CONSUMER || 'zalo-message-group',
-      process.env.KAFKA_ZALO_MESSAGE_TOPIC || 'zalo-messages',
+      process.env.KAFKA_ZALO_MESSAGE_CONSUMER,
+      process.env.KAFKA_ZALO_MESSAGE_TOPIC,
       async ({ message }) => {
         const data = JSON.parse(message.value?.toString() || '{}');
 
         switch (data.event_name) {
           case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
+          case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_STICKER:
+          case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_IMAGE:
             await this.chatService.sendMessagesZaloToPlatform(data);
             break;
+
           case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
             await this.chatService.handleOASendTextMessage(data);
             break;
           case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEEN_MESSAGE:
             await this.chatService.handleUserSeenMessage(data);
             break;
+
           default:
             console.warn(`[Kafka] Unknown Zalo event: ${data.event_name}`);
         }

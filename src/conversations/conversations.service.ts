@@ -562,7 +562,7 @@ export class ConversationsService {
     channel: Channel;
     customer: Customer;
     message: UserMessageDto;
-    externalConversation?: {
+    externalConversation: {
       id: string;
       timestamp: Date;
     };

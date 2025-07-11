@@ -9,6 +9,7 @@ import { Producer } from 'kafkajs';
 import { Channel } from 'src/channels/channels.entity';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
+import { ZaloMessageDto } from 'src/chat/dto/chat-zalo.dto';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
 import { MessageType } from 'src/common/enums/message.enum';
 import { delay, isAfter } from 'src/common/utils/utils';
@@ -17,7 +18,6 @@ import { Platform } from 'src/customers/customers.dto';
 import { CustomersService } from 'src/customers/customers.service';
 import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import { ZALO_CONFIG } from './config/zalo.config';
-import { ZaloMessageDto, ZaloWebhookDto } from 'src/chat/dto/chat-zalo.dto';
 
 dotenv.config();
 
@@ -139,26 +139,18 @@ export class ZaloService {
       const expiresInSeconds = response.data.expires_in;
       const expireTokenTime = new Date(Date.now() + expiresInSeconds * 1000);
 
-      const channel = await this.channelService.getByTypeAndAppId(
-        ChannelType.ZALO,
-        infoOa.data.data.oa_id,
-      );
-      if (channel) {
-        await this.channelService.update(channel.id, {
-          accessToken: response.data.access_token,
-          refreshToken: response.data.refresh_token,
-          expireTokenTime: expireTokenTime,
-        });
-      } else {
-        await this.channelService.create({
-          accessToken: response.data.access_token,
-          refreshToken: response.data.refresh_token,
-          appId: infoOa.data.data.oa_id,
-          avatar: infoOa.data.data.avatar,
-          name: infoOa.data.data.name,
-          type: ChannelType.ZALO,
-          expireTokenTime: expireTokenTime,
-        });
+      const channel = await this.channelService.upsert({
+        type: ChannelType.ZALO,
+        appId: infoOa.data.data.oa_id,
+        accessToken: response.data.access_token,
+        refreshToken: response.data.refresh_token,
+        expireTokenTime: expireTokenTime,
+        avatar: infoOa.data.data.avatar,
+        name: infoOa.data.data.name,
+      });
+
+      if (!channel) {
+        throw new Error('Failed to upsert Zalo channel');
       }
 
       return `${process.env.DASHBOARD_BASE_URL}/dashboard/channels?type=zalo&appId=${infoOa.data.data.oa_id}`;
@@ -241,6 +233,9 @@ export class ZaloService {
     );
   }
 
+  /**
+   * Fetch conversations from Zalo
+   */
   async fetchConversaitons({
     accessToken,
     offset = 0,
@@ -260,6 +255,11 @@ export class ZaloService {
       { data: JSON.stringify({ offset, count, user_id: userId }) },
     );
   }
+
+  /**
+   * Sync conversations with a specific user ID
+   *
+   */
 
   async handleSyncConversationsWithUserId(
     user_id: string,
@@ -395,6 +395,11 @@ export class ZaloService {
     });
   }
 
+  /**
+   *
+   * Fetch all users from Zalo
+   */
+
   async getAllUsers(appId: string) {
     const channel = await this.channelService.getByTypeAndAppId(
       ChannelType.ZALO,
@@ -441,6 +446,11 @@ export class ZaloService {
     }
     return allUsers;
   }
+
+  /**
+   * Fetch user list from Zalo
+   *
+   */
 
   async getUser({
     accessToken,

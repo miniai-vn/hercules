@@ -9,12 +9,7 @@ import {
   Query,
   Res,
 } from '@nestjs/common';
-import {
-  ApiBody,
-  ApiOperation,
-  ApiResponse,
-  ApiTags
-} from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Queue } from 'bullmq';
 import { Response } from 'express';
 import { join } from 'path';

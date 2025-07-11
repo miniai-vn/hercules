@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Producer } from 'kafkajs';
 import { PaginatedResult } from 'src/common/types/reponse.type';
@@ -20,6 +25,7 @@ import {
 } from './dto/resources.dto';
 import { Resource } from './resources.entity';
 import { UploadsService } from 'src/uploads/uploads.service';
+import { ChatGateway } from 'src/chat/chat.gateway';
 
 @Injectable()
 export class ResourcesService {
@@ -28,7 +34,9 @@ export class ResourcesService {
     @InjectRepository(Resource)
     private readonly resourceRepository: Repository<Resource>,
     private readonly kafkaProducerService: KafkaProducerService,
+    @Inject(forwardRef(() => UploadsService))
     private readonly uploadsService: UploadsService,
+    private readonly chatGateway: ChatGateway,
   ) {
     this.producer = this.kafkaProducerService.getProducer();
   }
@@ -64,6 +72,10 @@ export class ResourcesService {
   async updateStatusByKey(key: string, status: ResourceStatus): Promise<void> {
     try {
       await this.resourceRepository.update({ s3Key: key }, { status });
+      this.chatGateway.server.emit('resourceStatusUpdated', {
+        key,
+        status,
+      });
     } catch (error) {
       throw new InternalServerErrorException(
         'Failed to update resource status',

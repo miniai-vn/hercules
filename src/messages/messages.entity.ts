@@ -7,7 +7,6 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
-  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -30,14 +29,8 @@ export class Message {
   @Column({ type: 'text', nullable: true, name: 'external_id', unique: true })
   externalId?: string;
 
-  @Column({ type: 'text', nullable: true, name: 'thumb' })
-  thumb?: string;
-
-  @Column({ type: 'text', array: true, nullable: true, name: 'file_url' })
+  @Column({ type: 'text', array: true, nullable: true, name: 'links' })
   links: string[];
-
-  @Column({ type: 'text', nullable: true, name: 'url' })
-  url?: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'sender_id' })
   senderId?: string;

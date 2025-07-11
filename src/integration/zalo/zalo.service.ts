@@ -309,11 +309,9 @@ export class ZaloService {
               customer: customer,
               message: {
                 content: message.message,
-                type: message.type,
+                contentType: message.type,
                 id: message.message_id,
                 links: message.links,
-                thumb: message.thumb,
-                url: message.url,
               },
               externalConversation: {
                 id: customer.externalId,
@@ -321,11 +319,11 @@ export class ZaloService {
               },
             });
           } else {
-            await this.conversationService.sendMessageToConversationWithOthers({
+            await this.conversationService.handleChannelMessage({
               channel: channel,
               message: {
                 content: message.message,
-                type: message.type,
+                senderType: message.type,
                 id: message.message_id,
               },
               customer: customer,

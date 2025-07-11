@@ -248,10 +248,6 @@ export class FacebookService {
           });
         }
       }
-
-      // if (event.read) {
-      //   await this.chatService.handleMessageReadFacebook(event);
-      // }
     }
   }
 
@@ -259,8 +255,9 @@ export class FacebookService {
     access_token: string,
     customerId: string,
     message: string,
+    pageId: string,
   ): Promise<AxiosResponse> {
-    const endpoint = `me/messages?access_token=${access_token}`;
+    const endpoint = `${pageId}/messages?access_token=${access_token}`;
     const data = {
       recipient: {
         id: customerId,
@@ -346,33 +343,6 @@ export class FacebookService {
     }
   }
 
-  // Tìm hoặc tạo customer (chuẩn hóa logic)
-  async getOrCreateCustomer(
-    externalId: string,
-    name: string,
-    channel: Channel,
-  ) {
-    let customer = await this.customerService.findByExternalId(
-      ChannelType.FACEBOOK,
-      externalId,
-    );
-    if (!customer) {
-      const avatar = await this.getFacebookAvatar(
-        externalId,
-        channel.accessToken,
-      );
-      customer = await this.customerService.findOrCreateByExternalId({
-        platform: ChannelType.FACEBOOK,
-        externalId,
-        name,
-        avatar,
-        channelId: channel.id,
-        shopId: channel.shop.id,
-      });
-    }
-    return customer;
-  }
-
   async fetchAllMessagesOfConversation(
     conversationId: string,
     accessToken: string,
@@ -436,41 +406,35 @@ export class FacebookService {
 
       for (const msg of messages) {
         const isFromUser = msg.from.id !== pageId;
-        const customer = await this.getOrCreateCustomer(
-          msg.from.id,
-          msg.from.name,
-          facebookChannel,
-        );
+
+        const customer = await this.customerService.findOrCreateByExternalId({
+          platform: ChannelType.FACEBOOK,
+          externalId: isFromUser ? msg.from.id : pageId,
+          name: isFromUser ? msg.from.name : facebookChannel.name,
+          channelId: facebookChannel.id,
+          shopId: facebookChannel.shop.id,
+        });
+
+        const externalConversation = {
+          id: conversationId,
+          timestamp: new Date(msg.created_time),
+        };
+
+        const message = await this.handleTransferMessage(msg);
 
         if (isFromUser) {
           await this.conversationService.handerUserMessage({
             channel: facebookChannel,
             customer: customer,
-            message: {
-              id: msg.id,
-              content: msg.message || '',
-              type: MessageType.TEXT,
-              createdAt: new Date(msg.created_time),
-            },
-            externalConversation: {
-              id: conversationId,
-              timestamp: new Date(msg.created_time),
-            },
+            message: message,
+            externalConversation,
           });
         } else {
-          await this.conversationService.sendMessageToConversationWithOthers({
+          await this.conversationService.handleChannelMessage({
             channel: facebookChannel,
-            message: {
-              type: MessageType.TEXT,
-              content: msg.message,
-              id: msg.id,
-              createdAt: new Date(msg.created_time),
-            },
+            message: message,
             customer: customer,
-            externalConversation: {
-              id: conversationId,
-              timestamp: new Date(msg.created_time),
-            },
+            externalConversation,
           });
         }
       }
@@ -479,6 +443,29 @@ export class FacebookService {
     } finally {
       console.log(`Sync conversation ${conversationId} completed.`);
     }
+  }
+
+  async handleTransferMessage(message) {
+    if (!message.attachments) {
+      return {
+        id: message.id,
+        content: message.message || '',
+        contentType: MessageType.TEXT,
+        createdAt: new Date(message.created_time),
+      };
+    }
+
+    const links = message.attachments.data.map((attachment) => {
+      return attachment.image_data.preview_url;
+    });
+
+    return {
+      id: message.id,
+      content: message.message || '',
+      contentType: MessageType.IMAGE,
+      createdAt: new Date(message.created_time),
+      links,
+    };
   }
 
   async syncConversationWithinCustomTimeFacebook(

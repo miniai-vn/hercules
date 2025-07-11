@@ -12,7 +12,11 @@ import { MessageType } from 'src/common/enums/message.enum';
 import { AddParticipantDto } from 'src/conversation-members/conversation-members.dto';
 import { Customer } from 'src/customers/customers.entity';
 import { CustomersService } from 'src/customers/customers.service';
-import { SenderType } from 'src/messages/messages.dto';
+import {
+  ChannelMessageDto,
+  SenderType,
+  UserMessageDto,
+} from 'src/messages/messages.dto';
 import { Message } from 'src/messages/messages.entity';
 import { MessagesService } from 'src/messages/messages.service';
 import { TagsService } from 'src/tags/tags.service';
@@ -557,15 +561,7 @@ export class ConversationsService {
   }: {
     channel: Channel;
     customer: Customer;
-    message: {
-      id: string;
-      content: string;
-      createdAt?: Date;
-      links?: string[];
-      thumb?: string;
-      url?: string;
-      type?: string; // For message type
-    };
+    message: UserMessageDto;
     externalConversation?: {
       id: string;
       timestamp: Date;
@@ -588,26 +584,20 @@ export class ConversationsService {
         isBot: checkedChannelActiveAgent && checkConversationActive,
         externalId: externalConversation.id,
         channelId: channel.id,
-        conversation: {
-          id: externalConversation?.id,
-          timestamp: externalConversation?.timestamp || new Date(),
-        },
-
+        conversation: externalConversation,
         customerParticipantIds: [customer.id],
         userParticipantIds: adminChannels.map((user) => user.id),
       });
 
       const messageData = await this.messagesService.upsert({
         content: message.content,
-        contentType: message.type,
+        contentType: message.contentType,
         externalId: message.id,
         conversationId: conversation.id,
         senderType: SenderType.customer,
         senderId: customer.id,
         links: message.links,
-        thumb: message.thumb,
-        url: message.url,
-        createdAt: message?.createdAt.toISOString(),
+        createdAt: message?.createdAt,
       });
 
       return {
@@ -718,22 +708,14 @@ export class ConversationsService {
     };
   }
 
-  async sendMessageToConversationWithOthers({
+  async handleChannelMessage({
     channel,
     message,
     customer,
     externalConversation,
   }: {
     channel: Channel;
-    message: {
-      content: string;
-      type?: string;
-      links?: string[];
-      thumb?: string;
-      url?: string;
-      id?: string; // For external message ID
-      createdAt?: Date;
-    };
+    message: ChannelMessageDto;
     customer: Customer;
     externalConversation: {
       id: string;
@@ -773,15 +755,13 @@ export class ConversationsService {
       // check message is exsting with externalId
       const metadataMessage = await this.messagesService.upsert({
         content: message.content ? message.content : '',
-        contentType: message.type,
+        contentType: message.contentType,
         senderType: SenderType.channel,
         senderId: channel.id.toString(),
         links: message.links,
-        thumb: message.thumb,
         conversationId: conversation.id,
-        url: message.url,
         externalId: message.id,
-        createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
+        createdAt: message.createdAt,
       });
 
       return {

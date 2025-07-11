@@ -1,19 +1,17 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
+  IsDateString,
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
-  IsDateString,
-  IsBoolean,
-  isNumber,
-  IsObject,
 } from 'class-validator';
 import { ConversationType } from '../conversations.entity';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Platform } from 'src/customers/customers.dto';
 
 export { ConversationType };
 
@@ -228,29 +226,6 @@ export class AddTagsToConversationDto {
   tagIds: number[];
 }
 
-export class ConversationBulkDeleteDto {
-  @IsArray()
-  @IsNumber({}, { each: true })
-  @IsNotEmpty()
-  conversationIds: number[];
-}
-
-export class PaginatedConversationsDto {
-  conversations: ConversationResponseDto[];
-
-  @IsNumber()
-  total: number;
-
-  @IsNumber()
-  page: number;
-
-  @IsNumber()
-  perPage: number;
-
-  @IsNumber()
-  totalPages: number;
-}
-
 export class ConversationResponseDto {
   id: number;
   name: string;
@@ -291,23 +266,4 @@ export class AddParticipantsDto {
   @IsString({ each: true })
   @IsOptional()
   userIds?: string[];
-}
-
-export class RemoveParticipantsDto {
-  @IsArray()
-  @IsNumber({}, { each: true })
-  @IsOptional()
-  customerIds?: number[];
-
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  userIds?: string[];
-}
-
-export class MarkReadPayloadDTO {
-  platform: Platform; // 'facebook' | 'zalo' | 'shopee' | ...
-  externalConversationId: string; // id ngoài platform (page/conversationId)
-  externalUserId: string; // psid Facebook, zaloId, shopeeUserId
-  externalMessageId: string; // id message ngoài platform
 }

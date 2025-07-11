@@ -82,7 +82,7 @@ export class KafkaConsumerService implements OnModuleDestroy {
       async ({ message }) => {
         const data = JSON.parse(message.value.toString());
         const msg = data.message;
-
+        // maintain backward compatibility
         if (msg?.attachments?.length) {
           const imageAttachments = (
             msg.attachments as FacebookAttachment[]
@@ -118,7 +118,7 @@ export class KafkaConsumerService implements OnModuleDestroy {
         }
 
         if (msg?.text) {
-          await this.chatService.sendMessagesFacebookToPlatform(data);
+          await this.chatService.handleMessageFaceBook(data);
           return;
         }
       },

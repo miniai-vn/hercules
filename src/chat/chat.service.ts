@@ -14,6 +14,7 @@ import { MessagesService } from 'src/messages/messages.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
+import { SenderType } from 'src/messages/messages.dto';
 
 export interface SendMessageData {
   conversationId: number;
@@ -73,7 +74,15 @@ export class ChatService {
         sender.id,
       );
 
-      if (!customer) {
+      const transferMessage = {
+        content: message.text,
+        id: message.msg_id,
+        createdAt: new Date(),
+        contentType: MessageType.TEXT,
+        senderType: SenderType.user,
+      };
+
+      if (!customer.avatar || !customer.name) {
         const metadataCustomerZalo = await this.zaloService.getUserProfile(
           zaloChannel.accessToken,
           sender.id,
@@ -90,11 +99,7 @@ export class ChatService {
 
       const { conversation, messageData, isNewConversation } =
         await this.conversationsService.handerUserMessage({
-          message: {
-            content: message.text,
-            id: message.msg_id,
-            createdAt: new Date(),
-          },
+          message: transferMessage,
           channel: zaloChannel,
           customer,
         });
@@ -120,6 +125,7 @@ export class ChatService {
         conversationId: conversation.id,
         channelType: ChannelType.ZALO,
       });
+
       if (conversation.isBot) {
         this.botSendMessage(conversation, message.text);
       }
@@ -176,8 +182,9 @@ export class ChatService {
       if (channel.type === ChannelType.FACEBOOK) {
         const resp = await this.facebookService.sendMessageFacebook(
           channel.accessToken,
-          conversation.externalId,
+          customer.externalId,
           data.content,
+          channel.appId,
         );
 
         const { message } =
@@ -224,7 +231,7 @@ export class ChatService {
         attachments: fileAttachments,
       },
     };
-    await this.sendMessagesFacebookToPlatform(fileData);
+    await this.handleMessageFaceBook(fileData);
   }
 
   async handleFacebookImageAttachment(data: FacebookEventDTO) {
@@ -245,10 +252,10 @@ export class ChatService {
         attachments: imageAttachments,
       },
     };
-    await this.sendMessagesFacebookToPlatform(imageData);
+    await this.handleMessageFaceBook(imageData);
   }
 
-  async sendMessagesFacebookToPlatform(data: FacebookEventDTO) {
+  async handleMessageFaceBook(data: FacebookEventDTO) {
     try {
       const { message, recipient, sender, timestamp } = data;
       const channel = await this.channelService.getByTypeAndAppId(
@@ -263,7 +270,7 @@ export class ChatService {
         sender.id,
       );
 
-      if (!customer) {
+      if (!customer.avatar || !customer.name) {
         const query = {
           access_token: channel.accessToken,
           fields: 'first_name,last_name,profile_pic,name',
@@ -291,10 +298,9 @@ export class ChatService {
             content: message.text,
             id: message.mid,
             createdAt: new Date(timestamp),
-            url: messageContent.url,
-            thumb: messageContent.thumb,
-            links: messageContent.links,
-            type: messageContent.type,
+            // links: messageContent.links,
+            contentType: messageContent.type,
+            senderType: 'user',
           },
           externalConversation: {
             id: sender.id,
@@ -458,7 +464,7 @@ export class ChatService {
         conversation,
         message: messageData,
         isNewConversation,
-      } = await this.conversationsService.sendMessageToConversationWithOthers({
+      } = await this.conversationsService.handleChannelMessage({
         channel: zaloChannel,
         customer: customer,
         externalConversation: {
@@ -467,9 +473,10 @@ export class ChatService {
         },
         message: {
           content: message.text,
-          type: MessageType.TEXT,
+          contentType: MessageType.TEXT,
+          senderType: SenderType.channel,
           id: message.msg_id,
-          createdAt: new Date(Number(timestamp)),
+          createdAt: new Date(timestamp),
         },
       });
 

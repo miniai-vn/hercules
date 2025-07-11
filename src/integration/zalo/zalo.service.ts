@@ -563,9 +563,6 @@ export class ZaloService {
           });
           break;
 
-        // case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEEN_MESSAGE:
-        //   await this.handleProducerMessage(payload);
-
         default:
           // Silent ignore
           break;
@@ -680,10 +677,7 @@ export class ZaloService {
     }
 
     await this.zaloSyncQueue.addBulk(processedMessages);
-    // logger
-    console.log(
-      `Added ${processedMessages.length} jobs to the Zalo sync queue for appId: ${appId}`,
-    );
+
     return processedMessages;
   }
 }

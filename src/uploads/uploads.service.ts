@@ -3,13 +3,20 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import FormData from 'form-data';
 import { Producer } from 'kafkajs';
 import mimeTypes from 'mime-types';
 import { Minetype } from 'src/common/enums/file.enum';
+import { ResourceStatus } from 'src/resources/dto/resources.dto';
+import { ResourcesService } from 'src/resources/resources.service';
 import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
 @Injectable()
@@ -19,7 +26,8 @@ export class UploadsService {
   producer: Producer;
   constructor(
     private config: ConfigService,
-    // private readonly resourceService: ResourcesService,
+    @Inject(forwardRef(() => ResourcesService))
+    private readonly resourceService: ResourcesService,
   ) {
     this.bucket = this.config.getOrThrow('AWS_BUCKET_NAME');
 
@@ -190,7 +198,7 @@ export class UploadsService {
         data: converData,
         code: code,
       };
-      await this.s3.send(
+      const storeJSONFile = await this.s3.send(
         new PutObjectCommand({
           Bucket: this.bucket,
           Key: jsonKey,
@@ -198,11 +206,12 @@ export class UploadsService {
           ContentType: 'application/json',
         }),
       );
+
       const jsonUrl = `https://${process.env.AWS_BASE_URL}/${this.bucket}/${jsonKey}`;
-      // await this.resourceService.updateStatusByKey(
-      //   key,
-      //   ResourceStatus.COMPLETED,
-      // );
+
+      if (storeJSONFile)
+        this.resourceService.updateStatusByKey(key, ResourceStatus.COMPLETED);
+
       return {
         success: true,
         fileKey: key,

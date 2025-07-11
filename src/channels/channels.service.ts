@@ -337,7 +337,9 @@ export class ChannelsService {
   async getByTypeAndAppId(type: ChannelType, appId: string): Promise<Channel> {
     return this.channelRepository.findOne({
       where: { type, appId, status: 'active' },
-      relations: ['shop'],
+      relations: {
+        shop: true,
+      },
     });
   }
 

@@ -3,13 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Conversation } from 'src/conversations/conversations.entity';
 import { In, IsNull, Not, Repository } from 'typeorm';
 import {
-  BulkCreateMessagesDto,
   CreateMessageDto,
   MessageBulkDeleteDto,
   MessageQueryParamsDto,
-  MessageResponseDto,
-  PaginatedMessagesDto,
-  RestoreMessageDto,
   UpdateMessageDto,
 } from './messages.dto';
 import { Message } from './messages.entity';
@@ -21,10 +17,7 @@ export class MessagesService {
     private readonly messageRepository: Repository<Message>,
   ) {}
 
-  async create(
-    createMessageDto: CreateMessageDto,
-    conversation: Conversation,
-  ): Promise<MessageResponseDto> {
+  async create(createMessageDto: CreateMessageDto, conversation: Conversation) {
     const message = this.messageRepository.create({
       ...createMessageDto,
       conversation: conversation,
@@ -38,6 +31,7 @@ export class MessagesService {
     const upsertedMessage = await this.messageRepository.upsert(
       {
         ...createMessageDto,
+        links: createMessageDto.links || [],
         conversation: {
           id: createMessageDto.conversationId,
         },
@@ -52,31 +46,18 @@ export class MessagesService {
     });
   }
 
-  async bulkCreate(
-    bulkCreateDto: BulkCreateMessagesDto,
-  ): Promise<MessageResponseDto[]> {
-    const messages = bulkCreateDto.messages.map((messageDto) =>
-      this.messageRepository.create({
-        ...messageDto,
-        senderType: messageDto.senderType as any, // Cast to match DeepPartial<SenderType>
-      }),
-    );
-
-    const savedMessages = await this.messageRepository.save(messages);
-    return savedMessages.map((message) => this.toResponseDto(message));
-  }
-
   async get50MessagesByConversationId(
     conversationId: number,
     page: number = 1,
     limit: number = 50,
   ) {
-    return await this.messageRepository.find({
+    const msgs = await this.messageRepository.find({
       where: { conversation: { id: conversationId } },
-      order: { createdAt: 'ASC' },
+      order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
+    return msgs.reverse();
   }
 
   async findAll(
@@ -84,7 +65,7 @@ export class MessagesService {
     limit: number,
     search: string,
     includeDeleted: boolean = false,
-  ): Promise<PaginatedMessagesDto> {
+  ) {
     const offset = (page - 1) * limit;
     const queryBuilder = this.messageRepository.createQueryBuilder('message');
 
@@ -114,9 +95,7 @@ export class MessagesService {
     };
   }
 
-  async query(
-    queryParams: MessageQueryParamsDto,
-  ): Promise<MessageResponseDto[]> {
+  async query(queryParams: MessageQueryParamsDto) {
     const queryBuilder = this.messageRepository.createQueryBuilder('message');
 
     // Handle soft deletes
@@ -194,7 +173,7 @@ export class MessagesService {
     page: number,
     limit: number,
     includeDeleted: boolean = false,
-  ): Promise<PaginatedMessagesDto> {
+  ) {
     const offset = (page - 1) * limit;
     const queryBuilder = this.messageRepository
       .createQueryBuilder('message')
@@ -219,10 +198,7 @@ export class MessagesService {
     };
   }
 
-  async update(
-    id: number,
-    updateMessageDto: UpdateMessageDto,
-  ): Promise<MessageResponseDto> {
+  async update(id: number, updateMessageDto: UpdateMessageDto) {
     const message = await this.messageRepository.findOne({
       where: { id, deletedAt: IsNull() },
     });
@@ -288,34 +264,7 @@ export class MessagesService {
     };
   }
 
-  async restore(restoreDto: RestoreMessageDto): Promise<{
-    totalRequested: number;
-    restoredCount: number;
-    notFoundCount: number;
-  }> {
-    const { messageIds } = restoreDto;
-    const totalRequested = messageIds.length;
-
-    const deletedMessages = await this.messageRepository.find({
-      where: { id: In(messageIds), deletedAt: Not(IsNull()) },
-      withDeleted: true,
-    });
-
-    const restoredCount = deletedMessages.length;
-    const notFoundCount = totalRequested - restoredCount;
-
-    if (deletedMessages.length > 0) {
-      await this.messageRepository.restore(deletedMessages.map((m) => m.id));
-    }
-
-    return {
-      totalRequested,
-      restoredCount,
-      notFoundCount,
-    };
-  }
-
-  async restoreOne(id: number): Promise<MessageResponseDto> {
+  async restoreOne(id: number) {
     const message = await this.messageRepository.findOne({
       where: { id, deletedAt: Not(IsNull()) },
       withDeleted: true,
@@ -369,8 +318,6 @@ export class MessagesService {
       .andWhere('read_at IS NULL')
       .execute();
 
-    console.log(` result:: `, result);
-
     return result.affected ?? 0;
   }
 
@@ -385,7 +332,7 @@ export class MessagesService {
 
     return message;
   }
-  private toResponseDto(message: Message): MessageResponseDto {
+  private toResponseDto(message: Message) {
     return {
       id: message.id,
       senderType: message.senderType?.toString(),

@@ -9,8 +9,7 @@ export class FacebookHttpService {
     method: 'GET' | 'POST' = 'POST',
     body?: Record<string, any>,
     headers?: Record<string, string>,
-    baseUrl: string = FACEBOOK_CONFIG.FACEBOOK_PATH ||
-      FACEBOOK_CONFIG.BASE_PATH_FACEBOOK,
+    baseUrl: string = FACEBOOK_CONFIG.FACEBOOK_PATH,
   ): Promise<AxiosResponse> {
     try {
       const config: AxiosRequestConfig = {

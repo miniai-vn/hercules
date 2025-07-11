@@ -12,7 +12,11 @@ import { MessageType } from 'src/common/enums/message.enum';
 import { AddParticipantDto } from 'src/conversation-members/conversation-members.dto';
 import { Customer } from 'src/customers/customers.entity';
 import { CustomersService } from 'src/customers/customers.service';
-import { SenderType } from 'src/messages/messages.dto';
+import {
+  ChannelMessageDto,
+  SenderType,
+  UserMessageDto,
+} from 'src/messages/messages.dto';
 import { Message } from 'src/messages/messages.entity';
 import { MessagesService } from 'src/messages/messages.service';
 import { TagsService } from 'src/tags/tags.service';
@@ -305,17 +309,23 @@ export class ConversationsService {
     try {
       const queryBuilder = this.conversationRepository
         .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.messages', 'messages')
         .leftJoinAndSelect('conversation.members', 'members')
         .leftJoinAndSelect('members.customer', 'customer')
         .leftJoinAndSelect('members.user', 'user')
         .leftJoinAndSelect('conversation.channel', 'channel')
         .leftJoinAndSelect('conversation.tags', 'tags')
-        .leftJoinAndSelect('members.lastMessage', 'lastMessage')
-
+        .leftJoinAndSelect(
+          'conversation.messages',
+          'latestMessage',
+          'latestMessage.id = (SELECT MAX(m.id) FROM messages m WHERE m.conversation_id = conversation.id LIMIT 1)',
+        )
         .where('channel.shop_id = :shopId', {
           shopId: queryParams.shopId,
-        });
+        })
+
+        .andWhere(
+          'EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = conversation.id)',
+        );
 
       if (queryParams.channelType) {
         queryBuilder.andWhere('channel.type = :channelType', {
@@ -366,7 +376,7 @@ export class ConversationsService {
       // queryBuilder.limit(queryParams.limit || 20);
       // queryBuilder.offset(0);
       const conversations = await queryBuilder
-        .orderBy('conversation.updated_at', 'DESC')
+        .orderBy('latestMessage.created_at', 'DESC')
         .getMany();
 
       const conversationWithUnreadCount = await Promise.all(
@@ -543,27 +553,16 @@ export class ConversationsService {
     }
   }
 
-  async sendMessageToConversation({
+  async handerUserMessage({
     channel,
     customer,
-    externalMessageId,
     message,
-    type,
     externalConversation,
   }: {
     channel: Channel;
     customer: Customer;
-    externalMessageId: string;
-    message: {
-      id: string;
-      content: string;
-      createdAt?: Date;
-      links?: string[];
-      thumb?: string;
-      url?: string;
-    };
-    type?: string;
-    externalConversation?: {
+    message: UserMessageDto;
+    externalConversation: {
       id: string;
       timestamp: Date;
     };
@@ -583,28 +582,22 @@ export class ConversationsService {
         avatar: customer.avatar,
         content: message.content,
         isBot: checkedChannelActiveAgent && checkConversationActive,
-        externalId: customer.externalId,
+        externalId: externalConversation.id,
         channelId: channel.id,
-        conversation: {
-          id: externalConversation?.id || '',
-          timestamp: externalConversation?.timestamp || new Date(),
-        },
-
+        conversation: externalConversation,
         customerParticipantIds: [customer.id],
         userParticipantIds: adminChannels.map((user) => user.id),
       });
 
       const messageData = await this.messagesService.upsert({
         content: message.content,
-        contentType: type || MessageType.TEXT,
-        externalId: externalMessageId,
+        contentType: message.contentType,
+        externalId: message.id,
         conversationId: conversation.id,
         senderType: SenderType.customer,
         senderId: customer.id,
         links: message.links,
-        thumb: message.thumb,
-        url: message.url,
-        createdAt: message?.createdAt.toISOString() ?? new Date().toISOString(),
+        createdAt: message?.createdAt,
       });
 
       return {
@@ -715,22 +708,14 @@ export class ConversationsService {
     };
   }
 
-  async sendMessageToConversationWithOthers({
+  async handleChannelMessage({
     channel,
     message,
     customer,
     externalConversation,
   }: {
     channel: Channel;
-    message: {
-      content: string;
-      type?: string;
-      links?: string[];
-      thumb?: string;
-      url?: string;
-      message_id?: string; // For external message ID
-      createdAt?: Date;
-    };
+    message: ChannelMessageDto;
     customer: Customer;
     externalConversation: {
       id: string;
@@ -741,7 +726,7 @@ export class ConversationsService {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
 
       const existingMessages = await this.messagesService.findByExternalId(
-        message.message_id,
+        message.id,
       );
 
       if (existingMessages) {
@@ -767,22 +752,16 @@ export class ConversationsService {
         userParticipantIds: adminChannels.map((user) => user.id),
       });
 
-      await this.conversationRepository.update(conversation.id, {
-        updatedAt: new Date(),
-      });
-
       // check message is exsting with externalId
       const metadataMessage = await this.messagesService.upsert({
         content: message.content ? message.content : '',
-        contentType: message.type,
+        contentType: message.contentType,
         senderType: SenderType.channel,
         senderId: channel.id.toString(),
         links: message.links,
-        thumb: message.thumb,
         conversationId: conversation.id,
-        url: message.url,
-        externalId: message.message_id,
-        createdAt: message.createdAt?.toISOString() ?? new Date().toISOString(),
+        externalId: message.id,
+        createdAt: message.createdAt,
       });
 
       return {
@@ -860,8 +839,12 @@ export class ConversationsService {
         throw new NotFoundException('Conversation not found');
       }
 
-      conversation.isBot = !conversation.isBot;
-      await this.conversationRepository.save(conversation);
+      conversation.updatedAt = conversation.updatedAt;
+      await this.conversationRepository.save({
+        ...conversation,
+        isBot: !conversation.isBot,
+        updatedAt: conversation.updatedAt,
+      });
 
       return conversation.isBot;
     } catch (error) {

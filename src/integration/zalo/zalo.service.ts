@@ -10,13 +10,14 @@ import { Channel } from 'src/channels/channels.entity';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
+import { MessageType } from 'src/common/enums/message.enum';
 import { delay, isAfter } from 'src/common/utils/utils';
 import { ConversationsService } from 'src/conversations/conversations.service';
 import { Platform } from 'src/customers/customers.dto';
 import { CustomersService } from 'src/customers/customers.service';
 import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import { ZALO_CONFIG } from './config/zalo.config';
-import { ZaloIntegrateWebhookDto } from './dto/zalo-webhook.dto';
+import { ZaloMessageDto, ZaloWebhookDto } from 'src/chat/dto/chat-zalo.dto';
 
 dotenv.config();
 
@@ -290,44 +291,37 @@ export class ZaloService {
           break;
         }
 
-        for (const message of response.data.data) {
-          const isFromUser = message.src === 1;
+        for (let msg of response.data.data) {
+          const isFromUser = msg.src === 1;
 
           const customer = await this.customerService.findOrCreateByExternalId({
             platform: Platform.ZALO,
-            externalId: isFromUser ? message.from_id : message.to_id,
-            name: isFromUser
-              ? message.from_display_name
-              : message.to_display_name,
-            avatar: isFromUser ? message.from_avatar : message.to_avatar,
+            externalId: isFromUser ? msg.from_id : msg.to_id,
+            name: isFromUser ? msg.from_display_name : msg.to_display_name,
+            avatar: isFromUser ? msg.from_avatar : msg.to_avatar,
             channelId: channel.id,
           });
 
+          msg = this.transferMessage(msg);
+
+          const externalConversation = {
+            id: customer.externalId,
+            timestamp: new Date(msg.time),
+          };
+
           if (isFromUser) {
-            await this.conversationService.sendMessageToConversation({
-              externalMessageId: message.message_id,
+            await this.conversationService.handerUserMessage({
               channel: channel,
               customer: customer,
-              message: message.message,
-              type: message.type,
-              externalConversation: {
-                id: customer.externalId,
-                timestamp: new Date(message.time),
-              },
+              message: msg,
+              externalConversation,
             });
           } else {
-            await this.conversationService.sendMessageToConversationWithOthers({
+            await this.conversationService.handleChannelMessage({
               channel: channel,
-              message: {
-                content: message.message,
-                type: message.type,
-                message_id: message.message_id,
-              },
               customer: customer,
-              externalConversation: {
-                id: customer.externalId,
-                timestamp: new Date(),
-              },
+              message: msg,
+              externalConversation,
             });
           }
         }
@@ -340,6 +334,42 @@ export class ZaloService {
       throw new Error(
         `Failed to sync conversations with user ID ${user_id}: ${error.message}`,
       );
+    }
+  }
+
+  private transferMessage(message) {
+    switch (message.type) {
+      case MessageType.TEXT:
+        return {
+          content: message.message,
+          contentType: MessageType.TEXT,
+          id: message.message_id,
+          createdAt: dayjs(message.time),
+        };
+      case 'photo':
+        return {
+          content: '',
+          link: [message.thumb],
+          contentType: MessageType.IMAGE,
+          id: message.message_id,
+          createdAt: dayjs(message.time),
+        };
+      case MessageType.STICKER:
+        return {
+          content: '',
+          contentType: MessageType.STICKER,
+          links: [message.url],
+          id: message.message_id,
+          createdAt: dayjs(message.time),
+        };
+
+      default:
+        return {
+          content: message.message,
+          contentType: MessageType.TEXT,
+          id: message.message_id,
+          createdAt: dayjs(message.time),
+        };
     }
   }
   async getUsers({
@@ -465,9 +495,7 @@ export class ZaloService {
     }
   }
 
-  async manualTokenRefresh(
-    appId: string,
-  ): Promise<{ success: boolean; message: string }> {
+  async manualTokenRefresh(appId: string) {
     try {
       const channel = await this.channelService.getByTypeAndAppId(
         ChannelType.ZALO,
@@ -478,16 +506,39 @@ export class ZaloService {
 
       return {
         success,
-        message: success
-          ? 'Token refreshed successfully'
-          : 'Failed to refresh token',
+        message: success,
       };
     } catch (error) {
       return { success: false, message: error.message };
     }
   }
 
-  async handleWebhook(payload: ZaloIntegrateWebhookDto): Promise<void> {
+  /**
+   * Transform raw message data to a format suitable for processing
+   */
+
+  transfeRawDataMessage(message): ZaloMessageDto {
+    if (!message.attachments || !message.attachments.length) {
+      return {
+        ...message,
+        contentType: MessageType.TEXT,
+      };
+    }
+    const links = message.attachments.map((item) => item.payload.url);
+
+    return {
+      ...message,
+      links,
+      msg_id: message.msg_id,
+      contentType: MessageType.STICKER,
+    };
+  }
+
+  /**
+   * Handle Zalo webhook events
+   */
+
+  async handleWebhook(payload): Promise<void> {
     try {
       switch (payload.event_name) {
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
@@ -498,8 +549,19 @@ export class ZaloService {
           await this.handleProducerMessage(payload);
           break;
 
-        // case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEEN_MESSAGE:
-        //   await this.handleProducerMessage(payload);
+        case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_STICKER:
+          await this.handleProducerMessage({
+            ...payload,
+            message: this.transfeRawDataMessage(payload.message),
+          });
+          break;
+
+        case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_IMAGE:
+          await this.handleProducerMessage({
+            ...payload,
+            message: this.transfeRawDataMessage(payload.message),
+          });
+          break;
 
         default:
           // Silent ignore
@@ -510,7 +572,11 @@ export class ZaloService {
     }
   }
 
-  private async handleProducerMessage(payload: ZaloIntegrateWebhookDto): Promise<void> {
+  /**
+   * Handle producer message for Zalo webhook events
+   **/
+
+  private async handleProducerMessage(payload): Promise<void> {
     this.producer.send({
       topic: this.topic,
       messages: [
@@ -611,6 +677,7 @@ export class ZaloService {
     }
 
     await this.zaloSyncQueue.addBulk(processedMessages);
+
     return processedMessages;
   }
 }

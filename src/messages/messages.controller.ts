@@ -1,32 +1,21 @@
 import {
   Body,
   Controller,
-  DefaultValuePipe,
   Delete,
-  Get,
   HttpCode,
   HttpStatus,
   Param,
-  ParseBoolPipe,
   ParseIntPipe,
   Patch,
   Post,
   Put,
-  Query,
-  Req,
-  UseGuards,
+  UseGuards
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard'; // Adjust path
 import {
-  BulkCreateMessagesDto,
   CreateMessageDto,
   MessageBulkDeleteDto,
-  MessageQueryParamsDto,
-  MessageResponseDto,
-  MessageStatsDto,
-  PaginatedMessagesDto,
-  RestoreMessageDto,
-  UpdateMessageDto,
+  UpdateMessageDto
 } from './messages.dto';
 import { MessagesService } from './messages.service';
 
@@ -42,75 +31,10 @@ export class MessagesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(
-    @Body() createMessageDto: CreateMessageDto,
-  ): Promise<ApiResponse<MessageResponseDto>> {
+  async create(@Body() createMessageDto: CreateMessageDto) {
     // const message = await this.messagesService.create(createMessageDto);
     return {
       message: 'Message created successfully',
-    };
-  }
-
-  @Post('bulk')
-  @HttpCode(HttpStatus.CREATED)
-  async bulkCreate(
-    @Body() bulkCreateDto: BulkCreateMessagesDto,
-  ): Promise<ApiResponse<MessageResponseDto[]>> {
-    const messages = await this.messagesService.bulkCreate(bulkCreateDto);
-    return {
-      message: 'Messages created successfully',
-      data: messages,
-    };
-  }
-
-  @Get()
-  async findAll(
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-    @Query('search', new DefaultValuePipe('')) search: string,
-    @Query('includeDeleted', new DefaultValuePipe(false), ParseBoolPipe)
-    includeDeleted: boolean,
-  ): Promise<ApiResponse<PaginatedMessagesDto>> {
-    const messages = await this.messagesService.findAll(
-      page,
-      limit,
-      search,
-      includeDeleted,
-    );
-    return {
-      message: 'Messages retrieved successfully',
-      data: messages,
-    };
-  }
-
-  @Get('query')
-  async query(
-    @Query() queryParams: MessageQueryParamsDto,
-  ): Promise<ApiResponse<MessageResponseDto[]>> {
-    const messages = await this.messagesService.query(queryParams);
-    return {
-      message: 'Messages queried successfully',
-      data: messages,
-    };
-  }
-
-  @Get('conversation/:conversationId')
-  async findByConversation(
-    @Param('conversationId', ParseIntPipe) conversationId: number,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
-    @Query('limit', new DefaultValuePipe(50), ParseIntPipe) limit: number,
-    @Query('includeDeleted', new DefaultValuePipe(false), ParseBoolPipe)
-    includeDeleted: boolean,
-  ): Promise<ApiResponse<PaginatedMessagesDto>> {
-    const messages = await this.messagesService.findByConversation(
-      conversationId,
-      page,
-      limit,
-      includeDeleted,
-    );
-    return {
-      message: 'Conversation messages retrieved successfully',
-      data: messages,
     };
   }
 
@@ -118,7 +42,7 @@ export class MessagesController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateMessageDto: UpdateMessageDto,
-  ): Promise<ApiResponse<MessageResponseDto>> {
+  ) {
     const message = await this.messagesService.update(id, updateMessageDto);
     return {
       message: 'Message updated successfully',
@@ -165,25 +89,8 @@ export class MessagesController {
     };
   }
 
-  @Post('restore')
-  async restore(@Body() restoreDto: RestoreMessageDto): Promise<
-    ApiResponse<{
-      totalRequested: number;
-      restoredCount: number;
-      notFoundCount: number;
-    }>
-  > {
-    const result = await this.messagesService.restore(restoreDto);
-    return {
-      message: 'Messages restored successfully',
-      data: result,
-    };
-  }
-
   @Patch(':id/restore')
-  async restoreOne(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<ApiResponse<MessageResponseDto>> {
+  async restoreOne(@Param('id', ParseIntPipe) id: number) {
     const message = await this.messagesService.restoreOne(id);
     return {
       message: 'Message restored successfully',

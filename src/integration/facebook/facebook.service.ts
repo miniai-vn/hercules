@@ -258,8 +258,9 @@ export class FacebookService {
     access_token: string,
     customerId: string,
     message: string,
+    pageId: string,
   ): Promise<AxiosResponse> {
-    const endpoint = `me/messages?access_token=${access_token}`;
+    const endpoint = `${pageId}/messages?access_token=${access_token}`;
     const data = {
       recipient: {
         id: customerId,
@@ -345,30 +346,6 @@ export class FacebookService {
     }
   }
 
-  // Tìm hoặc tạo customer (chuẩn hóa logic)
-  async getOrCreateCustomer(
-    customerService: any,
-    platform: string,
-    externalId: string,
-    name: string,
-    avatar: string,
-    channelId: number,
-    shopId: string,
-  ) {
-    let customer = await customerService.findByExternalId(platform, externalId);
-    if (!customer) {
-      customer = await customerService.findOrCreateByExternalId({
-        platform,
-        externalId,
-        name,
-        avatar,
-        channelId,
-        shopId,
-      });
-    }
-    return customer;
-  }
-
   async fetchAllMessagesOfConversation(
     conversationId: string,
     accessToken: string,
@@ -414,6 +391,7 @@ export class FacebookService {
         ChannelType.FACEBOOK,
         pageId,
       );
+
       if (!facebookChannel?.accessToken)
         throw new Error('No access token found.');
 
@@ -425,59 +403,42 @@ export class FacebookService {
         100,
       );
 
-      // nguoi gửi
-      const userMessages = messages.filter((msg) => msg.from.id !== pageId);
-
-      let customer: Customer | null = null;
-      if (userMessages.length > 0) {
-        const userId = userMessages[0].from.id;
-        const userName = userMessages[0].from.name;
-        const avatar = await this.getFacebookAvatar(userId, accessToken);
-        customer = await this.getOrCreateCustomer(
-          this.customerService,
-          Platform.FACEBOOK,
-          userId,
-          userName,
-          avatar,
-          facebookChannel.id,
-          facebookChannel.shop.id,
-        );
-      }
+      console.log(
+        `Syncing conversation ${conversationId} with ${messages.length} messages...`,
+      );
 
       for (const msg of messages) {
         console.log(` msg:: `, msg);
         const isFromUser = msg.from.id !== pageId;
 
+        const customer = await this.customerService.findOrCreateByExternalId({
+          platform: ChannelType.FACEBOOK,
+          externalId: isFromUser ? msg.from.id : pageId,
+          name: isFromUser ? msg.from.name : facebookChannel.name,
+          channelId: facebookChannel.id,
+          shopId: facebookChannel.shop.id,
+        });
+
+        const externalConversation = {
+          id: conversationId,
+          timestamp: new Date(msg.created_time),
+        };
+
+        const message = await this.handleTransferMessage(msg);
+
         if (isFromUser) {
-          await this.conversationService.sendMessageToConversation({
-            externalMessageId: msg.id,
+          await this.conversationService.handerUserMessage({
             channel: facebookChannel,
             customer: customer,
-            message: {
-              id: msg.id,
-              content: msg.message || '',
-              createdAt: new Date(msg.created_time),
-            },
-            externalConversation: {
-              id: customer.externalId,
-              timestamp: new Date(msg.created_time),
-            },
-            type: 'text',
+            message: message,
+            externalConversation,
           });
         } else {
-          await this.conversationService.sendMessageToConversationWithOthers({
+          await this.conversationService.handleChannelMessage({
             channel: facebookChannel,
-            message: {
-              type: 'text',
-              content: msg.message,
-              message_id: msg.id,
-              createdAt: new Date(msg.created_time),
-            },
+            message: message,
             customer: customer,
-            externalConversation: {
-              id: conversationId,
-              timestamp: new Date(msg.created_time),
-            },
+            externalConversation,
           });
         }
       }
@@ -486,6 +447,29 @@ export class FacebookService {
     } finally {
       console.log(`Sync conversation ${conversationId} completed.`);
     }
+  }
+
+  async handleTransferMessage(message) {
+    if (!message.attachments) {
+      return {
+        id: message.id,
+        content: message.message || '',
+        contentType: MessageType.TEXT,
+        createdAt: new Date(message.created_time),
+      };
+    }
+
+    const links = message.attachments.data.map((attachment) => {
+      return attachment.image_data.preview_url;
+    });
+
+    return {
+      id: message.id,
+      content: message.message || '',
+      contentType: MessageType.IMAGE,
+      createdAt: new Date(message.created_time),
+      links,
+    };
   }
 
   async syncConversationWithinCustomTimeFacebook(

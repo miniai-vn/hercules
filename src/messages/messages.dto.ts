@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsDate,
   IsNotEmpty,
   IsNumber,
   IsObject,
@@ -14,21 +15,20 @@ export enum SenderType {
   assistant = 'assistant',
   channel = 'channel',
 }
-export class CreateMessageDto {
+
+// Base DTO with common message properties
+export class MessageDto {
   @IsString()
-  senderType: string;
+  @IsOptional()
+  senderType?: string;
 
   @IsString()
-  @IsNotEmpty()
-  contentType: string;
+  @IsOptional()
+  contentType?: string;
 
   @IsString()
   @IsOptional()
   content?: string;
-
-  @IsNumber()
-  @IsNotEmpty()
-  conversationId?: number;
 
   @IsString()
   @IsOptional()
@@ -50,52 +50,42 @@ export class CreateMessageDto {
   @IsOptional()
   externalId?: string; // For external systems to reference this message
 
-  @IsString()
-  @IsOptional()
   @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
   links?: string[]; // Array of file URLs or links associated with the message
 
-  @IsString()
+  @IsDate()
   @IsOptional()
-  thumb?: string; // Thumbnail URL for media messages
-
-  @IsString()
-  @IsOptional()
-  url?: string; // URL for the message, if applicable
-
-  @IsString()
-  @IsOptional()
-  createdAt?: string; // ISO date string for when the message was created
+  @Type(() => Date)
+  createdAt?: Date;
 }
 
-export class UpdateMessageDto {
+// Create DTO extends MessageDto with required fields
+export class CreateMessageDto extends MessageDto {
   @IsString()
+  @IsNotEmpty()
   senderType: string;
 
   @IsString()
-  @IsOptional()
-  contentType?: string;
+  @IsNotEmpty()
+  contentType: string;
 
-  @IsString()
-  @IsOptional()
-  content?: string;
+  @IsNumber()
+  @IsNotEmpty()
+  conversationId: number;
+}
 
-  @IsString()
-  @IsOptional()
-  intent?: string;
-
-  @IsObject()
-  @IsOptional()
-  extraData?: Record<string, any>;
-
-  @IsObject()
-  @IsOptional()
-  tokenUsage?: Record<string, any>;
+// Update DTO extends MessageDto (all fields optional for updates)
+export class UpdateMessageDto extends MessageDto {
+  // All fields are already optional from base MessageDto
+  // No additional required fields needed for updates
 }
 
 export class MessageQueryParamsDto {
   @IsString()
-  senderType: string;
+  @IsOptional()
+  senderType?: string;
 
   @IsString()
   @IsOptional()
@@ -133,82 +123,19 @@ export class MessageBulkDeleteDto {
   messageIds: number[];
 }
 
-export class PaginatedMessagesDto {
-  messages: MessageResponseDto[];
-
-  @IsNumber()
-  total: number;
-
-  @IsNumber()
-  page: number;
-
-  @IsNumber()
-  perPage: number;
-
-  @IsNumber()
-  totalPages: number;
-}
-
-export class MessageResponseDto {
-  id: number;
-  senderType: string;
-  contentType: string;
-  content?: string;
-  conversationId: number;
-  intent?: string;
-  extraData?: Record<string, any>;
-  tokenUsage?: Record<string, any>;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-
-  // Optional: Include conversation details
-  conversation?: {
-    id: number;
-    name: string;
-    type: string;
-  };
-}
-
-export class RestoreMessageDto {
-  @IsNumber({}, { each: true })
+// Additional specialized DTOs extending MessageDto
+export class UserMessageDto extends MessageDto {
+  @IsString()
   @IsNotEmpty()
-  messageIds: number[];
-}
+  content: string;
 
-export class MessageStatsDto {
-  totalMessages: number;
-  messagesByType: Record<string, number>;
-  messagesBySender: Record<string, number>;
-  averageTokenUsage?: {
-    input?: number;
-    output?: number;
-    total?: number;
-  };
-}
-
-export class BulkCreateMessagesDto {
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
-  conversationId: number;
-
-  messages: Omit<CreateMessageDto, 'conversationId'>[];
+  id: string; // Optional: ID for user messages, can be used for updates
 }
 
-export class MessageWithConversationDto extends MessageResponseDto {
-  conversation: {
-    id: number;
-    name: string;
-    type: string;
-    customerParticipants?: Array<{
-      id: number;
-      name?: string;
-      externalId: string;
-    }>;
-    userParticipants?: Array<{
-      id: string;
-      name?: string;
-      email?: string;
-    }>;
-  };
+export class ChannelMessageDto extends MessageDto {
+  @IsString()
+  @IsNotEmpty()
+  id: string; // Optional: ID for channel messages, can be used for updates
 }

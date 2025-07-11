@@ -14,6 +14,8 @@ import { MessagesService } from 'src/messages/messages.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
+import { SenderType } from 'src/messages/messages.dto';
+import { link } from 'fs';
 
 export interface SendMessageData {
   conversationId: number;
@@ -73,6 +75,15 @@ export class ChatService {
         sender.id,
       );
 
+      const transferMessage = {
+        content: message.text,
+        links: message.links,
+        id: message.msg_id,
+        createdAt: new Date(),
+        contentType: message.contentType,
+        senderType: SenderType.user,
+      };
+
       if (!customer) {
         const metadataCustomerZalo = await this.zaloService.getUserProfile(
           zaloChannel.accessToken,
@@ -89,15 +100,14 @@ export class ChatService {
       }
 
       const { conversation, messageData, isNewConversation } =
-        await this.conversationsService.sendMessageToConversation({
-          externalMessageId: message.msg_id,
-          message: {
-            content: message.text,
-            id: message.msg_id,
-            createdAt: new Date(),
-          },
+        await this.conversationsService.handerUserMessage({
+          message: transferMessage,
           channel: zaloChannel,
           customer,
+          externalConversation: {
+            id: customer.externalId,
+            timestamp: new Date(),
+          },
         });
 
       if (isNewConversation) {
@@ -121,9 +131,10 @@ export class ChatService {
         conversationId: conversation.id,
         channelType: ChannelType.ZALO,
       });
-      // if (conversation.isBot) {
-      //   this.botSendMessage(conversation, message.text);
-      // }
+
+      if (conversation.isBot) {
+        this.botSendMessage(conversation, message.text);
+      }
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to send message from Zalo to platform: ${error.message}`,
@@ -177,8 +188,9 @@ export class ChatService {
       if (channel.type === ChannelType.FACEBOOK) {
         const resp = await this.facebookService.sendMessageFacebook(
           channel.accessToken,
-          conversation.externalId,
+          customer.externalId,
           data.content,
+          channel.appId,
         );
 
         const { message } =
@@ -225,7 +237,7 @@ export class ChatService {
         attachments: fileAttachments,
       },
     };
-    await this.sendMessagesFacebookToPlatform(fileData);
+    await this.handleMessageFaceBook(fileData);
   }
 
   async handleFacebookImageAttachment(data: FacebookEventDTO) {
@@ -246,10 +258,10 @@ export class ChatService {
         attachments: imageAttachments,
       },
     };
-    await this.sendMessagesFacebookToPlatform(imageData);
+    await this.handleMessageFaceBook(imageData);
   }
 
-  async sendMessagesFacebookToPlatform(data: FacebookEventDTO) {
+  async handleMessageFaceBook(data: FacebookEventDTO) {
     try {
       const { message, recipient, sender, timestamp } = data;
       const channel = await this.channelService.getByTypeAndAppId(
@@ -264,7 +276,7 @@ export class ChatService {
         sender.id,
       );
 
-      if (!customer) {
+      if (!customer.avatar || !customer.name) {
         const query = {
           access_token: channel.accessToken,
           fields: 'first_name,last_name,profile_pic,name',
@@ -286,18 +298,16 @@ export class ChatService {
       const messageContent = this.extractFacebookMessageContent(message);
 
       const { conversation, messageData, isNewConversation } =
-        await this.conversationsService.sendMessageToConversation({
+        await this.conversationsService.handerUserMessage({
           channel: channel,
-          externalMessageId: message.mid,
           message: {
             content: message.text,
             id: message.mid,
             createdAt: new Date(timestamp),
-            url: messageContent.url,
-            thumb: messageContent.thumb,
-            links: messageContent.links,
+            // links: messageContent.links,
+            contentType: messageContent.type,
+            senderType: 'user',
           },
-          type: messageContent.type,
           externalConversation: {
             id: sender.id,
             timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
@@ -374,52 +384,15 @@ export class ChatService {
     };
   }
 
-  // async handleMessageReadFacebook(data: FacebookEventDTO): Promise<void> {
-  //   const { sender, recipient, read } = data;
-
-  //   const senderId = sender.id;
-  //   const recipientId = recipient.id;
-  //   const watermark = read?.watermark;
-
-  //   if (!senderId || !recipientId || !watermark) {
-  //     throw new InternalServerErrorException(
-  //       'Invalid data received from Facebook read event',
-  //     );
-  //   }
-
-  //   const channel = await this.channelService.getByTypeAndAppId(
-  //     ChannelType.FACEBOOK,
-  //     recipientId,
-  //   );
-
-  //   const conversation =
-  //     await this.conversationsService.findOneByExternalIdAndChannelId(
-  //       senderId,
-  //       channel.id,
-  //     );
-
-  //   console.log('[DEBUG] Conversation:', conversation);
-
-  //   const result = await this.messagesService.markMessagesAsReadForPlatform({
-  //     platform: Platform.FACEBOOK,
-  //     conversationId: conversation.id,
-  //     userExternalId: senderId,
-  //     readToTime: new Date(watermark),
-  //   });
-
-  //   console.log(
-  //     `[DEBUG] Mark messages as read for conversationId=${conversation.id}:`,
-  //     result,
-  //   );
-  // }
-
   async botSendMessage(conversation: Conversation, message: string) {
     const agents = await this.agentService.findByChannelId(
       conversation.channel.id,
     );
+
     const customer = conversation.members.find(
       (member) => !!member.customerId,
     ).customer;
+
     const history = conversation.messages.slice(-10);
     for (const agent of agents) {
       const prompt = agent.prompt;
@@ -446,7 +419,7 @@ export class ChatService {
           customer: customer,
           message: {
             content: aiResponse.data.data.answer,
-            externalMessageId: zaloMsg.data.message_id,
+            externalMessageId: zaloMsg?.data?.data.message_id,
             type: MessageType.TEXT,
           },
         });
@@ -497,7 +470,7 @@ export class ChatService {
         conversation,
         message: messageData,
         isNewConversation,
-      } = await this.conversationsService.sendMessageToConversationWithOthers({
+      } = await this.conversationsService.handleChannelMessage({
         channel: zaloChannel,
         customer: customer,
         externalConversation: {
@@ -506,9 +479,10 @@ export class ChatService {
         },
         message: {
           content: message.text,
-          type: MessageType.TEXT,
-          message_id: message.msg_id,
-          createdAt: new Date(Number(timestamp)),
+          contentType: MessageType.TEXT,
+          senderType: SenderType.channel,
+          id: message.msg_id,
+          createdAt: new Date(timestamp),
         },
       });
 

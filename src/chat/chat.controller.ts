@@ -56,7 +56,7 @@ export class ChatController {
   }
 
   async sendMessageFacebookToPlatform(@Body() data: FacebookEventDTO) {
-    await this.chatService.sendMessagesFacebookToPlatform(data);
+    await this.chatService.handleMessageFaceBook(data);
     return {
       status: 'success',
       message: 'Message sent to Facebook successfully',

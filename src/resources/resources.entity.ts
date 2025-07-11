@@ -67,12 +67,20 @@ export class Resource {
   })
   department: Department;
 
-  @OneToMany(() => Resource, (resource) => resource.resources)
+  // Self-referencing relationship - Parent resource
+  @ManyToOne(() => Resource, (resource) => resource.resources, {
+    nullable: true,
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({
     name: 'parent_id',
   })
+  parent?: Resource;
+
+  // Self-referencing relationship - Child resources
+  @OneToMany(() => Resource, (resource) => resource.parent)
   resources: Resource[];
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'varchar', nullable: true, unique: true })
   code?: string;
 }

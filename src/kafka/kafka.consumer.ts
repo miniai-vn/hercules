@@ -2,8 +2,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Consumer, EachMessagePayload } from 'kafkajs';
 import { ChatService } from 'src/chat/chat.service';
-import { MessageType } from 'src/common/enums/message.enum';
-import { FacebookAttachment } from 'src/integration/facebook/types/message.type';
 import { ZALO_CONFIG } from 'src/integration/zalo/config/zalo.config';
 import { UploadsService } from 'src/uploads/uploads.service';
 import { KafkaConfigService } from './kafka.config';

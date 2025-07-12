@@ -26,6 +26,7 @@ export class KafkaConsumerService implements OnModuleDestroy {
     await consumer.subscribe({ topic, fromBeginning: false });
 
     await consumer.run({
+      autoCommit: true,
       eachMessage: async (payload) => {
         await handler(payload);
       },

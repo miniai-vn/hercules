@@ -14,6 +14,7 @@ import { SenderType } from 'src/messages/messages.dto';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
+import dayjs from 'dayjs';
 
 export interface SendMessageData {
   conversationId: number;
@@ -86,7 +87,6 @@ export class ChatService {
         contentType: message.contentType ?? MessageType.TEXT,
         senderType: SenderType.user,
       };
-
 
       if (!customer) {
         const metadataCustomerZalo = await this.zaloService.getUserProfile(
@@ -407,7 +407,7 @@ export class ChatService {
           contentType: MessageType.TEXT,
           senderType: SenderType.channel,
           id: message.msg_id,
-          createdAt: new Date(timestamp),
+          createdAt: dayjs(timestamp).toDate(),
         },
       });
 

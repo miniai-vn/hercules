@@ -17,7 +17,8 @@ interface CreateChunkDto {
 }
 
 interface UpdateChunkDto {
-  page_content?: string;
+  pk: string;
+  text?: string;
   metadata?: Record<string, any>;
 }
 
@@ -51,7 +52,6 @@ export class AgentServiceService {
           'Content-Type': 'application/json',
           ...headers,
         },
-        timeout,
       };
 
       if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
@@ -157,13 +157,10 @@ export class AgentServiceService {
    *   "page_content": "Updated content"
    * }
    */
-  async updateChunk(
-    id: string,
-    updateChunkDto: UpdateChunkDto,
-  ): Promise<AxiosResponse> {
+  async updateChunk(updateChunkDto: UpdateChunkDto): Promise<AxiosResponse> {
     const endpoint = AGENT_SERVICE_CONFIG.ENDPOINTS.UPDATE_CHUNK.replace(
       ':id',
-      id,
+      updateChunkDto.pk,
     );
 
     return this.callAgentServiceAPI({
@@ -171,7 +168,7 @@ export class AgentServiceService {
       method: HttpMethod.PUT,
       data: {
         ...updateChunkDto,
-        id, // Include ID in the data for consistency
+        id: updateChunkDto.pk, // Include ID in the data for consistency
       },
     });
   }

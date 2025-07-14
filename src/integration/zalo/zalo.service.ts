@@ -209,6 +209,7 @@ export class ZaloService {
         text: message,
       },
     };
+
     return this.callZaloAuthenticatedAPI(
       ZALO_CONFIG.ENDPOINTS.SEND_MESSAGE,
       accessToken,

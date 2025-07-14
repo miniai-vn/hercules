@@ -1,29 +1,28 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  HttpException,
+  HttpStatus,
+  Param,
   Post,
   Put,
-  Delete,
-  Param,
-  Body,
   Query,
-  HttpStatus,
-  HttpException,
 } from '@nestjs/common';
 import {
-  ApiTags,
   ApiOperation,
-  ApiResponse,
   ApiParam,
   ApiQuery,
-  ApiBody,
+  ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 import { AgentServiceService } from './agent-service.service';
-import { 
-  ChunkQueryDto, 
-  CreateChunkDto, 
-  UpdateChunkDto, 
-  ChunkResponseDto 
+import {
+  ChunkQueryDto,
+  ChunkResponseDto,
+  CreateChunkDto,
+  UpdateChunkDto,
 } from './dto/chunk.dto';
 
 @ApiTags('Agent Service - Chunks')
@@ -37,7 +36,8 @@ export class AgentServiceController {
   @Get('chunks')
   @ApiOperation({
     summary: 'Get all chunks',
-    description: 'Retrieve chunks with optional pagination and filtering by code',
+    description:
+      'Retrieve chunks with optional pagination and filtering by code',
   })
   @ApiResponse({
     status: 200,
@@ -67,7 +67,7 @@ export class AgentServiceController {
       const response = await this.agentService.getChunks(query);
       return {
         success: true,
-        data: response.data,
+        data: response.data.data,
         status: response.status,
       };
     } catch (error) {
@@ -119,7 +119,11 @@ export class AgentServiceController {
     @Query('page_size') pageSize?: number,
   ) {
     try {
-      const response = await this.agentService.getChunksByCode(code, page, pageSize);
+      const response = await this.agentService.getChunksByCode(
+        code,
+        page,
+        pageSize,
+      );
       return {
         success: true,
         data: response.data,
@@ -168,7 +172,10 @@ export class AgentServiceController {
         status: response.status,
       };
     } catch (error) {
-      if (error.message.includes('404') || error.message.includes('not found')) {
+      if (
+        error.message.includes('404') ||
+        error.message.includes('not found')
+      ) {
         throw new HttpException(
           {
             success: false,
@@ -248,32 +255,22 @@ export class AgentServiceController {
     status: 404,
     description: 'Chunk not found',
   })
-  async updateChunk(
-    @Param('id') id: string,
-    @Body() updateChunkDto: UpdateChunkDto,
-  ) {
+  async updateChunk(@Body() updateChunkDto: UpdateChunkDto) {
     try {
-      const response = await this.agentService.updateChunk(id, updateChunkDto);
+      const response = await this.agentService.updateChunk({
+        pk: updateChunkDto.pk,
+        text: updateChunkDto.text,
+      });
       return {
         success: true,
         data: response.data,
         status: response.status,
       };
     } catch (error) {
-      if (error.message.includes('404') || error.message.includes('not found')) {
-        throw new HttpException(
-          {
-            success: false,
-            message: `Chunk with ID ${id} not found`,
-            error: error.message,
-          },
-          HttpStatus.NOT_FOUND,
-        );
-      }
       throw new HttpException(
         {
           success: false,
-          message: `Failed to update chunk: ${id}`,
+          message: `Failed to update chunk`,
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -311,7 +308,10 @@ export class AgentServiceController {
         status: response.status,
       };
     } catch (error) {
-      if (error.message.includes('404') || error.message.includes('not found')) {
+      if (
+        error.message.includes('404') ||
+        error.message.includes('not found')
+      ) {
         throw new HttpException(
           {
             success: false,

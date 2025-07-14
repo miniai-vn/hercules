@@ -66,7 +66,7 @@ export class ResourcesService {
       })
       .join('');
 
-    return initials;
+    return initials + new Date().getTime().toString(36);
   };
 
   async updateStatusByKey(key: string, status: ResourceStatus): Promise<void> {

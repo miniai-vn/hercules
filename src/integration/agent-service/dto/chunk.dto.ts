@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsObject, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsObject,
+  IsNumber,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class ChunkQueryDto {
@@ -67,7 +74,14 @@ export class UpdateChunkDto {
   })
   @IsOptional()
   @IsString()
-  page_content?: string;
+  text?: string;
+
+  @ApiProperty({
+    description: 'Primary key of the chunk to update',
+    example: 'PROP001_12345-abcd-ef67',
+  })
+  @IsString()
+  pk: string;
 
   @ApiPropertyOptional({
     description: 'Updated metadata for the chunk',

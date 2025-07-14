@@ -196,6 +196,7 @@ export class ResourcesService {
               id: resource.id,
               name: resource.name,
               s3Key: resource.s3Key,
+              ext: data.ext,
               type: resource.type,
               status: resource.status,
               isActive: resource.isActive,

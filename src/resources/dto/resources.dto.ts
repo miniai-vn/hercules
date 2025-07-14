@@ -128,6 +128,9 @@ export class ResourceDto {
   @IsString()
   @IsOptional()
   shopId?: string;
+  @IsString()
+  @IsOptional()
+  ext: string;
 }
 
 // For create operations - all required fields must be provided

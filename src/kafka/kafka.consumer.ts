@@ -88,7 +88,7 @@ export class KafkaConsumerService implements OnModuleDestroy {
       process.env.KAFKA_ETL_TOPIC,
       async ({ message }) => {
         const data = JSON.parse(message.value?.toString() || '{}');
-        await this.uploadService.sendDataToElt(data.s3Key, data.code);
+        await this.uploadService.sendDataToElt(data.s3Key, data.code, data.ext, data.tenantId);
       },
     );
   }

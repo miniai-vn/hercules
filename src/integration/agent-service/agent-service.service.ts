@@ -36,6 +36,7 @@ export class AgentServiceService {
     headers = {},
     params,
     timeout = 30000,
+    tenantId,
   }: {
     endpoint: string;
     method?: HttpMethod;
@@ -43,6 +44,7 @@ export class AgentServiceService {
     headers?: Record<string, string>;
     params?: any;
     timeout?: number;
+    tenantId?: string;
   }): Promise<AxiosResponse> {
     try {
       const config: AxiosRequestConfig = {
@@ -50,10 +52,12 @@ export class AgentServiceService {
         url: `${this.baseUrl}${endpoint}`,
         headers: {
           'Content-Type': 'application/json',
+          ...(tenantId ? { "X-Tenant-ID": tenantId } : {}),
           ...headers,
         },
+        timeout,
       };
-
+      console.log(config)
       if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
         config.data = data;
       }
@@ -104,6 +108,7 @@ export class AgentServiceService {
     code: string,
     page?: number,
     pageSize?: number,
+    shopId?: string,
   ): Promise<AxiosResponse> {
     const params: Record<string, any> = { code };
 
@@ -114,6 +119,7 @@ export class AgentServiceService {
       endpoint: AGENT_SERVICE_CONFIG.ENDPOINTS.GET_CHUNKS,
       method: HttpMethod.GET,
       params,
+      tenantId: shopId ? 'shop' + shopId.replace(/-/g, '') : 'default',
     });
   }
 
@@ -121,7 +127,8 @@ export class AgentServiceService {
    * Get a single chunk by ID
    * GET /api/chunks/PROP001_12345-abcd-ef67
    */
-  async getChunk(id: string): Promise<AxiosResponse> {
+  async getChunk(id: string, shopId: string): Promise<AxiosResponse> {
+    const tenantId = shopId.replace(/-/g, '');
     const endpoint = AGENT_SERVICE_CONFIG.ENDPOINTS.GET_CHUNK.replace(
       ':id',
       id,
@@ -130,6 +137,7 @@ export class AgentServiceService {
     return this.callAgentServiceAPI({
       endpoint,
       method: HttpMethod.GET,
+      tenantId,
     });
   }
 

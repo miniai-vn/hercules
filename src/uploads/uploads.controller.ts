@@ -6,14 +6,4 @@ import { UploadsService } from './uploads.service';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UploadsController {
   constructor(private readonly s3: UploadsService) {}
-
-  @Get(':key')
-  // @RequirePermissions(PermissionCode.DEPARTMENT_READ)
-  async getFile(@Param('key') key: string) {
-    const file = await this.s3.sendDataToElt(key);
-    return {
-      data: file,
-      message: 'File retrieved successfully',
-    };
-  }
 }

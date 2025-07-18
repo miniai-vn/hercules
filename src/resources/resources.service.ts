@@ -201,6 +201,7 @@ export class ResourcesService {
               status: resource.status,
               isActive: resource.isActive,
               departmentId: resource.department?.id,
+              tenantId: data.shopId.replace(/-/g, '') || 'default',
               code: resource.code,
             }),
           },
@@ -498,6 +499,27 @@ export class ResourcesService {
       throw new InternalServerErrorException(
         'Failed to get file content with styling',
         error.message,
+      );
+    }
+  }
+
+  async reEtlResourceByKey(id: number) {
+    try {
+      const resource = await this.resourceRepository.findOne({
+        where: { id },
+        relations: {
+          department: true,
+        },
+      });
+
+      const result = await this.uploadsService.reEtlFile(
+        resource.s3Key,
+        resource.code,
+        resource.type,
+      );
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to re-ETL resource by key: ${error.message}`,
       );
     }
   }

@@ -137,7 +137,12 @@ export class UploadsService {
     return buf;
   }
 
-  async sendDataToElt(key: string, code: string = '', ext: string = '') {
+  async sendDataToElt(
+    key: string,
+    code: string = '',
+    ext: string = '',
+    tenantId: string,
+  ) {
     try {
       // Get the extension from the key if not provided
       if (!ext) {
@@ -160,28 +165,25 @@ export class UploadsService {
       });
       formData.append('key', key);
       formData.append('code', code);
-
+      formData.append('output_folder', 'json');
+      formData.append('chunk_method', 'semantic');
+      formData.append('min_chunk_length', 100);
+      formData.append('tenant_id', `shop${tenantId}`);
       // Call the appropriate API endpoint
       const res = await axios.post(
-        `${process.env.AGENT_BASE_URL}${endpoint}`,
+        `http://localhost:5000/etl/upload`,
         formData,
         {
           headers: formData.getHeaders(),
         },
       );
 
-      const data = res.data;
-      const converData = data.chunks.map((item: any) => {
-        return {
-          type: 'text',
-          data: item,
-        };
-      });
+      const data = res.data.enriched_chunks;
 
       // Save processed data to S3
       const jsonKey = key.replace(/\.[^/.]+$/, '.json');
       const formatData = {
-        data: converData,
+        data: data,
         code: code,
         fileType: ext,
         processedAt: new Date().toISOString(),
@@ -248,6 +250,13 @@ export class UploadsService {
           endpoint: '/read-excel',
           filename: 'document.xlsx',
         };
+
+      case 'json':
+        return {
+          contentType: 'application/json',
+          endpoint: '/read-json',
+          filename: 'document.json',
+        };
       default:
         return {
           contentType: 'application/octet-stream',
@@ -255,5 +264,19 @@ export class UploadsService {
           filename: `document.${ext}`,
         };
     }
+  }
+
+  async reEtlFile(key: string, code: string = '', ext: string = '') {
+    // get file json with the key
+    const fileJson = await this.getJsonFile(key);
+    if (!fileJson) {
+      throw new InternalServerErrorException('File JSON not found');
+    }
+    // send to elt service
+    // return await this.sendDataToElt(
+    //   fileJson.key,
+    //   code || fileJson.code,
+    //   ext || fileJson.fileType,
+    // );
   }
 }

@@ -9,6 +9,8 @@ import {
   Post,
   Put,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiOperation,
@@ -17,6 +19,8 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
+import { PermissionsGuard } from 'src/auth/gaurds/permission.guard';
 import { AgentServiceService } from './agent-service.service';
 import {
   ChunkQueryDto,
@@ -24,9 +28,12 @@ import {
   CreateChunkDto,
   UpdateChunkDto,
 } from './dto/chunk.dto';
+import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
+import { PermissionCode } from 'src/common/enums/permission.enum';
 
 @ApiTags('Agent Service - Chunks')
 @Controller('agent-service')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AgentServiceController {
   constructor(private readonly agentService: AgentServiceService) {}
 
@@ -86,6 +93,7 @@ export class AgentServiceController {
    * Get chunks by specific code
    */
   @Get('chunks/by-code/:code')
+  @RequirePermissions(PermissionCode.CHUNK_READ)
   @ApiOperation({
     summary: 'Get chunks by code',
     description: 'Retrieve all chunks for a specific code with pagination',
@@ -114,6 +122,7 @@ export class AgentServiceController {
     isArray: true,
   })
   async getChunksByCode(
+    @Req() req,
     @Param('code') code: string,
     @Query('page') page?: number,
     @Query('page_size') pageSize?: number,
@@ -123,6 +132,7 @@ export class AgentServiceController {
         code,
         page,
         pageSize,
+        req.user.shopId,
       );
       return {
         success: true,
@@ -145,6 +155,7 @@ export class AgentServiceController {
    * Get a single chunk by ID
    */
   @Get('chunks/:id')
+  @RequirePermissions(PermissionCode.CHUNK_READ)
   @ApiOperation({
     summary: 'Get chunk by ID',
     description: 'Retrieve a single chunk by its ID',
@@ -163,9 +174,9 @@ export class AgentServiceController {
     status: 404,
     description: 'Chunk not found',
   })
-  async getChunk(@Param('id') id: string) {
+  async getChunk(@Req() req, @Param('id') id: string) {
     try {
-      const response = await this.agentService.getChunk(id);
+      const response = await this.agentService.getChunk(id, req.user.shopId);
       return {
         success: true,
         data: response.data,
@@ -336,6 +347,7 @@ export class AgentServiceController {
    * Delete all chunks for a specific code
    */
   @Delete('chunks/by-code/:code')
+  @RequirePermissions(PermissionCode.CHANNEL_READ)
   @ApiOperation({
     summary: 'Delete chunks by code',
     description: 'Delete all chunks associated with a specific code',
@@ -349,7 +361,7 @@ export class AgentServiceController {
     status: 200,
     description: 'Chunks deleted successfully',
   })
-  async deleteChunksByCode(@Param('code') code: string) {
+  async deleteChunksByCode(@Req() req, @Param('code') code: string) {
     try {
       const response = await this.agentService.deleteChunksByCode(code);
       return {

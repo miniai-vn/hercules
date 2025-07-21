@@ -57,7 +57,7 @@ export class AgentServiceService {
         },
         timeout,
       };
-      console.log(config)
+      
       if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
         config.data = data;
       }

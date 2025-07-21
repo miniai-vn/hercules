@@ -12,19 +12,9 @@ import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
-  // @EventPattern(process.env.KAFKA_ZALO_MESSAGE_CONSUMER)
-  // @Post('/zalo-webhook')
-  // @ApiOperation({
-  //   summary: 'Handle Zalo webhook messages',
-  //   description: 'Receive messages from Zalo and process them.',
-  // })
-  // @ApiBody({
-  //   description: 'Zalo webhook message data',
-  //   type: Object,
-  // })
   async sendMessage(@Payload() data: ZaloWebhookDto) {
     try {
-      this.chatService.sendMessagesZaloToPlatform(data);
+      this.chatService.handleZaloMessage(data);
       return {
         status: 'success',
         message: 'Authenticated message sent successfully',
@@ -45,7 +35,7 @@ export class ChatController {
       return {
         status: 'success',
         message: 'Message sent to Zalo successfully',
-        data: await this.chatService.sendMessagePlatformToOmniChannel({
+        data: await this.chatService.handleMessageToOmniChannel({
           ...data,
           userId: req.user.userId,
         }),

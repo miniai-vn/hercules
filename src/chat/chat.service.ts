@@ -62,7 +62,7 @@ export class ChatService {
    * Handles incoming messages from Zalo and sends them to the platform.
    */
 
-  async sendMessagesZaloToPlatform(data: ZaloWebhookDto) {
+  async handleZaloMessage(data: ZaloWebhookDto) {
     try {
       const { message, recipient, sender } = data;
       const zaloChannel = await this.channelService.getByTypeAndAppId(
@@ -129,16 +129,14 @@ export class ChatService {
       this.chatGateway.server.to(roomName).emit('receiveMessage', {
         ...messageData,
         sender: {
-          avatar: customer.avatar,
-          name: customer.name,
+          avatar: customer?.avatar,
+          name: customer?.name,
         },
         conversationId: conversation.id,
         channelType: ChannelType.ZALO,
       });
 
-      // if (conversation.isBot) {
-      this.botSendMessage(conversation, message.text);
-      // }
+      // this.handleBotMessage(conversation, message.text);
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to send message from Zalo to platform: ${error.message}`,
@@ -150,7 +148,7 @@ export class ChatService {
    * Sends a message from the platform to an Omni-channel conversation.
    */
 
-  async sendMessagePlatformToOmniChannel(data: SendMessageData) {
+  async handleMessageToOmniChannel(data: SendMessageData) {
     try {
       const roomName = `conversation:${data.conversationId}`;
       const conversation = await this.conversationsService.findOne(
@@ -270,7 +268,6 @@ export class ChatService {
             content: message.text,
             id: message.mid,
             createdAt: new Date(timestamp),
-            // links: messageContent.links,
             contentType: 'text',
             senderType: 'user',
           },
@@ -309,7 +306,7 @@ export class ChatService {
    * Handles sending a message from the bot to the conversation.
    */
 
-  async botSendMessage(conversation: Conversation, message: string) {
+  async handleBotMessage(conversation: Conversation, message: string) {
     const agents = await this.agentService.findByChannelId(
       conversation.channel.id,
     );
@@ -339,7 +336,7 @@ export class ChatService {
       );
 
       const { message: dataMessage } =
-        await this.conversationsService.sendAgentMessageToConversation({
+        await this.conversationsService.handleAgentMessage({
           agentId: agent.id,
           channel: conversation.channel,
           customer: customer,
@@ -360,7 +357,7 @@ export class ChatService {
     }
   }
 
-  async handleOASendTextMessage(data: ZaloWebhookDto) {
+  async handleOAMessage(data: ZaloWebhookDto) {
     try {
       const { message, recipient, sender, timestamp } = data;
       const zaloChannel = await this.channelService.getByTypeAndAppId(

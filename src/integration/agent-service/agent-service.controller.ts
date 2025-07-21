@@ -140,7 +140,7 @@ export class AgentServiceController {
         status: response.status,
       };
     } catch (error) {
-      throw new HttpException(
+        throw new HttpException(
         {
           success: false,
           message: `Failed to retrieve chunks for code: ${code}`,

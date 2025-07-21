@@ -679,16 +679,15 @@ export class ConversationsService {
     messageType: string;
   }) {
     const conversation = await this.findOne(conversationId);
-    await this.conversationRepository.update(conversationId, {
-      updatedAt: message.timestamp || new Date(),
-    });
     if (!conversation) {
       throw new Error('Conversation not found');
     }
+
     const channel = conversation.channel;
     if (!channel) {
       throw new Error('Channel not found for the conversation');
     }
+
     const customerId = conversation.members.find(
       (member) => member.participantType === ParticipantType.CUSTOMER,
     )?.customerId;
@@ -702,6 +701,7 @@ export class ConversationsService {
       senderId: userId,
       createdAt: message.createdAt,
     });
+
     return {
       accessToken: channel.accessToken,
       message: metadataMessage,
@@ -745,11 +745,7 @@ export class ConversationsService {
         avatar: customer.avatar,
         externalId: externalConversation.id,
         channelId: channel.id,
-        conversation: {
-          id: externalConversation?.id,
-          timestamp: externalConversation?.timestamp,
-        },
-
+        conversation: externalConversation,
         customerParticipantIds: [customer.id],
         userParticipantIds: adminChannels.map((user) => user.id),
       });
@@ -783,7 +779,7 @@ export class ConversationsService {
     }
   }
 
-  async sendAgentMessageToConversation({
+  async handleAgentMessage({
     agentId,
     channel,
     message,
@@ -841,16 +837,16 @@ export class ConversationsService {
         throw new NotFoundException('Conversation not found');
       }
 
-      conversation.updatedAt = conversation.updatedAt;
       await this.conversationRepository.save({
         ...conversation,
         isBot: !conversation.isBot,
-        updatedAt: conversation.updatedAt,
       });
 
       return conversation.isBot;
     } catch (error) {
-      throw new InternalServerErrorException('Failed to update bot status');
+      throw new InternalServerErrorException({
+        message: 'Failed to update bot status',
+      });
     }
   }
 

@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import FormData from 'form-data';
+import FormData, { from } from 'form-data';
 import { Producer } from 'kafkajs';
 import mimeTypes from 'mime-types';
 import { Minetype } from 'src/common/enums/file.enum';
@@ -155,7 +155,7 @@ export class UploadsService {
       const buf = await this.streamToBuffer(response.Body as Readable);
 
       // Determine content type and endpoint based on file extension
-      const { contentType, endpoint, filename } = this.getFileConfig(ext);
+      const { contentType, filename } = this.getFileConfig(ext);
 
       // Prepare form data
       const formData = new FormData();
@@ -168,16 +168,16 @@ export class UploadsService {
       formData.append('output_folder', 'json');
       formData.append('chunk_method', 'semantic');
       formData.append('min_chunk_length', 100);
-      formData.append('tenant_id', `shop${tenantId}`);
+      formData.append('tenant_id', `shop_${tenantId}`);
+      formData.append('ext', ext);
       // Call the appropriate API endpoint
       const res = await axios.post(
-        `http://localhost:5000/etl/upload`,
+        `${process.env.AGENT_BASE_URL}/etl/upload`,
         formData,
         {
           headers: formData.getHeaders(),
         },
       );
-
       const data = res.data.enriched_chunks;
 
       // Save processed data to S3
@@ -211,6 +211,7 @@ export class UploadsService {
         jsonUrl,
       };
     } catch (error) {
+      this.resourceService.updateStatusByKey(key, ResourceStatus.ERROR);
       throw new InternalServerErrorException(
         `Failed to process ${ext} file: ${error.message}`,
       );

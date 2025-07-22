@@ -1,12 +1,12 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { ChatModule } from 'src/chat/chat.module';
-import { UploadsModule } from 'src/uploads/uploads.module';
+import { ResourceModule } from 'src/resources/resources.module';
+import { KafkaConfigService } from './kafka.config';
 import { KafkaConsumerService } from './kafka.consumer';
 import { KafkaProducerService } from './kafka.producer';
-import { KafkaConfigService } from './kafka.config';
 
 @Module({
-  imports: [forwardRef(() => ChatModule), forwardRef(() => UploadsModule)],
+  imports: [forwardRef(() => ChatModule), forwardRef(() => ResourceModule)],
   providers: [KafkaConsumerService, KafkaProducerService, KafkaConfigService],
   exports: [KafkaConsumerService, KafkaProducerService],
 })

@@ -52,12 +52,12 @@ export class AgentServiceService {
         url: `${this.baseUrl}${endpoint}`,
         headers: {
           'Content-Type': 'application/json',
-          ...(tenantId ? { "X-Tenant-ID": tenantId } : {}),
+          ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
           ...headers,
         },
         timeout,
       };
-      
+
       if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
         config.data = data;
       }
@@ -199,19 +199,20 @@ export class AgentServiceService {
 
   /**
    * Delete all chunks for a specific proposal code
-   * DELETE /api/chunks/any_id?code=PROP001
+   * DELETE /api/chunks/code/PROP001
+  
    */
-  async deleteChunksByCode(code: string): Promise<AxiosResponse> {
-    // Using any_id as placeholder since the actual ID doesn't matter for bulk delete
-    const endpoint = AGENT_SERVICE_CONFIG.ENDPOINTS.DELETE_CHUNK.replace(
-      ':id',
-      'bulk',
-    );
-
+  async deleteChunksByCode(
+    code: string,
+    tenantId: string,
+  ): Promise<AxiosResponse> {
     return this.callAgentServiceAPI({
-      endpoint,
+      endpoint: AGENT_SERVICE_CONFIG.ENDPOINTS.DELETE_BY_CODE.replace(
+        ':code',
+        code,
+      ),
       method: HttpMethod.DELETE,
-      params: { code },
+      params: { code, tenantId },
     });
   }
 

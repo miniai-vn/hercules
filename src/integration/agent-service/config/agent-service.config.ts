@@ -9,6 +9,7 @@ export const AGENT_SERVICE_CONFIG = {
     UPDATE_CHUNK: '/api/chunks/:id',
     DELETE_CHUNK: '/api/chunks/:id',
     CREATE_CHUNK: '/api/chunks',
+    DELETE_BY_CODE: '/api/chunks/code/:code',
     ASK: '/api/chat/ask',
   },
 } as const;

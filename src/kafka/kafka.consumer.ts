@@ -5,6 +5,7 @@ import { ChatService } from 'src/chat/chat.service';
 import { ZALO_CONFIG } from 'src/integration/zalo/config/zalo.config';
 import { UploadsService } from 'src/uploads/uploads.service';
 import { KafkaConfigService } from './kafka.config';
+import { ResourcesService } from 'src/resources/resources.service';
 
 @Injectable()
 export class KafkaConsumerService implements OnModuleDestroy {
@@ -14,7 +15,7 @@ export class KafkaConsumerService implements OnModuleDestroy {
   constructor(
     private readonly kafkaConfig: KafkaConfigService,
     private readonly chatService: ChatService,
-    private readonly uploadService: UploadsService,
+    private readonly resourceService: ResourcesService,
   ) {}
 
   async createConsumer(
@@ -105,7 +106,7 @@ export class KafkaConsumerService implements OnModuleDestroy {
       async ({ message }) => {
         try {
           const data = JSON.parse(message.value?.toString() || '{}');
-          await this.uploadService.sendDataToElt(
+          await this.resourceService.etl(
             data.s3Key,
             data.code,
             data.ext,

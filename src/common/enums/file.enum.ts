@@ -4,4 +4,6 @@ export enum Minetype {
   TXT = 'text/plain',
   CSV = 'text/csv',
   XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  DOC = 'application/msword',
+  
 }

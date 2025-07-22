@@ -4,7 +4,7 @@ import { UploadsService } from './uploads.service';
 import { ResourceModule } from 'src/resources/resources.module';
 
 @Module({
-  imports: [forwardRef(() => ResourceModule)],
+  imports: [],
   providers: [UploadsService],
   controllers: [UploadsController],
   exports: [UploadsService],

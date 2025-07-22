@@ -27,12 +27,15 @@ export class Resource {
   @Column({ type: 'text', name: 's3_key', nullable: true })
   s3Key?: string;
 
+  @Column({ type: 'varchar', name: 's3_key_json', length: 255, nullable: true })
+  s3KeyJson?: string;
+
   @Column({ type: 'varchar', length: 50, nullable: false })
   type: string;
 
   @Column({
     type: 'boolean',
-    default: false,
+    default: true,
     nullable: false,
     name: 'is_active',
   })

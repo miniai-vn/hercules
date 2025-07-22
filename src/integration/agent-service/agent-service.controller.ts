@@ -140,7 +140,7 @@ export class AgentServiceController {
         status: response.status,
       };
     } catch (error) {
-        throw new HttpException(
+      throw new HttpException(
         {
           success: false,
           message: `Failed to retrieve chunks for code: ${code}`,
@@ -319,61 +319,10 @@ export class AgentServiceController {
         status: response.status,
       };
     } catch (error) {
-      if (
-        error.message.includes('404') ||
-        error.message.includes('not found')
-      ) {
-        throw new HttpException(
-          {
-            success: false,
-            message: `Chunk with ID ${id} not found`,
-            error: error.message,
-          },
-          HttpStatus.NOT_FOUND,
-        );
-      }
       throw new HttpException(
         {
           success: false,
           message: `Failed to delete chunk: ${id}`,
-          error: error.message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  /**
-   * Delete all chunks for a specific code
-   */
-  @Delete('chunks/by-code/:code')
-  @RequirePermissions(PermissionCode.CHANNEL_READ)
-  @ApiOperation({
-    summary: 'Delete chunks by code',
-    description: 'Delete all chunks associated with a specific code',
-  })
-  @ApiParam({
-    name: 'code',
-    description: 'The code for which to delete all chunks',
-    example: 'PROP001',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Chunks deleted successfully',
-  })
-  async deleteChunksByCode(@Req() req, @Param('code') code: string) {
-    try {
-      const response = await this.agentService.deleteChunksByCode(code);
-      return {
-        success: true,
-        message: `All chunks for code ${code} deleted successfully`,
-        status: response.status,
-      };
-    } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: `Failed to delete chunks for code: ${code}`,
           error: error.message,
         },
         HttpStatus.INTERNAL_SERVER_ERROR,

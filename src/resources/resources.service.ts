@@ -23,9 +23,13 @@ import {
   ResourceStatus,
   UpdateResourceDto,
 } from './dto/resources.dto';
+import FormData, { from } from 'form-data';
 import { Resource } from './resources.entity';
 import { UploadsService } from 'src/uploads/uploads.service';
 import { ChatGateway } from 'src/chat/chat.gateway';
+import { Agent } from 'http';
+import { AgentServiceService } from 'src/integration/agent-service/agent-service.service';
+import axios from 'axios';
 
 @Injectable()
 export class ResourcesService {
@@ -37,6 +41,7 @@ export class ResourcesService {
     @Inject(forwardRef(() => UploadsService))
     private readonly uploadsService: UploadsService,
     private readonly chatGateway: ChatGateway,
+    private readonly agentService: AgentServiceService,
   ) {
     this.producer = this.kafkaProducerService.getProducer();
   }
@@ -69,9 +74,16 @@ export class ResourcesService {
     return initials + new Date().getTime().toString(36);
   };
 
-  async updateStatusByKey(key: string, status: ResourceStatus): Promise<void> {
+  async updateStatusByKey(
+    key: string,
+    status: ResourceStatus,
+    s3KeyJson?: string,
+  ): Promise<void> {
     try {
-      await this.resourceRepository.update({ s3Key: key }, { status });
+      await this.resourceRepository.update(
+        { s3Key: key },
+        { status, ...(s3KeyJson && { s3KeyJson }) },
+      );
       this.chatGateway.server.emit('resourceStatusUpdated', {
         key,
         status,
@@ -196,12 +208,12 @@ export class ResourcesService {
               id: resource.id,
               name: resource.name,
               s3Key: resource.s3Key,
-              ext: data.ext,
+              ext: dataFromFile.type,
               type: resource.type,
               status: resource.status,
               isActive: resource.isActive,
               departmentId: resource.department?.id,
-              tenantId: data.shopId.replace(/-/g, '') || 'default',
+              tenantId: 'shop_' + data.shopId.replace(/-/g, '') || 'default',
               code: resource.code,
             }),
           },
@@ -520,6 +532,86 @@ export class ResourcesService {
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to re-ETL resource by key: ${error.message}`,
+      );
+    }
+  }
+
+  async delete(id: number, shopId: string): Promise<number> {
+    try {
+      const resource = await this.resourceRepository.findOne({ where: { id } });
+      if (!resource) {
+        throw new InternalServerErrorException('Resource not found');
+      }
+
+      await this.resourceRepository.update(id, { isActive: false });
+
+      await this.agentService.deleteChunksByCode(
+        resource.code,
+        'shop_' + shopId.replace(/-/g, ''),
+      );
+      return id;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to delete resource',
+        error.message,
+      );
+    }
+  }
+
+  async etl(
+    s3Key: string,
+    code: string = '',
+    ext: string = '',
+    tenantId: string = 'default',
+  ) {
+    try {
+      const rsc = await this.resourceRepository.findOne({
+        where: { s3Key },
+        relations: {
+          department: true,
+        },
+      });
+
+      if (rsc.status === ResourceStatus.COMPLETED) return;
+
+      // send to elt service
+      const { contentType, filename, buf } =
+        await this.uploadsService.sendDataToElt(rsc.s3Key, ext);
+      const formData = new FormData();
+      formData.append('file', buf, {
+        filename,
+        contentType,
+      });
+      formData.append('key', s3Key);
+      formData.append('code', code);
+      formData.append('output_folder', 'json');
+      formData.append('chunk_method', 'semantic');
+      formData.append('min_chunk_length', '100');
+      formData.append('tenant_id', tenantId);
+      formData.append('ext', ext);
+      // Call the appropriate API endpoint
+      const res = await axios.post(
+        `${process.env.AGENT_BASE_URL}/etl/upload`,
+        formData,
+        {
+          headers: formData.getHeaders(),
+        },
+      );
+
+      const jsonFile = await this.uploadsService.uploadFileJson({
+        data: res.data.enriched_chunks,
+        key: s3Key,
+        code,
+        ext,
+      });
+
+      await this.updateStatusByKey(s3Key, ResourceStatus.COMPLETED);
+
+      return jsonFile;
+    } catch (error) {
+      await this.updateStatusByKey(s3Key, ResourceStatus.ERROR);
+      throw new InternalServerErrorException(
+        `Failed to ETL resource: ${error.message}`,
       );
     }
   }

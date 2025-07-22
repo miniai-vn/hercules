@@ -15,6 +15,7 @@ import {
   UseInterceptors,
   Req,
   UseGuards,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -121,6 +122,27 @@ export class ResourcesController {
     );
     return {
       message: 'Resource status updated successfully',
+    };
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a resource by ID' })
+  @ApiParam({
+    name: 'id',
+    description: 'Resource ID',
+    type: 'number',
+    example: 1,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resource deleted successfully',
+  })
+  @RequirePermissions(PermissionCode.DEPARTMENT_DELETE)
+  async delete(@Req() req, @Param('id', ParseIntPipe) id: number) {
+    const result = await this.resourcesService.delete(id, req.shop.id);
+    return {
+      message: 'Resource deleted successfully',
+      data: result,
     };
   }
 }

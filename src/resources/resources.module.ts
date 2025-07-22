@@ -7,6 +7,7 @@ import { UploadsModule } from 'src/uploads/uploads.module';
 import { ResourcesController } from './resources.controller';
 import { Resource } from './resources.entity';
 import { ResourcesService } from './resources.service';
+import { DepartmentsModule } from 'src/departments/departments.module';
 
 @Module({
   imports: [
@@ -15,7 +16,9 @@ import { ResourcesService } from './resources.service';
     AgentServiceModule,
     forwardRef(() => ChatModule),
     forwardRef(() => UploadsModule),
+    DepartmentsModule,
   ],
+
   controllers: [ResourcesController],
   providers: [ResourcesService],
   exports: [ResourcesService],

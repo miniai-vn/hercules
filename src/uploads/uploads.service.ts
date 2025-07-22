@@ -4,19 +4,13 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import {
-  forwardRef,
-  Inject,
   Injectable,
-  InternalServerErrorException,
+  InternalServerErrorException
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
-import FormData, { from } from 'form-data';
 import { Producer } from 'kafkajs';
 import mimeTypes from 'mime-types';
 import { Minetype } from 'src/common/enums/file.enum';
-import { ResourceStatus } from 'src/resources/dto/resources.dto';
-import { ResourcesService } from 'src/resources/resources.service';
 import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
 @Injectable()
@@ -26,8 +20,6 @@ export class UploadsService {
   producer: Producer;
   constructor(
     private config: ConfigService,
-    @Inject(forwardRef(() => ResourcesService))
-    private readonly resourceService: ResourcesService,
   ) {
     this.bucket = this.config.getOrThrow('AWS_BUCKET_NAME');
 
@@ -64,6 +56,7 @@ export class UploadsService {
         Minetype.TXT,
         Minetype.CSV,
         Minetype.XLSX,
+        Minetype.DOC,
       ];
       const ext = allowedMimeTypes.includes(file.mimetype as Minetype)
         ? this.getFileExtensionFromMime(file.mimetype)
@@ -137,87 +130,50 @@ export class UploadsService {
     return buf;
   }
 
-  async sendDataToElt(
-    key: string,
-    code: string = '',
-    ext: string = '',
-    tenantId: string,
-  ) {
+  async sendDataToElt(key: string, ext: string = '') {
     try {
-      // Get the extension from the key if not provided
-      if (!ext) {
-        ext = key.split('.').pop()?.toLowerCase();
-      }
-
       // Get file from S3
       const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
       const response = await this.s3.send(cmd);
       const buf = await this.streamToBuffer(response.Body as Readable);
-
       // Determine content type and endpoint based on file extension
       const { contentType, filename } = this.getFileConfig(ext);
-
-      // Prepare form data
-      const formData = new FormData();
-      formData.append('file', buf, {
-        filename,
-        contentType,
-      });
-      formData.append('key', key);
-      formData.append('code', code);
-      formData.append('output_folder', 'json');
-      formData.append('chunk_method', 'semantic');
-      formData.append('min_chunk_length', 100);
-      formData.append('tenant_id', `shop_${tenantId}`);
-      formData.append('ext', ext);
-      // Call the appropriate API endpoint
-      const res = await axios.post(
-        `${process.env.AGENT_BASE_URL}/etl/upload`,
-        formData,
-        {
-          headers: formData.getHeaders(),
-        },
-      );
-      const data = res.data.enriched_chunks;
-
-      // Save processed data to S3
-      const jsonKey = key.replace(/\.[^/.]+$/, '.json');
-      const formatData = {
-        data: data,
-        code: code,
-        fileType: ext,
-        processedAt: new Date().toISOString(),
-      };
-      const storeJSONFile = await this.s3.send(
-        new PutObjectCommand({
-          Bucket: this.bucket,
-          Key: jsonKey,
-          Body: JSON.stringify(formatData),
-          ContentType: 'application/json',
-        }),
-      );
-
-      const jsonUrl = `https://${process.env.AWS_BASE_URL}/${this.bucket}/${jsonKey}`;
-
-      if (storeJSONFile)
-        this.resourceService.updateStatusByKey(key, ResourceStatus.COMPLETED);
-
-      return {
-        success: true,
-        fileKey: key,
-        fileType: ext,
-        fileSize: buf.length,
-        externalResponse: data,
-        jsonUrl,
-      };
+      return { contentType, filename, buf };
     } catch (error) {
-      this.resourceService.updateStatusByKey(key, ResourceStatus.ERROR);
       throw new InternalServerErrorException(
         `Failed to process ${ext} file: ${error.message}`,
       );
     }
   }
+  async uploadFileJson({
+    data,
+    key,
+    code = '',
+    ext = '',
+  }: {
+    data: any;
+    key: string;
+    code?: string;
+    ext?: string;
+  }) {
+    const jsonKey = key.replace(/\.[^/.]+$/, '.json');
+    const formatData = {
+      data: data,
+      code: code,
+      fileType: ext,
+      processedAt: new Date().toISOString(),
+    };
 
+    const storeJSONFile = await this.s3.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: jsonKey,
+        Body: JSON.stringify(formatData),
+        ContentType: 'application/json',
+      }),
+    );
+    return storeJSONFile;
+  }
   // Helper method to get file configuration based on extension
   private getFileConfig(ext: string): {
     contentType: string;
@@ -258,6 +214,13 @@ export class UploadsService {
           endpoint: '/read-json',
           filename: 'document.json',
         };
+      case 'doc':
+      case 'DOC':
+        return {
+          contentType: 'application/msword',
+          endpoint: '/read-doc',
+          filename: 'document.doc',
+        };
       default:
         return {
           contentType: 'application/octet-stream',
@@ -268,16 +231,9 @@ export class UploadsService {
   }
 
   async reEtlFile(key: string, code: string = '', ext: string = '') {
-    // get file json with the key
     const fileJson = await this.getJsonFile(key);
     if (!fileJson) {
       throw new InternalServerErrorException('File JSON not found');
     }
-    // send to elt service
-    // return await this.sendDataToElt(
-    //   fileJson.key,
-    //   code || fileJson.code,
-    //   ext || fileJson.fileType,
-    // );
   }
 }

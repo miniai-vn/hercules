@@ -1,11 +1,10 @@
 // kafka.service.ts
-import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Consumer, EachMessagePayload } from 'kafkajs';
 import { ChatService } from 'src/chat/chat.service';
 import { ZALO_CONFIG } from 'src/integration/zalo/config/zalo.config';
-import { UploadsService } from 'src/uploads/uploads.service';
-import { KafkaConfigService } from './kafka.config';
 import { ResourcesService } from 'src/resources/resources.service';
+import { KafkaConfigService } from './kafka.config';
 
 @Injectable()
 export class KafkaConsumerService implements OnModuleDestroy {
@@ -45,12 +44,19 @@ export class KafkaConsumerService implements OnModuleDestroy {
 
   async start() {
     // Zalo message consumer
-    await this.createConsumer(
-      process.env.KAFKA_ZALO_MESSAGE_CONSUMER,
-      process.env.KAFKA_ZALO_MESSAGE_TOPIC,
-      async ({ message }) => {
+    const consumer = this.kafkaConfig.createConsumer(
+      process.env.KAFKA_ZALO_MESSAGE_CONSUMER || 'zalo-message-group',
+    );
+    await consumer.connect();
+    await consumer.subscribe({
+      topics: [process.env.KAFKA_ZALO_MESSAGE_TOPIC, process.env.KAFKA_LLM_TOPIC],
+      fromBeginning: false,
+    });
+    await consumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
         try {
-          const data = JSON.parse(message.value?.toString() || '{}');
+          const data = JSON.parse(message.value.toString());
+          if (topic !== process.env.KAFKA_ZALO_MESSAGE_TOPIC) return;
           switch (data.event_name) {
             case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
             case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_STICKER:
@@ -72,10 +78,9 @@ export class KafkaConsumerService implements OnModuleDestroy {
             `[Kafka] Zalo consumer error: ${error.message}`,
             error.stack,
           );
-          throw error;
         }
       },
-    );
+    });
 
     // Facebook message consumer
     await this.createConsumer(
@@ -111,6 +116,7 @@ export class KafkaConsumerService implements OnModuleDestroy {
             data.code,
             data.ext,
             data.tenantId,
+            data.parrentCode,
           );
         } catch (error) {
           this.logger.error(

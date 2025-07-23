@@ -215,6 +215,7 @@ export class ResourcesService {
               departmentId: resource.department?.id,
               tenantId: 'shop_' + data.shopId.replace(/-/g, '') || 'default',
               code: resource.code,
+              parrentCode: resource.department?.id,
             }),
           },
         ],
@@ -563,6 +564,7 @@ export class ResourcesService {
     code: string = '',
     ext: string = '',
     tenantId: string = 'default',
+    parrentCode?: string,
   ) {
     try {
       const rsc = await this.resourceRepository.findOne({
@@ -589,6 +591,7 @@ export class ResourcesService {
       formData.append('min_chunk_length', '100');
       formData.append('tenant_id', tenantId);
       formData.append('ext', ext);
+      formData.append('parrent_code', parrentCode || '');
       // Call the appropriate API endpoint
       const res = await axios.post(
         `${process.env.AGENT_BASE_URL}/etl/upload`,

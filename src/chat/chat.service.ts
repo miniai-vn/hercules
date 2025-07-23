@@ -15,6 +15,8 @@ import { ConversationsService } from '../conversations/conversations.service';
 import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 import dayjs from 'dayjs';
+import { KafkaProducerService } from 'src/kafka/kafka.producer';
+import { Producer } from 'kafkajs';
 
 export interface SendMessageData {
   conversationId: number;
@@ -47,6 +49,7 @@ export interface JoinConversationData {
 
 @Injectable()
 export class ChatService {
+  private producer: Producer;
   constructor(
     private readonly chatGateway: ChatGateway,
     private readonly conversationsService: ConversationsService,
@@ -56,7 +59,10 @@ export class ChatService {
     private readonly facebookService: FacebookService,
     private readonly agentService: AgentsService,
     private readonly agentServiceService: AgentServiceService,
-  ) {}
+    private readonly kafkaProducerService: KafkaProducerService,
+  ) {
+    this.producer = this.kafkaProducerService.getProducer();
+  }
 
   /**
    * Handles incoming messages from Zalo and sends them to the platform.
@@ -135,8 +141,18 @@ export class ChatService {
         conversationId: conversation.id,
         channelType: ChannelType.ZALO,
       });
-
       // this.handleBotMessage(conversation, message.text);
+      this.producer.send({
+        topic: process.env.KAKFA_LLM_TOPIC,
+        messages: [
+          {
+            value: JSON.stringify({
+              ...conversation,
+              message: message.text,
+            }),
+          },
+        ],
+      });
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to send message from Zalo to platform: ${error.message}`,

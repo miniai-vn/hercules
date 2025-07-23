@@ -11,6 +11,7 @@ import { ChatService } from './chat.service';
 import { FacebookModule } from 'src/integration/facebook/facebook.module';
 import { AgentServiceModule } from 'src/integration/agent-service/agent-service.module';
 import { AgentsModule } from 'src/agents/agents.module';
+import { KafkaModule } from 'src/kafka/kafka.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AgentsModule } from 'src/agents/agents.module';
     UsersModule,
     AgentsModule,
     AgentServiceModule,
+    KafkaModule,
   ],
   controllers: [ChatController],
   providers: [ChatGateway, ChatService],

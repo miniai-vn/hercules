@@ -9,9 +9,9 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./src", // <--- Set baseUrl to src
+    "baseUrl": "./", // <--- Set baseUrl to src
     "paths": {
-      "src/*": ["./*"],
+      "src/*": ["src/*"],
       "tiktok_nodejs_sdk": ["./node_modules/tiktok_nodejs_sdk"]
     },
     "incremental": true,

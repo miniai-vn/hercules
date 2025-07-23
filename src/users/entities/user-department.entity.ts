@@ -1,4 +1,3 @@
-import { Department } from 'src/departments/departments.entity';
 import {
   Column,
   CreateDateColumn,
@@ -10,6 +9,7 @@ import {
 } from 'typeorm';
 import { User } from './users.entity';
 import { UserDepartmentRole } from 'src/common/enums/role-dept-enum';
+import { Department } from 'src/departments/departments.entity';
 
 @Entity('user_department')
 export class UserDepartment {

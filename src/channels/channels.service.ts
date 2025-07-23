@@ -7,14 +7,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ConversationsService } from 'src/conversations/conversations.service';
+import { Shop } from 'src/shops/shops.entity';
 import { Repository } from 'typeorm';
 import { Department } from '../departments/departments.entity';
 import { DepartmentsService } from '../departments/departments.service';
 import { UsersService } from '../users/users.service';
 import { Channel } from './channels.entity';
 import {
-  ChannelBulkDeleteDto,
   ChannelQueryParamsDto,
   ChannelType,
   CreateChannelDto,
@@ -22,8 +21,7 @@ import {
   UpdateChannelDto,
   UpdateChannelStatusDto,
 } from './dto/channel.dto';
-import { OAService } from './oa/oa.service';
-import { Shop } from 'src/shops/shops.entity';
+import { ConversationsService } from 'src/conversations/conversations.service';
 
 @Injectable()
 export class ChannelsService {

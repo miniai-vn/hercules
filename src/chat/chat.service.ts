@@ -76,10 +76,6 @@ export class ChatService {
         recipient.id,
       );
 
-      if (!zaloChannel) {
-        return { message: 'Channel not found or not active' };
-      }
-
       let customer = await this.customerService.findByExternalId(
         ChannelType.ZALO,
         sender.id,
@@ -176,6 +172,7 @@ export class ChatService {
           status: 'BOT_IS_ACTIVE',
         };
       }
+      
       const customer = conversation.members.find(
         (member) => !!member.customerId,
       ).customer;

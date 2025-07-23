@@ -208,6 +208,7 @@ export class ResourcesService {
               id: resource.id,
               name: resource.name,
               s3Key: resource.s3Key,
+              fileName: decodedName,
               ext: dataFromFile.type,
               type: resource.type,
               status: resource.status,
@@ -215,7 +216,7 @@ export class ResourcesService {
               departmentId: resource.department?.id,
               tenantId: 'shop_' + data.shopId.replace(/-/g, '') || 'default',
               code: resource.code,
-              parrentCode: resource.department?.id,
+              parentCode: resource.department?.id,
             }),
           },
         ],
@@ -564,24 +565,27 @@ export class ResourcesService {
     code: string = '',
     ext: string = '',
     tenantId: string = 'default',
-    parrentCode?: string,
+    parentCode?: string,
+    fileName: string = '',
   ) {
     try {
       const rsc = await this.resourceRepository.findOne({
         where: { s3Key },
         relations: {
-          department: true,
+          department: {
+            shop: true,
+          },
         },
       });
 
       if (rsc.status === ResourceStatus.COMPLETED) return;
 
       // send to elt service
-      const { contentType, filename, buf } =
+      const { contentType, buf } =
         await this.uploadsService.sendDataToElt(rsc.s3Key, ext);
       const formData = new FormData();
       formData.append('file', buf, {
-        filename,
+        filename: fileName,
         contentType,
       });
       formData.append('key', s3Key);
@@ -591,7 +595,7 @@ export class ResourcesService {
       formData.append('min_chunk_length', '100');
       formData.append('tenant_id', tenantId);
       formData.append('ext', ext);
-      formData.append('parrent_code', parrentCode || '');
+      formData.append('parent_code', parentCode || '');
       // Call the appropriate API endpoint
       const res = await axios.post(
         `${process.env.AGENT_BASE_URL}/etl/upload`,
@@ -600,11 +604,13 @@ export class ResourcesService {
           headers: formData.getHeaders(),
         },
       );
+      const codeJson = code || this.generateCodeFromFilename(fileName);
+      const jsonKey = `${rsc.department.shop.id}/${rsc.department.id}/${s3Key.replace(/\.[^/.]+$/, '.json')}`;
 
       const jsonFile = await this.uploadsService.uploadFileJson({
-        data: res.data.enriched_chunks,
-        key: s3Key,
-        code,
+        data: res.data.entities,
+        key: jsonKey,
+        code: codeJson,
         ext,
       });
 

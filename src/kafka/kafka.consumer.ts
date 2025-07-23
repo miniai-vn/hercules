@@ -49,29 +49,28 @@ export class KafkaConsumerService implements OnModuleDestroy {
     );
     await consumer.connect();
     await consumer.subscribe({
-      topics: [process.env.KAFKA_ZALO_MESSAGE_TOPIC, process.env.KAFKA_LLM_TOPIC],
+      topics: [
+        process.env.KAFKA_ZALO_MESSAGE_TOPIC,
+        process.env.KAFKA_LLM_RESULT_TOPIC,
+      ],
       fromBeginning: false,
     });
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         try {
-          const data = JSON.parse(message.value.toString());
-          if (topic !== process.env.KAFKA_ZALO_MESSAGE_TOPIC) return;
-          switch (data.event_name) {
-            case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
-            case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_STICKER:
-            case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_IMAGE:
-              await this.chatService.handleZaloMessage(data);
+          switch (topic) {
+            case process.env.KAFKA_ZALO_MESSAGE_TOPIC:
+              const data = JSON.parse(message.value.toString());
+              await this.handleZaloMessage(data);
               break;
 
-            case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
-              await this.chatService.handleOAMessage(data);
+            case process.env.KAFKA_LLM_RESULT_TOPIC:
+              const llmData = JSON.parse(message.value.toString());
+              await this.handleLLMResult(llmData);
               break;
 
             default:
-              this.logger.warn(
-                `[Kafka] Unknown Zalo event: ${data.event_name}`,
-              );
+              this.logger.warn(`[Kafka] Unknown topic: ${topic}`);
           }
         } catch (error) {
           this.logger.error(
@@ -116,7 +115,8 @@ export class KafkaConsumerService implements OnModuleDestroy {
             data.code,
             data.ext,
             data.tenantId,
-            data.parrentCode,
+            data.parentCode,
+            data.fileName,
           );
         } catch (error) {
           this.logger.error(
@@ -126,5 +126,40 @@ export class KafkaConsumerService implements OnModuleDestroy {
         }
       },
     );
+  }
+
+  async handleZaloMessage(payload) {
+    switch (payload.event_name) {
+      case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
+      case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_STICKER:
+      case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_IMAGE:
+        await this.chatService.handleZaloMessage(payload);
+        break;
+
+      case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
+        await this.chatService.handleOAMessage(payload);
+        break;
+
+      default:
+        this.logger.warn(`[Kafka] Unknown Zalo event: ${payload.event_name}`);
+    }
+  }
+
+  async handleLLMResult(data) {
+    try {
+      switch (data.type) {
+        // case ResultLLMType.ETL:
+        //   await this.resourceService.updateResourceAfterETL(data);
+        //   break;
+
+        default:
+          this.logger.warn(`[Kafka] Unknown LLM result type: ${data.type}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `[Kafka] LLM result handling error: ${error.message}`,
+        error.stack,
+      );
+    }
   }
 }

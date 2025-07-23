@@ -106,25 +106,6 @@ export class ResourcesController {
     return await this.resourcesService.update(id, updateResourceDto);
   }
 
-  @Patch('/re-etl/:id')
-  async reEtlResource(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<Resource> {
-    return await this.resourcesService.reEtlResource(id);
-  }
-
-  @ApiOperation({ summary: 'Get resources with pagination and filtering' })
-  @Get('/search/ssss')
-  async updateStatusByKey() {
-    await this.resourcesService.updateStatusByKey(
-      '3ad8770b-dd65-45fa-8b4a-f6feb58799e8/20/NQDphuc/NQCCONG-NỘI QUY CHẤM CÔNG-c398632e-b17d-48c5-b3d9-cd7b592c2907.docx',
-      ResourceStatus.COMPLETED,
-    );
-    return {
-      message: 'Resource status updated successfully',
-    };
-  }
-
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a resource by ID' })
   @ApiParam({

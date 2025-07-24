@@ -58,7 +58,6 @@ export class ChatService {
     private readonly customerService: CustomersService,
     private readonly facebookService: FacebookService,
     private readonly agentService: AgentsService,
-    private readonly agentServiceService: AgentServiceService,
     private readonly kafkaProducerService: KafkaProducerService,
   ) {
     this.producer = this.kafkaProducerService.getProducer();
@@ -91,7 +90,7 @@ export class ChatService {
       };
 
       if (!customer) {
-        const metadataCustomerZalo = await this.zaloService.getUserProfile(
+        const zaloCustomer = await this.zaloService.getUserProfile(
           zaloChannel.accessToken,
           sender.id,
         );
@@ -99,8 +98,8 @@ export class ChatService {
         customer = await this.customerService.findOrCreateByExternalId({
           platform: ChannelType.ZALO,
           externalId: sender.id,
-          avatar: metadataCustomerZalo.data.data.avatar,
-          name: metadataCustomerZalo.data.data.display_name,
+          avatar: zaloCustomer.data.data.avatar,
+          name: zaloCustomer.data.data.display_name,
           channelId: zaloChannel.id,
         });
       }
@@ -128,6 +127,7 @@ export class ChatService {
       }
 
       const roomName = `conversation:${conversation.id}`;
+
       this.chatGateway.server.to(roomName).emit('receiveMessage', {
         ...messageData,
         sender: {
@@ -137,17 +137,11 @@ export class ChatService {
         conversationId: conversation.id,
         channelType: ChannelType.ZALO,
       });
-      // this.handleBotMessage(conversation, message.text);
-      this.producer.send({
-        topic: process.env.KAKFA_LLM_TOPIC,
-        messages: [
-          {
-            value: JSON.stringify({
-              ...conversation,
-              message: message.text,
-            }),
-          },
-        ],
+
+      this.handleBotMessage({
+        conversation,
+        message: transferMessage.content,
+        shopId: zaloChannel.shop.id,
       });
     } catch (error) {
       throw new InternalServerErrorException(
@@ -172,7 +166,7 @@ export class ChatService {
           status: 'BOT_IS_ACTIVE',
         };
       }
-      
+
       const customer = conversation.members.find(
         (member) => !!member.customerId,
       ).customer;
@@ -187,7 +181,7 @@ export class ChatService {
         );
 
         const { message } =
-          await this.conversationsService.sendMessageToOtherPlatform({
+          await this.conversationsService.handlePlatformMessage({
             conversationId: data.conversationId,
             message: {
               content: data.content,
@@ -213,7 +207,7 @@ export class ChatService {
         );
 
         const { message } =
-          await this.conversationsService.sendMessageToOtherPlatform({
+          await this.conversationsService.handlePlatformMessage({
             conversationId: data.conversationId,
             message: {
               content: data.content,
@@ -319,55 +313,75 @@ export class ChatService {
    * Handles sending a message from the bot to the conversation.
    */
 
-  async handleBotMessage(conversation: Conversation, message: string) {
+  async handleBotMessage({
+    conversation,
+    message,
+    shopId,
+  }: {
+    conversation: Conversation;
+    message: string;
+    shopId: string;
+  }) {
     const agents = await this.agentService.findByChannelId(
       conversation.channel.id,
     );
 
-    const customer = conversation.members.find(
-      (member) => !!member.customerId,
-    ).customer;
+    const history = conversation.messages.slice(-10).map((msg) => ({
+      role: msg.senderType as SenderType,
+      content: msg.content,
+      createdAt: msg.createdAt.toISOString(),
+    }));
 
-    const history = conversation.messages.slice(-10);
     for (const agent of agents) {
-      const prompt = agent.prompt;
-      const aiResponse = await this.agentServiceService.askQuestion({
-        prompt,
-        history,
-        question: message,
-        modelName: agent.modelName,
-      });
-
-      if (!aiResponse) {
-        return;
-      }
-
-      const zaloMsg = await this.zaloService.sendMessage(
-        conversation.channel.accessToken,
-        aiResponse.data.data.answer,
-        customer.externalId,
-      );
-
-      const { message: dataMessage } =
-        await this.conversationsService.handleAgentMessage({
-          agentId: agent.id,
-          channel: conversation.channel,
-          customer: customer,
-          message: {
-            content: aiResponse.data.data.answer,
-            externalMessageId: zaloMsg?.data?.message_id,
-            type: MessageType.TEXT,
+      this.producer.send({
+        topic: process.env.KAKFA_LLM_TOPIC,
+        messages: [
+          {
+            value: JSON.stringify({
+              conversationId: conversation.id,
+              agentId: agent.id,
+              message,
+              history,
+              prompt: agent.prompt,
+              tenantId: `shop_${shopId.replace(/-/g, '')}`,
+              parentCode: agent.departments.map((d) => d.id),
+              config: agent.modelConfig,
+              modelName: agent.modelName,
+            }),
           },
-        });
-
-      const roomName = `conversation:${conversation.id}`;
-      this.chatGateway.server.to(roomName).emit('receiveMessage', {
-        ...dataMessage,
-        senderId: agent.id,
-        conversationId: conversation.id,
-        channelType: ChannelType.ZALO,
+        ],
       });
+
+      // const zaloMsg = await this.zaloService.sendMessage(
+      //   conversation.channel.accessToken,
+      //   aiResponse.data.data.answer,
+      //   customer.externalId,
+      // );
+
+      // const { message: dataMessage } =
+      //   await this.conversationsService.handleAgentMessage({
+      //     agentId: agent.id,
+      //     channel: conversation.channel,
+      //     customer: customer,
+      //     message: {
+      //       content: aiResponse.data.data.answer,
+      //       externalMessageId: zaloMsg?.data?.message_id,
+      //       type: MessageType.TEXT,
+      //     },
+      //   });
+
+      // const roomName = `conversation:${conversation.id}`;
+      // this.chatGateway.server.to(roomName).emit('receiveMessage', {
+      //   ...dataMessage,
+      //   senderId: agent.id,
+      //   conversationId: conversation.id,
+      //   channelType: ChannelType.ZALO,
+      // });
     }
+  }
+
+  async handleLLMTextResult(data: any) {
+    return;
   }
 
   async handleOAMessage(data: ZaloWebhookDto) {

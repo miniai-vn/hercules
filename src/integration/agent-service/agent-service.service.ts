@@ -3,6 +3,7 @@ import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
 import { AGENT_SERVICE_CONFIG } from './config/agent-service.config';
 import { Message } from 'src/messages/messages.entity';
+import { SenderType } from 'src/messages/messages.dto';
 
 interface ChunkQueryParams {
   page?: number;
@@ -238,7 +239,11 @@ export class AgentServiceService {
     modelName = 'gpt-3.5-turbo',
   }: {
     prompt: string;
-    history: Message[];
+    history: {
+      role: SenderType;
+      content: string;
+      createdAt: string; // ISO date string
+    }[];
     question: string;
     modelName?: string;
   }): Promise<AxiosResponse> {

@@ -578,11 +578,13 @@ export class ResourcesService {
         },
       });
 
-      if (rsc.status === ResourceStatus.COMPLETED) return;
+      if (rsc?.status === ResourceStatus.COMPLETED) return;
 
       // send to elt service
-      const { contentType, buf } =
-        await this.uploadsService.sendDataToElt(rsc.s3Key, ext);
+      const { contentType, buf } = await this.uploadsService.sendDataToElt(
+        rsc.s3Key,
+        ext,
+      );
       const formData = new FormData();
       formData.append('file', buf, {
         filename: fileName,
@@ -604,6 +606,11 @@ export class ResourcesService {
           headers: formData.getHeaders(),
         },
       );
+
+      if (!res.data.success) {
+        return await this.updateStatusByKey(s3Key, ResourceStatus.ERROR);
+      }
+
       const codeJson = code || this.generateCodeFromFilename(fileName);
       const jsonKey = `${rsc.department.shop.id}/${rsc.department.id}/${s3Key.replace(/\.[^/.]+$/, '.json')}`;
 
@@ -618,7 +625,6 @@ export class ResourcesService {
 
       return jsonFile;
     } catch (error) {
-      await this.updateStatusByKey(s3Key, ResourceStatus.ERROR);
       throw new InternalServerErrorException(
         `Failed to ETL resource: ${error.message}`,
       );

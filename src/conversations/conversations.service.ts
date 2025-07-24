@@ -310,7 +310,6 @@ export class ConversationsService {
       const queryBuilder = this.conversationRepository
         .createQueryBuilder('conversation')
         .leftJoinAndSelect('conversation.members', 'members')
-        .leftJoinAndSelect('members.customer', 'customer')
         .leftJoinAndSelect('members.user', 'user')
         .leftJoinAndSelect('conversation.channel', 'channel')
         .leftJoinAndSelect('conversation.tags', 'tags')
@@ -667,7 +666,7 @@ export class ConversationsService {
     }
   }
 
-  async sendMessageToOtherPlatform({
+  async handlePlatformMessage({
     conversationId,
     message,
     userId,

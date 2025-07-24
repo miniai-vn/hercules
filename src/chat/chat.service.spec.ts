@@ -183,7 +183,7 @@ describe('ChatService', () => {
         data: { data: { message_id: 'msg123' } },
       });
       (
-        conversationsService.sendMessageToOtherPlatform as jest.Mock
+        conversationsService.handlePlatformMessage as jest.Mock
       ).mockResolvedValue({
         message: { content: 'hi', id: 123 },
       });

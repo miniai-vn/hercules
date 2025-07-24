@@ -151,7 +151,9 @@ export class KafkaConsumerService implements OnModuleDestroy {
         // case ResultLLMType.ETL:
         //   await this.resourceService.updateResourceAfterETL(data);
         //   break;
-
+        case 'text':
+          await this.chatService.handleLLMTextResult(data);
+          break;
         default:
           this.logger.warn(`[Kafka] Unknown LLM result type: ${data.type}`);
       }

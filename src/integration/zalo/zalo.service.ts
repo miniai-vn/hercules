@@ -262,7 +262,7 @@ export class ZaloService {
    *
    */
 
-  async handleSyncConversationsWithUserId(
+  async handleSyncConversationsByUserId(
     user_id: string,
     appId: string,
     messageCount: number = 30,
@@ -284,7 +284,6 @@ export class ZaloService {
         });
 
         if (
-          !response.data ||
           !response.data.data ||
           response.data.data.length === 0 ||
           response.data.data.total <= offset
@@ -295,7 +294,7 @@ export class ZaloService {
         for (let msg of response.data.data) {
           const isFromUser = msg.src === 1;
 
-          const customer = await this.customerService.findOrCreateByExternalId({
+          const customer = await this.customerService.upsertUser({
             platform: Platform.ZALO,
             externalId: isFromUser ? msg.from_id : msg.to_id,
             name: isFromUser ? msg.from_display_name : msg.to_display_name,
@@ -305,7 +304,7 @@ export class ZaloService {
 
           const externalConversation = {
             id: customer.externalId,
-            timestamp: new Date(msg.time),
+            timestamp: new Date(msg.time ?? ''),
           };
 
           msg = this.transferMessage(msg);
@@ -326,6 +325,7 @@ export class ZaloService {
             });
           }
         }
+
         if (messageCount && count >= messageCount) {
           break;
         }
@@ -418,7 +418,6 @@ export class ZaloService {
       });
 
       if (
-        !response.data ||
         !response.data.data ||
         response.data.data.length === 0 ||
         response.data.data.total <= offset
@@ -488,23 +487,22 @@ export class ZaloService {
 
   @Cron(CronExpression.EVERY_HOUR)
   async checkAndRefreshTokens(): Promise<void> {
-    try {
-      const zaloChannels = await this.channelService.findByType(
-        ChannelType.ZALO,
-      );
-      if (!zaloChannels || zaloChannels.length === 0) {
-        return;
-      }
+    const zaloChannels = await this.channelService.findByType(ChannelType.ZALO);
 
-      for (const channel of zaloChannels) {
-        if (this.needsTokenRefresh(channel)) {
-          await this.refreshAccessToken(channel);
-        }
+    if (!zaloChannels || zaloChannels.length === 0) {
+      return;
+    }
+
+    for (const channel of zaloChannels) {
+      if (this.needsTokenRefresh(channel)) {
+        await this.refreshAccessToken(channel);
       }
-    } catch (error) {
-      // Silent fail
     }
   }
+
+  /**
+   * Manually refresh the access token for a specific Zalo channel
+   */
 
   async manualTokenRefresh(appId: string) {
     try {
@@ -655,11 +653,7 @@ export class ZaloService {
         count,
       });
 
-      if (
-        !response.data ||
-        !response.data.data ||
-        response.data.data.length === 0
-      ) {
+      if (!response.data.data || response.data.data.length === 0) {
         break;
       }
 

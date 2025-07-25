@@ -396,7 +396,7 @@ export class FacebookService {
       for (const msg of messages) {
         const isFromUser = msg.from.id !== pageId;
 
-        const customer = await this.customerService.findOrCreateByExternalId({
+        const customer = await this.customerService.upsertUser({
           platform: ChannelType.FACEBOOK,
           externalId: isFromUser ? msg.from.id : pageId,
           name: isFromUser ? msg.from.name : facebookChannel.name,

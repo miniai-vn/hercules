@@ -31,7 +31,7 @@ export class ZaloSyncProcessor extends WorkerHost {
           );
 
         case 'sync-zalo-conversations-with-user':
-          await this.zaloService.handleSyncConversationsWithUserId(
+          await this.zaloService.handleSyncConversationsByUserId(
             userId,
             appId,
             messageCount,

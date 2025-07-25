@@ -129,7 +129,7 @@ describe('ChatService', () => {
         data: { data: { avatar: 'avatar', display_name: 'name' } },
       });
       (
-        customersService.findOrCreateByExternalId as jest.Mock
+        customersService.upsertUser as jest.Mock
       ).mockResolvedValue(mockCustomer);
       (conversationsService.handleUserMessage as jest.Mock).mockResolvedValue({
         conversation: mockConversation,

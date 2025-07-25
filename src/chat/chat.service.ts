@@ -17,6 +17,8 @@ import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 import dayjs from 'dayjs';
 import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import { Producer } from 'kafkajs';
+import { Customer } from 'src/customers/customers.entity';
+import { Message } from 'src/messages/messages.entity';
 
 export interface SendMessageData {
   conversationId: number;
@@ -25,26 +27,6 @@ export interface SendMessageData {
   messageType?: string;
   shopId: string;
   isEcho: boolean;
-}
-
-export interface TypingData {
-  conversationId: number;
-  userId: string;
-  isTyping: boolean;
-  shopId: string;
-}
-
-export interface MarkAsReadData {
-  conversationId: number;
-  userId: string;
-  messageId?: number;
-  shopId: string;
-}
-
-export interface JoinConversationData {
-  conversationId: number;
-  userId: string;
-  shopId: string;
 }
 
 @Injectable()
@@ -95,7 +77,7 @@ export class ChatService {
           sender.id,
         );
 
-        customer = await this.customerService.findOrCreateByExternalId({
+        customer = await this.customerService.upsertUser({
           platform: ChannelType.ZALO,
           externalId: sender.id,
           avatar: zaloCustomer.data.data.avatar,
@@ -115,27 +97,11 @@ export class ChatService {
           },
         });
 
-      if (isNewConversation) {
-        conversation.members
-          .filter((member) => !!member.userId)
-          .forEach((member) => {
-            this.chatGateway.sendEventJoinConversation(
-              conversation.id,
-              member.userId,
-            );
-          });
-      }
-
-      const roomName = `conversation:${conversation.id}`;
-
-      this.chatGateway.server.to(roomName).emit('receiveMessage', {
-        ...messageData,
-        sender: {
-          avatar: customer?.avatar,
-          name: customer?.name,
-        },
-        conversationId: conversation.id,
-        channelType: ChannelType.ZALO,
+      this.notifyToClient({
+        isNewConversation,
+        conversation,
+        customer,
+        messageData,
       });
 
       this.handleBotMessage({
@@ -151,6 +117,45 @@ export class ChatService {
   }
 
   /**
+   * Notify to client with socket
+   * */
+
+  async notifyToClient({
+    conversation,
+    customer,
+    messageData,
+    isNewConversation,
+  }: {
+    isNewConversation: boolean;
+    conversation: Conversation;
+    customer: Customer; // Assuming customer is an object with avatar and name
+    messageData: Message; // Assuming messageData is an object with message details
+  }) {
+    if (isNewConversation) {
+      conversation.members
+        .filter((member) => !!member.userId)
+        .forEach((member) => {
+          this.chatGateway.sendEventJoinConversation(
+            conversation.id,
+            member.userId,
+          );
+        });
+    }
+
+    const roomName = `conversation:${conversation.id}`;
+
+    this.chatGateway.server.to(roomName).emit('receiveMessage', {
+      ...messageData,
+      sender: {
+        avatar: customer?.avatar,
+        name: customer?.name,
+      },
+      conversationId: conversation.id,
+      channelType: ChannelType.ZALO,
+    });
+  }
+
+  /**
    * Sends a message from the platform to an Omni-channel conversation.
    */
 
@@ -160,6 +165,7 @@ export class ChatService {
       const conversation = await this.conversationsService.findOne(
         data.conversationId,
       );
+
       if (conversation.isBot) {
         return {
           message: 'Cannot send message to bot conversation',
@@ -242,8 +248,6 @@ export class ChatService {
         recipient.id,
       );
 
-      if (!channel) return { message: 'Channel not found or not active' };
-
       let customer = await this.customerService.findByExternalId(
         Platform.FACEBOOK,
         sender.id,
@@ -258,7 +262,7 @@ export class ChatService {
 
         const resp = await this.facebookService.getUserProfile(query);
 
-        customer = await this.customerService.findOrCreateByExternalId({
+        customer = await this.customerService.upsertUser({
           platform: Platform.FACEBOOK,
           externalId: sender.id,
           avatar: resp.profile_pic,
@@ -285,22 +289,11 @@ export class ChatService {
           customer,
         });
 
-      if (isNewConversation) {
-        conversation.members
-          .filter((member) => !!member.userId)
-          .forEach((member) => {
-            this.chatGateway.sendEventJoinConversation(
-              conversation.id,
-              member.userId,
-            );
-          });
-      }
-
-      const roomName = `conversation:${conversation.id}`;
-      this.chatGateway.server.to(roomName).emit('receiveMessage', {
-        ...messageData,
-        conversationId: conversation.id,
-        channelType: ChannelType.FACEBOOK,
+      this.notifyToClient({
+        isNewConversation,
+        conversation,
+        customer,
+        messageData,
       });
     } catch (error) {
       throw new InternalServerErrorException(
@@ -351,32 +344,6 @@ export class ChatService {
           },
         ],
       });
-
-      // const zaloMsg = await this.zaloService.sendMessage(
-      //   conversation.channel.accessToken,
-      //   aiResponse.data.data.answer,
-      //   customer.externalId,
-      // );
-
-      // const { message: dataMessage } =
-      //   await this.conversationsService.handleAgentMessage({
-      //     agentId: agent.id,
-      //     channel: conversation.channel,
-      //     customer: customer,
-      //     message: {
-      //       content: aiResponse.data.data.answer,
-      //       externalMessageId: zaloMsg?.data?.message_id,
-      //       type: MessageType.TEXT,
-      //     },
-      //   });
-
-      // const roomName = `conversation:${conversation.id}`;
-      // this.chatGateway.server.to(roomName).emit('receiveMessage', {
-      //   ...dataMessage,
-      //   senderId: agent.id,
-      //   conversationId: conversation.id,
-      //   channelType: ChannelType.ZALO,
-      // });
     }
   }
 
@@ -407,7 +374,7 @@ export class ChatService {
           recipient.id,
         );
 
-        customer = await this.customerService.findOrCreateByExternalId({
+        customer = await this.customerService.upsertUser({
           platform: ChannelType.ZALO,
           externalId: recipient.id,
           avatar: metadataCustomerZalo.data.data.avatar,
@@ -425,7 +392,7 @@ export class ChatService {
         customer: customer,
         externalConversation: {
           id: customer.externalId,
-          timestamp: new Date(),
+          timestamp: new Date(timestamp),
         },
         message: {
           content: message.text,
@@ -436,28 +403,11 @@ export class ChatService {
         },
       });
 
-      if (!conversation) {
-        return;
-      }
-
-      if (isNewConversation) {
-        conversation.members.forEach((member) => {
-          this.chatGateway.sendEventJoinConversation(
-            conversation.id,
-            member.userId,
-          );
-        });
-      }
-
-      const roomName = `conversation:${conversation.id}`;
-      this.chatGateway.server.to(roomName).emit('receiveMessage', {
-        ...messageData,
-        sender: {
-          avatar: zaloChannel.avatar,
-          name: zaloChannel.name,
-        },
-        conversationId: conversation.id,
-        channelType: ChannelType.ZALO,
+      this.notifyToClient({
+        isNewConversation,
+        conversation,
+        customer,
+        messageData,
       });
     } catch (error) {
       throw new InternalServerErrorException(

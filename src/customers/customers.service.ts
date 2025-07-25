@@ -213,7 +213,7 @@ export class CustomersService {
     });
   }
 
-  async findOrCreateByExternalId({
+  async upsertUser({
     platform,
     externalId,
     name,

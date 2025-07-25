@@ -1,11 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsNumber,
   IsArray,
-  ArrayNotEmpty,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString
 } from 'class-validator';
 
 export class CreateDepartmentDto {
@@ -31,11 +30,11 @@ export class CreateDepartmentDto {
 
   @ApiProperty({
     description: 'Shop ID that this department belongs to',
-    example: 1,
+    example: '1',
   })
-  @IsNumber()
-  @IsNotEmpty()
-  shopId: number;
+  @IsOptional()
+  @IsString()
+  shopId: string;
 
   @ApiPropertyOptional({
     description: 'Array of channel IDs to assign to this department',
@@ -47,15 +46,6 @@ export class CreateDepartmentDto {
   @IsNumber({}, { each: true })
   channelIds?: number[];
 
-  @ApiPropertyOptional({
-    description: 'Array of user IDs to assign to this department',
-    example: ['user-123', 'user-456'],
-    type: [String],
-  })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  userIds?: string[];
 
   @ApiPropertyOptional({
     description: 'Array of agent IDs to assign to this department',

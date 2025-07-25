@@ -608,7 +608,8 @@ export class ResourcesService {
       );
 
       if (!res.data.success) {
-        return await this.updateStatusByKey(s3Key, ResourceStatus.ERROR);
+        await this.updateStatusByKey(s3Key, ResourceStatus.ERROR);
+        return;
       }
 
       const codeJson = code || this.generateCodeFromFilename(fileName);

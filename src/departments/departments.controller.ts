@@ -40,7 +40,7 @@ export class DepartmentsController {
   async create(@Req() req, @Body() data: CreateDepartmentDto) {
     return this.departmentsService.create({
       ...data,
-      shopId: req.user.shopId,
+      shopId: req.shop.id,
     });
   }
 

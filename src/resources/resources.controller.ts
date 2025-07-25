@@ -1,45 +1,40 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
   Post,
   Put,
-  Param,
-  Body,
   Query,
-  ParseIntPipe,
-  NotFoundException,
-  HttpStatus,
-  HttpCode,
-  Patch,
-  UploadedFile,
-  UseInterceptors,
   Req,
+  UploadedFile,
   UseGuards,
-  Delete,
+  UseInterceptors
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-  ApiQuery,
-  ApiBody,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
-import { ResourcesService } from './resources.service';
-import { Resource } from './resources.entity';
-import {
-  CreateResourceDto,
-  UpdateResourceDto,
-  ResourceQueryDto,
-  ResourceStatus,
-} from './dto/resources.dto';
-import { PaginatedResult } from 'src/common/types/reponse.type';
 import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 import { PermissionsGuard } from 'src/auth/gaurds/permission.guard';
-import { PermissionCode } from 'src/common/enums/permission.enum';
 import { RequirePermissions } from 'src/common/decorators/permissions.decorator';
+import { PermissionCode } from 'src/common/enums/permission.enum';
+import { PaginatedResult } from 'src/common/types/reponse.type';
+import {
+  CreateResourceDto,
+  ResourceQueryDto,
+  UpdateResourceDto
+} from './dto/resources.dto';
+import { Resource } from './resources.entity';
+import { ResourcesService } from './resources.service';
 
 @ApiTags('resources')
 @Controller('resources')

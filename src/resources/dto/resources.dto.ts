@@ -47,7 +47,7 @@ export class ResourceDto {
     example: '/uploads/documents/file.pdf',
   })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   path: string;
 
   @ApiProperty({
@@ -56,7 +56,7 @@ export class ResourceDto {
     maxLength: 255,
   })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @MaxLength(255)
   name: string;
 

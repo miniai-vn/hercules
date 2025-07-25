@@ -12,7 +12,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   Unique,
-  UpdateDateColumn
+  UpdateDateColumn,
 } from 'typeorm';
 import { Message } from '../messages/messages.entity';
 
@@ -58,6 +58,13 @@ export class Conversation {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp with time zone' })
   updatedAt: Date;
+
+  @Column({
+    type: 'timestamp with time zone',
+    nullable: true,
+    name: 'last_message_at',
+  })
+  lastMessageAt?: Date;
 
   @ManyToOne(() => Channel, (channel) => channel.conversations, {
     cascade: true,

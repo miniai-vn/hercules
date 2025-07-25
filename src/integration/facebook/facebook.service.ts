@@ -412,7 +412,7 @@ export class FacebookService {
         const message = await this.handleTransferMessage(msg);
 
         if (isFromUser) {
-          await this.conversationService.handerUserMessage({
+          await this.conversationService.handleUserMessage({
             channel: facebookChannel,
             customer: customer,
             message: message,

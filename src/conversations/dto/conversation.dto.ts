@@ -14,51 +14,52 @@ import {
 import { ConversationType } from '../conversations.entity';
 
 export { ConversationType };
+export class ConversationDto {
+  @ApiProperty({
+    description: 'Unique identifier for the conversation',
+    example: 1,
+  })
+  @IsNumber()
+  id: number;
 
-export class CreateConversationDto {
+  @ApiProperty({
+    description: 'Name of the conversation',
+    example: 'Support Chat',
+  })
   @IsString()
-  @IsNotEmpty()
   name: string;
 
-  @IsBoolean()
-  @IsOptional()
-  isBot?: boolean;
-
+  @ApiProperty({
+    description: 'Type of the conversation',
+    enum: ConversationType,
+    example: ConversationType.DIRECT,
+  })
   @IsEnum(ConversationType)
   type: ConversationType;
 
+  @ApiPropertyOptional({
+    description: 'Avatar URL or path for the conversation',
+    example: 'https://example.com/avatar.png',
+  })
   @IsString()
   @IsOptional()
-  externalId?: string;
-
-  @IsString()
-  @IsNotEmpty()
   avatar?: string;
 
+  @ApiPropertyOptional({
+    description: 'Content of the conversation',
+    example: 'Welcome to our support chat!',
+  })
   @IsString()
   @IsOptional()
   content?: string;
 
-  @IsNumber()
+  @ApiPropertyOptional({
+    description: 'Indicates if the conversation is a bot conversation',
+    example: false,
+  })
+  @IsBoolean()
   @IsOptional()
-  channelId?: number;
-
-  @IsArray()
-  @IsNumber({}, { each: true })
-  @IsOptional()
-  customerParticipantIds?: string[];
-
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  userParticipantIds?: string[];
-
-  @IsObject()
-  @IsOptional()
-  conversation?: {
-    id: string; // Conversation ID
-    timestamp: Date; // Timestamp of the conversation
-  };
+  isBot?: boolean;
 }
 
 export class UpdateConversationDto {
@@ -211,49 +212,7 @@ export class ConversationQueryParamsDto {
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  limit?: number = 10;
-}
-
-export class AddTagsToConversationDto {
-  @ApiProperty({
-    description: 'Array of tag IDs to add to the conversation',
-    type: [Number],
-    example: [1, 2, 3],
-  })
-  @IsArray()
-  @IsNumber({}, { each: true })
-  @IsNotEmpty({ each: true })
-  tagIds: number[];
-}
-
-export class ConversationResponseDto {
-  id: number;
-  name: string;
-  type: ConversationType;
-  avatar?: string; // Optional: avatar URL or path
-  content?: string;
-  isBot?: boolean; // Optional: indicates if the conversation is a bot conversation
-  createdAt: Date;
-  updatedAt: Date;
-  messages?: {
-    id: number;
-    content: string;
-    createdAt: Date;
-    updatedAt: Date;
-    senderId: string; // ID of the user or customer who sent the message
-  }[]; // Optional: array of messages in conversation
-  customerParticipants?: {
-    id: number;
-    name?: string;
-    externalId?: string;
-  }[];
-  userParticipants?: {
-    id: string;
-    name?: string;
-    email?: string;
-  }[];
-  messagesCount?: number; // Optional: count of messages in conversation
-  lastestMessage?: string;
+  pageSize?: number = 10;
 }
 
 export class AddParticipantsDto {

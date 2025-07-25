@@ -41,9 +41,12 @@ export class MessagesService {
       },
     );
 
-    return await this.messageRepository.findOne({
-      where: { id: upsertedMessage.identifiers[0].id },
-    });
+    return {
+      data: await this.messageRepository.findOne({
+        where: { id: upsertedMessage.identifiers[0].id },
+      }),
+      isNewMessage: upsertedMessage.identifiers.length > 0,
+    };
   }
 
   async get50MessagesByConversationId(

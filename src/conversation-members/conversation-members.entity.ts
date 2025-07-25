@@ -65,6 +65,9 @@ export class ConversationMember {
   @JoinColumn({ name: 'last_message_id' })
   lastMessage: Message;
 
+  @Column({ type: 'int', nullable: true, name: 'unread_count', default: 0 })
+  unreadCount?: number;
+
   @Column({
     type: 'timestamp with time zone',
     nullable: true,

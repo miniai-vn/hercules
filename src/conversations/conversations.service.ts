@@ -21,17 +21,17 @@ import { Message } from 'src/messages/messages.entity';
 import { MessagesService } from 'src/messages/messages.service';
 import { TagsService } from 'src/tags/tags.service';
 import { UsersService } from 'src/users/users.service';
-import { Repository } from 'typeorm';
+import { FindManyOptions, Repository } from 'typeorm';
 import { ParticipantType } from '../conversation-members/conversation-members.entity';
 import { ConversationMembersService } from '../conversation-members/conversation-members.service';
 import { Conversation, ConversationType } from './conversations.entity';
 import {
   AddParticipantsDto,
   ConversationQueryParamsDto,
-  ConversationResponseDto,
-  CreateConversationDto,
   UpdateConversationDto,
 } from './dto/conversation.dto';
+import { CreateConversationDto } from './dto/create-conversation.dto';
+import { PaginatedResult } from 'src/common/types/reponse.type';
 
 @Injectable()
 export class ConversationsService {
@@ -39,7 +39,7 @@ export class ConversationsService {
     @InjectRepository(Conversation)
     private readonly conversationRepository: Repository<Conversation>,
     private readonly conversationMembersService: ConversationMembersService,
-    private readonly messagesService: MessagesService,
+    private readonly messageService: MessagesService,
     private readonly tagsService: TagsService,
     private readonly customerService: CustomersService,
     private readonly userService: UsersService,
@@ -79,6 +79,7 @@ export class ConversationsService {
       const conversationUpsert = await this.conversationRepository.upsert(
         {
           ...createConversationDto,
+          lastMessageAt: createConversationDto.lastMessageAt,
           channel: {
             id: createConversationDto.channelId,
           },
@@ -174,10 +175,7 @@ export class ConversationsService {
     }
   }
 
-  async addParticipants(
-    id: number,
-    addParticipantsDto: AddParticipantsDto,
-  ): Promise<ConversationResponseDto> {
+  async addParticipants(id: number, addParticipantsDto: AddParticipantsDto) {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id },
@@ -264,7 +262,7 @@ export class ConversationsService {
       });
 
       const message =
-        await this.messagesService.get50MessagesByConversationId(id);
+        await this.messageService.get50MessagesByConversationId(id);
 
       const messageMappingSender = await Promise.all(
         message.map(async (msg) => {
@@ -305,106 +303,83 @@ export class ConversationsService {
 
   async query(
     queryParams: ConversationQueryParamsDto,
-  ): Promise<ConversationResponseDto[]> {
+  ): Promise<PaginatedResult<Conversation>> {
     try {
-      const queryBuilder = this.conversationRepository
-        .createQueryBuilder('conversation')
-        .leftJoinAndSelect('conversation.members', 'members')
-        .leftJoinAndSelect('members.user', 'user')
-        .leftJoinAndSelect('conversation.channel', 'channel')
-        .leftJoinAndSelect('conversation.tags', 'tags')
-        .leftJoinAndSelect(
-          'conversation.messages',
-          'latestMessage',
-          'latestMessage.id = (SELECT MAX(m.id) FROM messages m WHERE m.conversation_id = conversation.id LIMIT 1)',
-        )
-        .where('channel.shop_id = :shopId', {
-          shopId: queryParams.shopId,
-        })
-
-        .andWhere(
-          'EXISTS (SELECT 1 FROM messages m WHERE m.conversation_id = conversation.id)',
-        );
-
-      if (queryParams.channelType) {
-        queryBuilder.andWhere('channel.type = :channelType', {
-          channelType: queryParams.channelType.toLocaleLowerCase(),
-        });
-      }
-
-      if (queryParams.tagId) {
-        queryBuilder.andWhere('tags.id = :tagId', {
-          tagId: Number(queryParams.tagId),
-        });
-      }
-
-      if (queryParams.userId) {
-        queryBuilder.andWhere('members.user_id = :userId', {
-          userId: queryParams.userId,
-        });
-      }
-
-      if (queryParams.channelId) {
-        queryBuilder.andWhere('conversation.channel_id = :channelId', {
-          channelId: queryParams.channelId,
-        });
-      }
-
-      if (queryParams.search && queryParams.search.trim() !== '') {
-        queryBuilder.andWhere(
-          '(conversation.name ~* :search OR conversation.content ~* :search)',
-          { search: queryParams.search },
-        );
-      }
-
-      if (
-        queryParams.participantUserIds &&
-        queryParams.participantUserIds.length > 0
-      ) {
-        queryBuilder.andWhere('user.id IN (:...participantUserIds)', {
-          participantUserIds: queryParams.participantUserIds,
-        });
-      }
-
-      // Fixed phoneFilter logic
-      if (queryParams.phoneFilter) {
-        queryBuilder.andWhere(
-          'EXISTS (SELECT 1 FROM conversation_members cm JOIN customers c ON cm.customer_id = c.id WHERE cm.conversation_id = conversation.id AND c.phone IS NOT NULL)',
-        );
-      }
-      // queryBuilder.limit(queryParams.limit || 20);
-      // queryBuilder.offset(0);
-      const conversations = await queryBuilder
-        .orderBy('latestMessage.created_at', 'DESC')
-        .getMany();
-
-      const conversationWithUnreadCount = await Promise.all(
-        conversations.map(async (conv) => {
-          const countMessagesUnread = await this.getUnReadMessagesCount(
-            conv.id,
-            queryParams.userId,
-          );
-          return {
-            ...this.toResponseDto(conv),
-            tags: conv.tags,
-            channel: conv.channel,
-            unreadMessagesCount: countMessagesUnread,
-          };
-        }),
-      );
-
-      const conversaiontsResponse = conversationWithUnreadCount.filter(
-        (conv) => {
-          if (queryParams.readStatus === 'read') {
-            return conv.unreadMessagesCount === 0;
-          }
-          if (queryParams.readStatus === 'unread') {
-            return conv.unreadMessagesCount > 0;
-          }
-          return conv;
+      const {
+        page = 1,
+        pageSize = 10,
+        participantUserIds = [],
+        phoneFilter,
+        channelType,
+        tagId,
+        userId,
+        channelId,
+      } = queryParams;
+      const whereConditions: FindManyOptions<Conversation> = {
+        where: {
+          ...(tagId && {
+            tags: {
+              id: tagId,
+            },
+          }),
+          ...(userId && {
+            members: {
+              userId,
+            },
+          }),
+          ...(channelId && {
+            channel: {
+              id: channelId,
+            },
+          }),
+          ...(participantUserIds.length > 0 && {
+            members: {
+              userId: participantUserIds,
+            },
+          }),
+          ...(phoneFilter &&
+            typeof phoneFilter === 'string' && {
+              members: {
+                customer: {
+                  phone: phoneFilter,
+                },
+              },
+            }),
+          ...(channelType && {
+            channel: {
+              type: channelType,
+            },
+          }),
         },
-      );
-      return Promise.all(conversaiontsResponse);
+        relations: {
+          members: {
+            user: true,
+            customer: true,
+          },
+          channel: true,
+          tags: true,
+        },
+      };
+
+      const [conversations, count] =
+        await this.conversationRepository.findAndCount({
+          ...whereConditions,
+          order: {
+            lastMessageAt: 'DESC',
+          },
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        });
+
+      return {
+        data: conversations,
+        total: count,
+        page,
+        limit: pageSize,
+        totalPages: Math.ceil(count / pageSize),
+        hasNext: page * pageSize < count,
+        hasPrev: page > 1,
+      };
     } catch (error) {
       throw new InternalServerErrorException('Failed to query conversations');
     }
@@ -504,10 +479,7 @@ export class ConversationsService {
     }
   }
 
-  async removeParticipants(
-    conversationId: number,
-    participantIds: number[],
-  ): Promise<ConversationResponseDto> {
+  async removeParticipants(conversationId: number, participantIds: number[]) {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
@@ -552,7 +524,23 @@ export class ConversationsService {
     }
   }
 
-  async handerUserMessage({
+  /**
+   * Update last message at
+   * */
+
+  async updateLastMessageAt(conversationId: number, lastMessageAt: Date) {
+    try {
+      await this.conversationRepository.update(conversationId, {
+        lastMessageAt,
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(
+        'Failed to update last message at',
+      );
+    }
+  }
+
+  async handleUserMessage({
     channel,
     customer,
     message,
@@ -568,8 +556,10 @@ export class ConversationsService {
   }) {
     try {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
+
       const checkedChannelActiveAgent =
         await this.channelService.checkActiveAgent(channel.id);
+
       const checkConversationActive = await this.checkAgentActive(
         channel.id,
         customer.externalId,
@@ -584,20 +574,28 @@ export class ConversationsService {
         externalId: externalConversation.id,
         channelId: channel.id,
         conversation: externalConversation,
+        lastMessageAt: message.createdAt,
         customerParticipantIds: [customer.id],
         userParticipantIds: adminChannels.map((user) => user.id),
       });
 
-      const messageData = await this.messagesService.upsert({
-        content: message.content,
-        contentType: message.contentType,
-        externalId: message.id,
-        conversationId: conversation.id,
-        senderType: SenderType.customer,
-        senderId: customer.id,
-        links: message.links,
-        createdAt: message?.createdAt,
-      });
+      const { data: messageData, isNewMessage } =
+        await this.messageService.upsert({
+          content: message.content,
+          contentType: message.contentType,
+          externalId: message.id,
+          conversationId: conversation.id,
+          senderType: SenderType.customer,
+          senderId: customer.id,
+          links: message.links,
+          createdAt: message?.createdAt,
+        });
+
+      this.conversationMembersService.incrementUnreadCount(
+        adminChannels.map((user) => user.id),
+      );
+
+      this.updateLastMessageAt(conversation.id, messageData.createdAt);
 
       return {
         conversation,
@@ -691,19 +689,20 @@ export class ConversationsService {
       (member) => member.participantType === ParticipantType.CUSTOMER,
     )?.customerId;
 
-    const metadataMessage = await this.messagesService.upsert({
-      content: message.content,
-      externalId: message.externalMessageId,
-      contentType: messageType,
-      conversationId: conversation.id,
-      senderType: SenderType.user,
-      senderId: userId,
-      createdAt: message.createdAt,
-    });
+    const { data: messageData, isNewMessage } =
+      await this.messageService.upsert({
+        content: message.content,
+        externalId: message.externalMessageId,
+        contentType: messageType,
+        conversationId: conversation.id,
+        senderType: SenderType.user,
+        senderId: userId,
+        createdAt: message.createdAt,
+      });
 
     return {
       accessToken: channel.accessToken,
-      message: metadataMessage,
+      message: messageData,
       customerId,
       channelType: channel.type,
     };
@@ -726,7 +725,7 @@ export class ConversationsService {
     try {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
 
-      const existingMessages = await this.messagesService.findByExternalId(
+      const existingMessages = await this.messageService.findByExternalId(
         message.id,
       );
 
@@ -750,20 +749,21 @@ export class ConversationsService {
       });
 
       // check message is exsting with externalId
-      const metadataMessage = await this.messagesService.upsert({
-        content: message.content ? message.content : '',
-        contentType: message.contentType,
-        senderType: SenderType.channel,
-        senderId: channel.id.toString(),
-        links: message.links,
-        conversationId: conversation.id,
-        externalId: message.id,
-        createdAt: message.createdAt,
-      });
+      const { data: messageData, isNewMessage } =
+        await this.messageService.upsert({
+          content: message.content ? message.content : '',
+          contentType: message.contentType,
+          senderType: SenderType.channel,
+          senderId: channel.id.toString(),
+          links: message.links,
+          conversationId: conversation.id,
+          externalId: message.id,
+          createdAt: message.createdAt,
+        });
 
       return {
         accessToken: channel.accessToken,
-        message: metadataMessage,
+        message: messageData,
         customerId: conversation.members.find(
           (member) => member.participantType === ParticipantType.CUSTOMER,
         )?.customerId,
@@ -805,18 +805,19 @@ export class ConversationsService {
         userParticipantIds: adminChannels.map((user) => user.id),
       });
 
-      const metadataMessage = await this.messagesService.upsert({
-        content: message.content,
-        contentType: message.type,
-        senderType: SenderType.assistant,
-        senderId: agentId.toString(),
-        conversationId: conversation.id,
-        externalId: message.externalMessageId,
-      });
+      const { data: messageData, isNewMessage } =
+        await this.messageService.upsert({
+          content: message.content,
+          contentType: message.type,
+          senderType: SenderType.assistant,
+          senderId: agentId.toString(),
+          conversationId: conversation.id,
+          externalId: message.externalMessageId,
+        });
 
       return {
         accessToken: channel.accessToken,
-        message: metadataMessage,
+        message: messageData,
         customerId: conversation.members[0].customerId,
         channelType: channel.type,
       };
@@ -849,7 +850,7 @@ export class ConversationsService {
     }
   }
 
-  private toResponseDto(conversation: Conversation): ConversationResponseDto {
+  private toResponseDto(conversation: Conversation) {
     return {
       id: conversation.id,
       name: conversation?.name,

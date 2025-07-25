@@ -131,7 +131,7 @@ describe('ChatService', () => {
       (
         customersService.findOrCreateByExternalId as jest.Mock
       ).mockResolvedValue(mockCustomer);
-      (conversationsService.handerUserMessage as jest.Mock).mockResolvedValue({
+      (conversationsService.handleUserMessage as jest.Mock).mockResolvedValue({
         conversation: mockConversation,
         messageData: mockMessageData,
         isNewConversation: false,

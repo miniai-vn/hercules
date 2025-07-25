@@ -303,15 +303,15 @@ export class ZaloService {
             channelId: channel.id,
           });
 
-          msg = this.transferMessage(msg);
-
           const externalConversation = {
             id: customer.externalId,
             timestamp: new Date(msg.time),
           };
 
+          msg = this.transferMessage(msg);
+
           if (isFromUser) {
-            await this.conversationService.handerUserMessage({
+            await this.conversationService.handleUserMessage({
               channel: channel,
               customer: customer,
               message: msg,
@@ -361,7 +361,7 @@ export class ZaloService {
           contentType: MessageType.STICKER,
           links: [message.url],
           id: message.message_id,
-          createdAt: dayjs(message.time),
+          createdAt: new Date(message.time),
         };
 
       default:
@@ -528,7 +528,7 @@ export class ZaloService {
    * Transform raw message data to a format suitable for processing
    */
 
-  transfeRawDataMessage(message): ZaloMessageDto {
+  handleRawMessage(message): ZaloMessageDto {
     if (!message.attachments || !message.attachments.length) {
       return {
         ...message,
@@ -551,32 +551,36 @@ export class ZaloService {
 
   async handleWebhook(payload): Promise<void> {
     try {
+      const message = this.handleRawMessage(payload.message);
       switch (payload.event_name) {
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_TEXT:
           await this.handleProducerMessage({
             ...payload,
-            message: this.transfeRawDataMessage(payload.message),
+            message,
           });
           break;
 
         case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
           await this.handleProducerMessage({
             ...payload,
-            message: this.transfeRawDataMessage(payload.message),
+            message,
           });
           break;
 
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_STICKER:
           await this.handleProducerMessage({
             ...payload,
-            message: this.transfeRawDataMessage(payload.message),
+            message,
           });
           break;
 
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_IMAGE:
           await this.handleProducerMessage({
             ...payload,
-            message: this.transfeRawDataMessage(payload.message),
+            message: {
+              ...message,
+              contentType: MessageType.IMAGE,
+            },
           });
           break;
 
@@ -642,6 +646,7 @@ export class ZaloService {
     let offset = 0;
     let count = 10;
     const processedMessages = [];
+    const jobIdSet = new Set();
 
     while (true) {
       const response = await this.fetchRecentChat({
@@ -670,20 +675,24 @@ export class ZaloService {
         }
 
         const userId = message.src === 1 ? message.from_id : message.to_id;
+        const jobId = `${appId}-${userId}`;
 
-        processedMessages.push({
-          name: 'sync-zalo-conversations-with-user',
-          data: {
-            userId: userId,
-            appId: appId,
-            messageCount,
-          },
-          opts: {
-            jobId: `${appId}-${userId}`,
-            removeOnComplete: true,
-            removeOnFail: true,
-          },
-        });
+        if (!jobIdSet.has(jobId)) {
+          processedMessages.push({
+            name: 'sync-zalo-conversations-with-user',
+            data: {
+              userId: userId,
+              appId: appId,
+              messageCount,
+            },
+            opts: {
+              jobId,
+              removeOnComplete: true,
+              removeOnFail: true,
+            },
+          });
+          jobIdSet.add(jobId);
+        }
       }
 
       if (shouldBreak) {

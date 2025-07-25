@@ -27,9 +27,7 @@ import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 import { ConversationsService } from './conversations.service';
 import {
   AddParticipantsDto,
-  AddTagsToConversationDto,
   ConversationQueryParamsDto,
-  ConversationResponseDto,
   UpdateConversationDto,
 } from './dto/conversation.dto';
 
@@ -52,17 +50,10 @@ export class ConversationsController {
     description: 'Conversations queried successfully',
   })
   @ApiQuery({
-    type: ConversationResponseDto,
     required: false,
     description: 'Conversation type',
   })
-  async query(
-    @Req() req,
-    @Query() queryParams: ConversationQueryParamsDto,
-  ): Promise<{
-    message: string;
-    data: any;
-  }> {
+  async query(@Req() req, @Query() queryParams: ConversationQueryParamsDto) {
     const shopId = req.user.shopId;
     queryParams.shopId = shopId;
 
@@ -70,12 +61,9 @@ export class ConversationsController {
       queryParams.userId = req.user.userId;
     }
 
-    return {
-      message: 'Conversations queried successfully',
-      data: await this.conversationsService.query({
-        ...queryParams,
-      }),
-    };
+    const result = await this.conversationsService.query(queryParams);
+
+    return result;
   }
 
   @Get(':id')
@@ -83,7 +71,6 @@ export class ConversationsController {
   @ApiResponse({
     status: 200,
     description: 'Conversation retrieved successfully',
-    type: ConversationResponseDto,
   })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     const conversation = await this.conversationsService.findOne(id);
@@ -112,7 +99,6 @@ export class ConversationsController {
   @ApiResponse({
     status: 200,
     description: 'Conversation updated successfully',
-    type: ConversationResponseDto,
   })
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -133,12 +119,11 @@ export class ConversationsController {
   @ApiResponse({
     status: 200,
     description: 'Participants added successfully',
-    type: ConversationResponseDto,
   })
   async addParticipants(
     @Param('id', ParseIntPipe) id: number,
     @Body() addParticipantsDto: AddParticipantsDto,
-  ): Promise<ApiResponse<ConversationResponseDto>> {
+  ) {
     const conversation = await this.conversationsService.addParticipants(
       id,
       addParticipantsDto,
@@ -203,7 +188,6 @@ export class ConversationsController {
 
   @Post(':id/add-tags')
   @ApiOperation({ summary: 'Add tags to a conversation' })
-  @ApiBody({ type: AddTagsToConversationDto })
   @ApiResponse({
     status: 200,
     description: 'Tags added to conversation successfully',
@@ -216,7 +200,7 @@ export class ConversationsController {
   })
   async addTags(
     @Param('id', ParseIntPipe) id: number,
-    @Body() addTagsDto: AddTagsToConversationDto,
+    @Body() addTagsDto: { tagIds: number[] },
   ): Promise<{
     message: string;
     data: { conversationId: number };
@@ -250,7 +234,6 @@ export class ConversationsController {
   @ApiResponse({
     status: 200,
     description: 'Participants removed successfully',
-    type: ConversationResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -259,7 +242,7 @@ export class ConversationsController {
   async removeParticipants(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: { participantIds: number[] },
-  ): Promise<ApiResponse<ConversationResponseDto>> {
+  ) {
     const conversation = await this.conversationsService.removeParticipants(
       id,
       body.participantIds,

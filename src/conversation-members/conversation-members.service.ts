@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Message } from 'src/messages/messages.entity';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import {
   AddMultipleParticipantsDto,
   AddParticipantDto,
@@ -341,6 +341,44 @@ export class ConversationMembersService {
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to retrieve conversations: ${error.message}`,
+      );
+    }
+  }
+
+  async incrementUnreadCount(memberIds: string[], incrementBy: number = 1) {
+    try {
+      await this.memberRepository.increment(
+        { userId: In(memberIds) },
+        'unreadCount',
+        incrementBy,
+      );
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to increment unread count: ${error.message}`,
+      );
+    }
+  }
+
+  async resetUnreadCount(memberIds: string[]): Promise<ConversationMember[]> {
+    try {
+      const members = await this.memberRepository.findByIds(memberIds);
+      members.forEach((member) => {
+        member.unreadCount = 0;
+      });
+
+      if (!members) {
+        throw new NotFoundException(
+          `Members with IDs ${memberIds.join(', ')} not found`,
+        );
+      }
+
+      members.forEach((member) => {
+        member.unreadCount = 0;
+      });
+      return await this.memberRepository.save(members);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to reset unread count: ${error.message}`,
       );
     }
   }

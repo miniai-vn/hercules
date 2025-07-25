@@ -28,4 +28,5 @@ export const ZALO_CONFIG = {
     // OA
     OA_SEND_TEXT: 'oa_send_text',
   },
+  
 } as const;

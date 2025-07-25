@@ -105,7 +105,7 @@ export class ChatService {
       }
 
       const { conversation, messageData, isNewConversation } =
-        await this.conversationsService.handerUserMessage({
+        await this.conversationsService.handleUserMessage({
           message: transferMessage,
           channel: zaloChannel,
           customer,
@@ -269,7 +269,7 @@ export class ChatService {
       }
 
       const { conversation, messageData, isNewConversation } =
-        await this.conversationsService.handerUserMessage({
+        await this.conversationsService.handleUserMessage({
           channel: channel,
           message: {
             content: message.text,

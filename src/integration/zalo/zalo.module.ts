@@ -9,6 +9,7 @@ import { ZaloController } from './zalo.controller';
 import { ZaloService } from './zalo.service';
 import { BullModule } from '@nestjs/bullmq';
 import { ZaloSyncProcessor } from './processors/zalo-sync.processor';
+import { TagsModule } from 'src/tags/tags.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ZaloSyncProcessor } from './processors/zalo-sync.processor';
     KafkaModule,
     CustomersModule,
     ConversationsModule,
+    TagsModule,
     BullModule.registerQueue({
       name: process.env.REDIS_ZALO_SYNC_TOPIC,
       defaultJobOptions: {

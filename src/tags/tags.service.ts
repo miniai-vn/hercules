@@ -16,6 +16,7 @@ import {
 } from './dto/tag.dto';
 import { Tag } from './tags.entity';
 import { ShopService } from 'src/shops/shops.service';
+import { Channel } from 'src/channels/channels.entity';
 
 @Injectable()
 export class TagsService {
@@ -128,6 +129,40 @@ export class TagsService {
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to initialize basic tags: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * find or create a tag with appId
+   */
+
+  async findOrCreate({ channel, name }: { channel: Channel; name: string }) {
+    try {
+      const existingTag = await this.tagRepository.findOne({
+        where: { channel: { id: channel.id }, name },
+      });
+
+      if (existingTag) {
+        return existingTag;
+      }
+
+      const colors = Object.values(this.TAG_COLORS);
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+      const tag = await this.tagRepository.create({
+        channel: { id: channel.id },
+        shop: {
+          id: channel.shop.id,
+        },
+        name,
+        color: randomColor,
+        type: TagType.CUSTOMER,
+      });
+      return await this.tagRepository.save(tag);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to upsert tag: ${error.message}`,
       );
     }
   }

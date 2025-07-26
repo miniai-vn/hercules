@@ -1,16 +1,15 @@
-import { InjectQueue } from '@nestjs/bullmq';
 import {
   Body,
   Controller,
   Get,
   HttpStatus,
+  InternalServerErrorException,
   Param,
   Post,
   Query,
   Res,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Queue } from 'bullmq';
 import { Response } from 'express';
 import { join } from 'path';
 import { ZaloService } from './zalo.service';
@@ -18,11 +17,7 @@ import { ZaloService } from './zalo.service';
 @ApiTags('Integration')
 @Controller('integration')
 export class ZaloController {
-  constructor(
-    private readonly zaloService: ZaloService,
-    @InjectQueue(process.env.REDIS_ZALO_SYNC_TOPIC)
-    private readonly zaloSyncQueue: Queue,
-  ) {}
+  constructor(private readonly zaloService: ZaloService) {}
 
   @Get('zalo')
   @ApiOperation({ summary: 'Zalo webhook verification' })
@@ -78,41 +73,16 @@ export class ZaloController {
     status: 200,
     description: 'Conversations synced successfully',
   })
-  async syncZaloConversations(@Param('appId') appId: string) {
-    // Validate appId
-    if (!appId) {
-      throw new Error('App ID is required');
+  async syncDataAppZalo(@Param('appId') appId: string) {
+    try {
+      return {
+        message: 'Conversations synced successfully',
+        data: await this.zaloService.syncDataAppId(appId),
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Error syncing Zalo conversations: ${error.message}`,
+      );
     }
-    const job = this.zaloSyncQueue.add(
-      'first-time-sync',
-      {
-        appId: appId,
-      },
-      {
-        jobId: `sync-conversations-${appId}-test`,
-        removeOnComplete: true,
-        removeOnFail: true,
-      },
-    );
-
-    const schedulerId = `sync-conversations-${appId}`;
-    // await this.zaloSyncQueue.removeJobScheduler(schedulerId);
-    this.zaloSyncQueue.upsertJobScheduler(
-      schedulerId,
-      {
-        every: 24 * 60 * 60 * 1000,
-        startDate: new Date(Date.now() + 10 * 60 * 1000),
-      },
-      {
-        name: 'sync-daily-zalo-conversations',
-        data: {
-          appId,
-        },
-      },
-    );
-    return {
-      message: 'Conversations synced successfully',
-      data: job,
-    };
   }
 }

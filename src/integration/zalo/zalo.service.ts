@@ -1,5 +1,11 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { Queue } from 'bullmq';
@@ -18,11 +24,14 @@ import { Platform } from 'src/customers/customers.dto';
 import { CustomersService } from 'src/customers/customers.service';
 import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import { ZALO_CONFIG } from './config/zalo.config';
+import { TagsService } from 'src/tags/tags.service';
+import { ZaloJobEvent } from 'src/common/enums/job-event.enum';
 
 dotenv.config();
 
 @Injectable()
 export class ZaloService {
+  private readonly logger = new Logger(ZaloService.name);
   private readonly topic = process.env.KAFKA_ZALO_MESSAGE_TOPIC;
   producer: Producer;
   constructor(
@@ -31,6 +40,7 @@ export class ZaloService {
     private readonly kafkaProducerService: KafkaProducerService,
     private readonly customerService: CustomersService,
     private readonly conversationService: ConversationsService,
+    private readonly tagService: TagsService,
     @InjectQueue(process.env.REDIS_ZALO_SYNC_TOPIC)
     private readonly zaloSyncQueue: Queue,
   ) {
@@ -268,6 +278,9 @@ export class ZaloService {
     messageCount: number = 30,
   ) {
     try {
+      this.logger.log(
+        `Start handleSyncConversationsByUserId for user_id: ${user_id}, appId: ${appId}`,
+      );
       const channel = await this.channelService.getByTypeAndAppId(
         ChannelType.ZALO,
         appId,
@@ -331,7 +344,14 @@ export class ZaloService {
         }
         offset += count;
       }
+      this.logger.log(
+        `Finished handleSyncConversationsByUserId for user_id: ${user_id}, appId: ${appId}`,
+      );
     } catch (error) {
+      this.logger.error(
+        `Failed to sync conversations with user ID ${user_id}: ${error.message}`,
+        error.stack,
+      );
       throw new Error(
         `Failed to sync conversations with user ID ${user_id}: ${error.message}`,
       );
@@ -429,18 +449,24 @@ export class ZaloService {
       offset += count;
     }
     for (let i = 0; i <= allUsers.length; i++) {
+      const user = allUsers[i];
+
       const profileResponse = await this.getUserProfile(
         channel.accessToken,
-        allUsers[i]?.user_id,
+        user.user_id,
       );
-      allUsers[i].profile = profileResponse.data.data || {};
-      await this.customerService.upsert({
+
+      user.profile = profileResponse.data.data || {};
+      
+      await this.customerService.upsertUser({
         platform: Platform.ZALO,
-        externalId: allUsers[i].user_id,
-        name: allUsers[i].profile.display_name || '',
+        externalId: user.user_id,
+        name: user.profile.display_name || '',
         shopId: channel?.shop?.id || null,
         channelId: channel?.id || null,
-        avatar: allUsers[i].profile.avatar || '',
+        avatar: user.profile.avatar || '',
+        note: user.profile.tags_and_notes_info?.note || '',
+        tagNames: user.profile.tags_and_notes_info?.tag_names || [],
       });
       delay(Math.random() * 1000);
     }
@@ -608,8 +634,60 @@ export class ZaloService {
   }
 
   /**
+   * Fetch tags of Zalo OA
+   */
+
+  async fetchTags(accessToken: string): Promise<AxiosResponse> {
+    return this.callZaloAuthenticatedAPI(
+      ZALO_CONFIG.ENDPOINTS.GET_TAGS,
+      accessToken,
+      HttpMethod.GET,
+    );
+  }
+
+  /**
+   * upsert tags for Zalo OA
+   */
+
+  async upsertTags(appId: string) {
+    try {
+      this.logger.log(`Start upsertTags for appId: ${appId}`);
+      const channel = await this.channelService.getByTypeAndAppId(
+        ChannelType.ZALO,
+        appId,
+      );
+
+      const tags = await this.fetchTags(channel.accessToken);
+      if (!tags.data || !tags.data.data) {
+        this.logger.warn(`No tags found for appId: ${appId}`);
+        return;
+      }
+
+      await Promise.all(
+        tags.data.data.map(async (tag) => {
+          await this.tagService.findOrCreate({
+            name: tag,
+            channel,
+          });
+        }),
+      );
+      this.logger.log(`Upserted tags for appId: ${appId}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to upsert tags for Zalo OA: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException({
+        message: `Failed to upsert tags for Zalo OA: ${error.message}`,
+        error: error,
+      });
+    }
+  }
+
+  /**
    * Fetch recent chat messages
    */
+
   async fetchRecentChat({
     accessToken,
     offset = 0,
@@ -631,12 +709,14 @@ export class ZaloService {
   /**
    * Fetch conversations within the last month
    */
+
   async fetchMessagesWithinCustomTime(
     appId: string,
     within: number,
     type: dayjs.ManipulateType,
     messageCount: number | null = 30,
   ) {
+    this.logger.log(`Start fetchMessagesWithinCustomTime for appId: ${appId}`);
     const channel = await this.channelService.getByTypeAndAppId(
       ChannelType.ZALO,
       appId,
@@ -697,7 +777,50 @@ export class ZaloService {
     }
 
     await this.zaloSyncQueue.addBulk(processedMessages);
-
+    this.logger.log(
+      `Finished fetchMessagesWithinCustomTime for appId: ${appId}, jobs: ${processedMessages.length}`,
+    );
     return processedMessages;
+  }
+
+  async syncDataAppId(appId: string) {
+    if (!appId) {
+      this.logger.error('App ID is required for syncDataAppId');
+      throw new Error('App ID is required');
+    }
+    this.logger.log(`Start syncing conversations for appId: ${appId}`);
+    this.zaloSyncQueue.add(
+      ZaloJobEvent.SYNC_CONVERSATIONS,
+      {
+        appId: appId,
+      },
+      {
+        jobId: `sync-conversations-${appId}`,
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    );
+
+    const schedulerId = `sync-conversations-${appId}`;
+    this.zaloSyncQueue.upsertJobScheduler(
+      schedulerId,
+      {
+        every: 24 * 60 * 60 * 1000,
+        startDate: new Date(Date.now() + 10 * 60 * 1000),
+      },
+      {
+        name: ZaloJobEvent.SYNC_DAILY_CONVERSATIONS,
+        data: {
+          appId,
+        },
+      },
+    );
+
+    this.logger.log(`Scheduled daily sync for appId: ${appId}`);
+    await this.upsertTags(appId);
+    this.logger.log(`Finished syncDataAppId for appId: ${appId}`);
+
+    await this.getAllUsers(appId);
+    return appId;
   }
 }

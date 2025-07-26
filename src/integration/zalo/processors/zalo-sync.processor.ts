@@ -1,6 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { ZaloService } from '../zalo.service';
+import { ZaloJobEvent } from 'src/common/enums/job-event.enum';
 @Processor(process.env.REDIS_ZALO_SYNC_TOPIC, {
   concurrency: 50,
 })
@@ -13,7 +14,7 @@ export class ZaloSyncProcessor extends WorkerHost {
     const { appId, userId, messageCount } = job.data;
     try {
       switch (job.name) {
-        case 'first-time-sync':
+        case ZaloJobEvent.FIRST_TIME_SYNC:
           await this.zaloService.fetchMessagesWithinCustomTime(
             appId,
             3,
@@ -22,7 +23,7 @@ export class ZaloSyncProcessor extends WorkerHost {
           );
 
           break;
-        case 'sync-daily-zalo-conversations':
+        case ZaloJobEvent.SYNC_DAILY_CONVERSATIONS:
           await this.zaloService.fetchMessagesWithinCustomTime(
             appId,
             1,
@@ -30,7 +31,7 @@ export class ZaloSyncProcessor extends WorkerHost {
             null,
           );
 
-        case 'sync-zalo-conversations-with-user':
+        case ZaloJobEvent.SYNC_CONVERSATIONS_WITH_USER:
           await this.zaloService.handleSyncConversationsByUserId(
             userId,
             appId,
@@ -38,7 +39,7 @@ export class ZaloSyncProcessor extends WorkerHost {
           );
           break;
 
-        case 'sync-zalo-custom-time':
+        case ZaloJobEvent.SYNC_CUSTOM_TIME:
           await this.zaloService.getAllUsers(appId);
         default:
           console.warn(`Unknown job name: ${job.name}`);

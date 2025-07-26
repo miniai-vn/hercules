@@ -9,6 +9,7 @@ export const ZALO_CONFIG = {
     GET_CONVERSATIONS: '/v2.0/oa/conversation',
     GET_OA_INFO: '/v2.0/oa/getoa',
     LIST_RECENT_CHAT: '/v2.0/oa/listrecentchat',
+    GET_TAGS: '/v2.0/oa/tag/gettagsofoa',
   },
   OAUTH_ENDPOINTS: {
     ACCESS_TOKEN: '/v4/oa/access_token',
@@ -28,5 +29,4 @@ export const ZALO_CONFIG = {
     // OA
     OA_SEND_TEXT: 'oa_send_text',
   },
-  
 } as const;

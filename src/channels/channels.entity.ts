@@ -3,6 +3,7 @@ import { Conversation } from 'src/conversations/conversations.entity';
 import { Customer } from 'src/customers/customers.entity';
 import { Department } from 'src/departments/departments.entity';
 import { Shop } from 'src/shops/shops.entity';
+import { Tag } from 'src/tags/tags.entity';
 import { User } from 'src/users/entities/users.entity';
 import {
   Entity,
@@ -71,6 +72,12 @@ export class Channel {
     select: false,
   })
   userToken?: string;
+
+  @OneToMany(() => Tag, (tag) => tag.channel, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  tags: Tag[];
 
   @ManyToMany(() => User, (user) => user.channels, {
     cascade: true,

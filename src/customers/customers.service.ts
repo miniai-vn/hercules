@@ -220,6 +220,8 @@ export class CustomersService {
     shopId,
     channelId,
     avatar,
+    note,
+    tagNames = [],
   }: {
     platform: string;
     externalId: string;
@@ -227,8 +229,24 @@ export class CustomersService {
     shopId?: string;
     channelId?: number;
     avatar?: string;
+    note?: string;
+    tagNames?: string[];
   }) {
-    await this.customerRepository.upsert(
+    const channel = await this.channelService.getOne(channelId);
+    if (tagNames.length > 0) {
+      console.log(`Tag names provided: ${tagNames}`);
+    }
+    const tags = await Promise.all(
+      tagNames.map(async (tagName) => {
+        const tag = await this.tagsService.findOrCreate({
+          channel,
+          name: tagName,
+        });
+        return tag;
+      }),
+    );
+
+    const result = await this.customerRepository.upsert(
       {
         platform,
         externalId,
@@ -236,6 +254,7 @@ export class CustomersService {
         avatar,
         shop: shopId ? { id: shopId } : null,
         channel: channelId ? { id: channelId } : null,
+        note,
       },
       {
         conflictPaths: ['externalId'],
@@ -243,9 +262,15 @@ export class CustomersService {
       },
     );
 
-    return await this.customerRepository.findOne({
+    const customer = await this.customerRepository.findOne({
       where: { platform, externalId },
     });
+    if (tags.length > 0) {
+      customer.tags = tags;
+      await this.customerRepository.save(customer);
+    }
+
+    return customer;
   }
 
   async addTagsToCustomer(

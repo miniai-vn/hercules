@@ -83,6 +83,8 @@ export class ChatService {
           avatar: zaloCustomer.data.data.avatar,
           name: zaloCustomer.data.data.display_name,
           channelId: zaloChannel.id,
+          tagNames: zaloCustomer.data.data.tags_and_notes_info.tag_names,
+          note: zaloCustomer.data.data.tags_and_notes_info.note,
         });
       }
 

@@ -229,6 +229,7 @@ export class ConversationMembersService {
     try {
       await this.memberRepository.update(memberId, {
         lastMessage: message,
+        unreadCount: 0,
       });
       return await this.memberRepository.findOne({
         where: { id: memberId },

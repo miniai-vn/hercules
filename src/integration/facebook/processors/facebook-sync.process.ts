@@ -16,7 +16,6 @@ export class FacebookSyncProcessor extends WorkerHost {
   async process(job: Job) {
     const { conversationId, pageId } = job.data;
 
-    console.log(job.name);
     try {
       switch (job.name) {
         case 'first-time-sync':

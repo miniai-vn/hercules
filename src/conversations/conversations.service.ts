@@ -107,7 +107,7 @@ export class ConversationsService {
     });
 
     return {
-      conv,
+      conversation: conv,
       isNewConversation: true,
     };
   }
@@ -378,7 +378,9 @@ export class ConversationsService {
       return {
         data: conversations.map((conversation) => ({
           ...conversation,
-          unreadMessagesCount: 0,
+          unreadMessagesCount:
+            conversation.members.find((member) => member.userId === userId)
+              ?.unreadCount ?? 0,
         })),
         total: count,
         page,
@@ -448,8 +450,8 @@ export class ConversationsService {
       )?.id;
 
       const lastMessage = conversation.messages.pop();
-      
-      if(!lastMessage) {
+
+      if (!lastMessage) {
         return null; // No messages to mark as read
       }
       await this.conversationMembersService.updateLastMessage(
@@ -461,10 +463,7 @@ export class ConversationsService {
         readBy: await this.getInfoSenderMessages(lastMessage),
       };
     } catch (error) {
-      console.error(
-        'Error while marking conversation as read:',
-        error,
-      );
+      console.error('Error while marking conversation as read:', error);
       throw new InternalServerErrorException(
         'Server error while marking conversation as read',
       );
@@ -560,6 +559,7 @@ export class ConversationsService {
     customer,
     message,
     externalConversation,
+    isSync = false,
   }: {
     channel: Channel;
     customer: Customer;
@@ -568,6 +568,7 @@ export class ConversationsService {
       id: string;
       timestamp: Date;
     };
+    isSync?: boolean;
   }) {
     try {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
@@ -584,7 +585,7 @@ export class ConversationsService {
           conversation: externalConversation,
           lastMessageAt: message.createdAt,
           customerParticipantIds: [customer.id],
-          userParticipantIds: adminChannels.map((user) => user.id),
+          userParticipantIds: adminChannels.map((user) => user?.id),
         });
 
       const { data: messageData } = await this.messageService.upsert({
@@ -606,11 +607,12 @@ export class ConversationsService {
         await this.updateLastMessageAt(conversation.id, messageData.createdAt);
       }
 
-      this.conversationMembersService.incrementUnreadCount(
-        conversation.members
-          .filter((member) => member.participantType === ParticipantType.USER)
-          .map((member) => member.userId),
-      );
+      if (!isSync)
+        this.conversationMembersService.incrementUnreadCount(
+          conversation.members
+            .filter((member) => member.participantType === ParticipantType.USER)
+            .map((member) => member?.userId),
+        );
 
       return {
         conversation,
@@ -686,12 +688,6 @@ export class ConversationsService {
   }) {
     const conversation = await this.findOne(conversationId);
 
-    const channel = conversation.channel;
-
-    const customerId = conversation.members.find(
-      (member) => member.participantType === ParticipantType.CUSTOMER,
-    )?.customerId;
-
     const { data: messageData } = await this.messageService.upsert({
       content: message.content,
       externalId: message.externalMessageId,
@@ -717,6 +713,7 @@ export class ConversationsService {
     );
 
     return {
+      conversation,
       message: messageData,
     };
   }
@@ -726,6 +723,7 @@ export class ConversationsService {
     message,
     customer,
     externalConversation,
+    isSync = false,
   }: {
     channel: Channel;
     message: ChannelMessageDto;
@@ -734,6 +732,7 @@ export class ConversationsService {
       id: string;
       timestamp: Date;
     };
+    isSync?: boolean;
   }) {
     try {
       const adminChannels = await this.userService.findAdminChannel(channel.id);
@@ -741,25 +740,25 @@ export class ConversationsService {
       const existingMessages = await this.messageService.findByExternalId(
         message.id,
       );
+      const { conversation, isNewConversation } =
+        await this.findOrCreateByExternalId({
+          name: customer.name || 'Unknown Customer',
+          type: ConversationType.DIRECT,
+          avatar: customer.avatar,
+          externalId: externalConversation.id,
+          channelId: channel.id,
+          conversation: externalConversation,
+          customerParticipantIds: [customer.id],
+          userParticipantIds: adminChannels.map((user) => user?.id),
+        });
 
       if (existingMessages) {
         return {
-          isNewConversation: false,
-          conversation: null,
+          isNewConversation,
+          conversation,
           message: null,
         };
       }
-
-      const { conversation } = await this.findOrCreateByExternalId({
-        name: customer.name || 'Unknown Customer',
-        type: ConversationType.DIRECT,
-        avatar: customer.avatar,
-        externalId: externalConversation.id,
-        channelId: channel.id,
-        conversation: externalConversation,
-        customerParticipantIds: [customer.id],
-        userParticipantIds: adminChannels.map((user) => user.id),
-      });
 
       // check message is exsting with externalId
       const { data: messageData } = await this.messageService.upsert({
@@ -781,13 +780,16 @@ export class ConversationsService {
         await this.updateLastMessageAt(conversation.id, messageData.createdAt);
       }
 
-      this.conversationMembersService.incrementUnreadCount(
-        conversation.members
-          .filter((member) => member.participantType === ParticipantType.USER)
-          .map((member) => member.userId),
-      );
+      if (!isSync)
+        this.conversationMembersService.incrementUnreadCount(
+          conversation.members
+            .filter((member) => member.participantType === ParticipantType.USER)
+            .map((member) => member?.userId),
+        );
 
       return {
+        conversation,
+        isNewConversation,
         message: messageData,
       };
     } catch (error) {

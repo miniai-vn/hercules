@@ -144,7 +144,7 @@ export class ChatService {
         });
     }
 
-    const roomName = `conversation:${conversation.id}`;
+    const roomName = `conversation:${conversation?.id}`;
 
     this.chatGateway.server.to(roomName).emit('receiveMessage', {
       ...messageData,
@@ -206,31 +206,31 @@ export class ChatService {
           channelType: ChannelType.ZALO,
         });
       }
-      if (channel.type === ChannelType.FACEBOOK) {
-        const resp = await this.facebookService.sendMessageFacebook(
-          channel.accessToken,
-          customer.externalId,
-          data.content,
-          channel.appId,
-        );
+      // if (channel.type === ChannelType.FACEBOOK) {
+      //   const resp = await this.facebookService.sendMessageFacebook(
+      //     channel.accessToken,
+      //     customer.externalId,
+      //     data.content,
+      //     channel.appId,
+      //   );
 
-        const { message } =
-          await this.conversationsService.handlePlatformMessage({
-            conversationId: data.conversationId,
-            message: {
-              content: data.content,
-              externalMessageId: resp.data.message_id,
-            },
-            userId: data.userId,
-            messageType: data.messageType,
-          });
+      //   const { message } =
+      //     await this.conversationsService.handlePlatformMessage({
+      //       conversationId: data.conversationId,
+      //       message: {
+      //         content: data.content,
+      //         externalMessageId: resp.data.message_id,
+      //       },
+      //       userId: data.userId,
+      //       messageType: data.messageType,
+      //     });
 
-        this.chatGateway.server.to(roomName).emit('receiveMessage', {
-          ...message,
-          conversationId: data.conversationId,
-          channelType: ChannelType.FACEBOOK,
-        });
-      }
+      //   this.chatGateway.server.to(roomName).emit('receiveMessage', {
+      //     ...message,
+      //     conversationId: data.conversationId,
+      //     channelType: ChannelType.FACEBOOK,
+      //   });
+      // }
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to send message to other platform: ${error.message}`,
@@ -404,6 +404,8 @@ export class ChatService {
           createdAt: dayjs(timestamp).toDate(),
         },
       });
+
+      if (!messageData) return;
 
       this.notifyToClient({
         isNewConversation,

@@ -146,7 +146,7 @@ export class AuthService {
       userId,
       shopId,
     };
-    console.log('Generating tokens for user:', process.env.JWT_SECRET_KEY);
+
     const [accessToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_SECRET_KEY,

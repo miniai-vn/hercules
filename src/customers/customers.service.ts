@@ -233,9 +233,7 @@ export class CustomersService {
     tagNames?: string[];
   }) {
     const channel = await this.channelService.getOne(channelId);
-    if (tagNames.length > 0) {
-      console.log(`Tag names provided: ${tagNames}`);
-    }
+
     const tags = await Promise.all(
       tagNames.map(async (tagName) => {
         const tag = await this.tagsService.findOrCreate({

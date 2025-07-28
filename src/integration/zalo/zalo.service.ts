@@ -328,6 +328,7 @@ export class ZaloService {
               customer: customer,
               message: msg,
               externalConversation,
+              isSync: true,
             });
           } else {
             await this.conversationService.handleChannelMessage({
@@ -335,6 +336,7 @@ export class ZaloService {
               customer: customer,
               message: msg,
               externalConversation,
+              isSync: true,
             });
           }
         }

@@ -14,7 +14,7 @@ export class ZaloSyncProcessor extends WorkerHost {
     const { appId, userId, messageCount } = job.data;
     try {
       switch (job.name) {
-        case ZaloJobEvent.FIRST_TIME_SYNC:
+        case ZaloJobEvent.SYNC_CONVERSATIONS:
           await this.zaloService.fetchMessagesWithinCustomTime(
             appId,
             3,

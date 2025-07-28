@@ -586,12 +586,12 @@ export class ZaloService {
           });
           break;
 
-        case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
-          await this.handleProducerMessage({
-            ...payload,
-            message,
-          });
-          break;
+        // case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
+        //   await this.handleProducerMessage({
+        //     ...payload,
+        //     message,
+        //   });
+        //   break;
 
         case ZALO_CONFIG.WEBHOOK_EVENTS.USER_SEND_STICKER:
           await this.handleProducerMessage({

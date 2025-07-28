@@ -21,7 +21,7 @@ import { Message } from 'src/messages/messages.entity';
 import { MessagesService } from 'src/messages/messages.service';
 import { TagsService } from 'src/tags/tags.service';
 import { UsersService } from 'src/users/users.service';
-import { FindManyOptions, Repository } from 'typeorm';
+import { FindManyOptions, Repository, Raw, Like } from 'typeorm';
 import { ParticipantType } from '../conversation-members/conversation-members.entity';
 import { ConversationMembersService } from '../conversation-members/conversation-members.service';
 import { Conversation, ConversationType } from './conversations.entity';
@@ -315,7 +315,9 @@ export class ConversationsService {
       const whereConditions: FindManyOptions<Conversation> = {
         where: {
           ...(search && {
-            name: search,
+            name: Like(`%${search}%`), // sử dụng regex, không phân biệt hoa thường
+            // Nếu muốn tìm cả trong content:
+            // content: Raw(alias => `${alias} ~* :search`),
           }),
           ...(tagId && {
             tags: {
@@ -354,7 +356,9 @@ export class ConversationsService {
         relations: {
           members: {
             user: true,
-            customer: true,
+            customer: {
+              tags: true,
+            },
           },
           channel: true,
           tags: true,
@@ -444,6 +448,10 @@ export class ConversationsService {
       )?.id;
 
       const lastMessage = conversation.messages.pop();
+      
+      if(!lastMessage) {
+        return null; // No messages to mark as read
+      }
       await this.conversationMembersService.updateLastMessage(
         currentMembersId,
         lastMessage,
@@ -453,6 +461,10 @@ export class ConversationsService {
         readBy: await this.getInfoSenderMessages(lastMessage),
       };
     } catch (error) {
+      console.error(
+        'Error while marking conversation as read:',
+        error,
+      );
       throw new InternalServerErrorException(
         'Server error while marking conversation as read',
       );
@@ -586,13 +598,20 @@ export class ConversationsService {
         createdAt: message?.createdAt,
       });
 
-      this.updateLastMessageAt(conversation.id, messageData.createdAt);
+      if (
+        message?.createdAt &&
+        (!conversation.lastMessageAt ||
+          message.createdAt > conversation.lastMessageAt)
+      ) {
+        await this.updateLastMessageAt(conversation.id, messageData.createdAt);
+      }
 
       this.conversationMembersService.incrementUnreadCount(
         conversation.members
           .filter((member) => member.participantType === ParticipantType.USER)
           .map((member) => member.userId),
       );
+
       return {
         conversation,
         messageData,
@@ -683,6 +702,20 @@ export class ConversationsService {
       createdAt: message.createdAt,
     });
 
+    if (
+      message.createdAt &&
+      (!conversation.lastMessageAt ||
+        message.createdAt > conversation.lastMessageAt)
+    ) {
+      await this.updateLastMessageAt(conversation.id, messageData.createdAt);
+    }
+
+    this.conversationMembersService.incrementUnreadCount(
+      conversation.members
+        .filter((member) => member.participantType === ParticipantType.USER)
+        .map((member) => member.userId),
+    );
+
     return {
       message: messageData,
     };
@@ -739,6 +772,20 @@ export class ConversationsService {
         externalId: message.id,
         createdAt: message.createdAt,
       });
+
+      if (
+        message.createdAt &&
+        (!conversation.lastMessageAt ||
+          message.createdAt > conversation.lastMessageAt)
+      ) {
+        await this.updateLastMessageAt(conversation.id, messageData.createdAt);
+      }
+
+      this.conversationMembersService.incrementUnreadCount(
+        conversation.members
+          .filter((member) => member.participantType === ParticipantType.USER)
+          .map((member) => member.userId),
+      );
 
       return {
         message: messageData,

@@ -10,6 +10,7 @@ import {
   Length,
   MaxLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum TagType {
   CUSTOMER = 'customer',
@@ -22,7 +23,7 @@ export class CreateTagDto {
     example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
   })
   @IsString()
-  @IsUUID()
+  @IsOptional()
   shopId: string;
 
   @ApiProperty({ description: 'Tag name', example: 'VIP', maxLength: 100 })
@@ -160,6 +161,26 @@ export class TagQueryParamsDto {
   @IsOptional()
   @IsEnum(TagType)
   type?: TagType;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  limit?: number = 10;
+
+  @IsOptional()
+  @ApiPropertyOptional({ description: 'Sort field', example: 'createdAt' })
+  @IsString()
+  sortField?: string = 'createdAt';
+
+  @IsOptional()
+  @IsNumber()
+  @IsOptional()
+  channelId?: number;
 }
 
 export class TagBulkDeleteDto {

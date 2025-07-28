@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, In, Repository } from 'typeorm';
+import { FindManyOptions, ILike, In, Repository } from 'typeorm';
 import {
   CreateTagDto,
   TagBulkDeleteDto,
@@ -17,6 +17,7 @@ import {
 import { Tag } from './tags.entity';
 import { ShopService } from 'src/shops/shops.service';
 import { Channel } from 'src/channels/channels.entity';
+import { PaginatedResult } from 'src/common/types/reponse.type';
 
 @Injectable()
 export class TagsService {
@@ -150,7 +151,7 @@ export class TagsService {
       const colors = Object.values(this.TAG_COLORS);
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
 
-      const tag = await this.tagRepository.create({
+      const tag = this.tagRepository.create({
         channel: { id: channel.id },
         shop: {
           id: channel.shop.id,
@@ -170,6 +171,7 @@ export class TagsService {
   async create(createTagDto: CreateTagDto): Promise<TagResponseDto> {
     try {
       const shop = await this.shopsService.findOne(createTagDto.shopId);
+
       if (!shop) throw new NotFoundException('Shop not found');
 
       const tag = this.tagRepository.create({
@@ -178,8 +180,6 @@ export class TagsService {
         color: createTagDto.color ?? '#6B7280',
         description: createTagDto.description,
         type: createTagDto.type,
-        createdAt: new Date(),
-        updatedAt: new Date(),
       });
 
       const saved = await this.tagRepository.save(tag);
@@ -192,6 +192,22 @@ export class TagsService {
       }
       throw new InternalServerErrorException(
         `Failed to create tag: ${error.message}`,
+      );
+    }
+  }
+
+  async getCountConversationsByTag(tagId: number): Promise<number> {
+    try {
+      const count = await this.tagRepository
+        .createQueryBuilder('tag')
+        .leftJoinAndSelect('tag.conversations', 'conversation')
+        .where('tag.id = :tagId', { tagId })
+        .getCount();
+
+      return count;
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to get conversation count by tag: ${error.message}`,
       );
     }
   }
@@ -209,35 +225,59 @@ export class TagsService {
     }
   }
 
-  async findByShopId(shopId: string): Promise<TagResponseDto[]> {
+  async findAll(query: TagQueryParamsDto): Promise<PaginatedResult<Tag>> {
     try {
-      const shop = await this.shopsService.findOne(shopId);
-
-      const tags = await this.tagRepository.find({
-        where: { shop },
+      const { shopId, channelId, name, type, page = 1, limit = 10 } = query;
+      const findOperations: FindManyOptions<Tag> = {
+        where: {
+          shop: shopId ? { id: shopId } : undefined,
+          channel: channelId ? { id: channelId } : undefined,
+          name: name ? ILike(`%${name}%`) : undefined,
+          type: type ? type : undefined,
+        },
+        relations: {
+          shop: true,
+          channel: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          color: true,
+          description: true,
+          type: true,
+          createdAt: true,
+          updatedAt: true,
+          channel: { id: true, name: true },
+          shop: { id: true, name: true },
+        },
         order: { createdAt: 'DESC' },
-      });
-      return tags.map((tag) => this.toResponseDto(tag));
-    } catch (error) {
-      throw new InternalServerErrorException(
-        `Failed to get tags by shop ID: ${error.message}`,
+        skip: (page - 1) * limit,
+        take: limit,
+      };
+      const [tags, count] =
+        await this.tagRepository.findAndCount(findOperations);
+
+      const tagWithConversations = await Promise.all(
+        tags.map(async (tag) => {
+          const conversationCount = await this.getCountConversationsByTag(
+            tag.id,
+          );
+          return {
+            ...tag,
+            conversationCount,
+          };
+        }),
       );
-    }
-  }
 
-  async findAll(query: TagQueryParamsDto): Promise<TagResponseDto[]> {
-    try {
-      const where: any = {};
-      if (query.shopId) where.shop = { id: query.shopId };
-      if (query.name) where.name = ILike(`%${query.name}%`);
-      if (query.type) where.type = query.type;
-
-      const tags = await this.tagRepository.find({
-        where,
-        relations: ['shop'],
-        order: { createdAt: 'DESC' },
-      });
-      return tags.map((tag) => this.toResponseDto(tag));
+      return {
+        data: tagWithConversations,
+        total: count,
+        totalPages: Math.ceil(count / limit),
+        page: query.page || 1,
+        limit: query.limit || 10,
+        hasNext: (query.page || 1) * (query.limit || 10) < count,
+        hasPrev: (query.page || 1) > 1,
+      };
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to get tags: ${error.message}`,

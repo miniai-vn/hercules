@@ -226,17 +226,6 @@ export class CustomersController {
   }
 
   @Post(':id/add-tags')
-  @ApiOperation({ summary: 'Add tags to a customer' })
-  @ApiParam({ name: 'id', description: 'Customer ID' })
-  @ApiResponse({
-    status: 200,
-    description: 'Tags added to customer successfully',
-    type: CustomerResponseDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Customer not found',
-  })
   async addTagsToCustomer(
     @Param('id') id: string,
     @Body() body: AddTagsToCustomerDto,

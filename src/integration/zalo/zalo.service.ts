@@ -457,7 +457,7 @@ export class ZaloService {
       );
 
       user.profile = profileResponse.data.data || {};
-      
+
       await this.customerService.upsertUser({
         platform: Platform.ZALO,
         externalId: user.user_id,

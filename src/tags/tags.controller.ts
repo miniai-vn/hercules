@@ -44,10 +44,9 @@ export class TagsController {
     schema: { example: { message: 'Tag created successfully', data: {} } },
   })
   async create(@Req() req, @Body() createTagDto: CreateTagDto) {
-    const shopId = req.user.shopId; // Assuming shopId is stored in the user object
     const tag = await this.tagsService.create({
       ...createTagDto,
-      shopId,
+      shopId: req.shop.id,
     });
     return { message: 'Tag created successfully', data: tag };
   }

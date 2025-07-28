@@ -4,6 +4,7 @@ import { Customer } from 'src/customers/customers.entity';
 import { Department } from 'src/departments/departments.entity';
 import { Shop } from 'src/shops/shops.entity';
 import { Tag } from 'src/tags/tags.entity';
+import { Template } from 'src/templates/templates.entity';
 import { User } from 'src/users/entities/users.entity';
 import {
   Entity,
@@ -50,6 +51,9 @@ export class Channel {
 
   @Column({ type: 'timestamp', nullable: true, name: 'expire_token_time' })
   expireTokenTime?: Date;
+
+  @OneToMany(() => Template, (template) => template.channel)
+  templates: Template[];
 
   @Column({
     type: 'boolean',

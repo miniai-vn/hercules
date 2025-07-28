@@ -23,6 +23,7 @@ import { UserDepartmentPermission } from 'src/user-dept-perm/user-dept-perm.enti
 import { UserDepartment } from 'src/users/entities/user-department.entity';
 import { Resource } from 'src/resources/resources.entity';
 import { Agent } from 'src/agents/agents.entity';
+import { Template } from 'src/templates/templates.entity';
 
 export const getDatabaseConfig = (
   configService: ConfigService,
@@ -53,7 +54,8 @@ export const getDatabaseConfig = (
       UserDepartmentPermission,
       UserDepartment,
       Resource,
-      Agent, // Assuming Agent is an entity
+      Agent,
+      Template,
     ],
     migrations: [
       isProduction
@@ -91,6 +93,7 @@ export const dataSourceOptions: DataSourceOptions = {
     UserDepartment,
     Resource,
     Agent,
+    Template,
   ],
   migrations: ['src/database/migrations/*.ts'],
   synchronize: true,

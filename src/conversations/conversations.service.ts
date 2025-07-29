@@ -242,7 +242,11 @@ export class ConversationsService {
     }
   }
 
-  async getFullInfoConversation(id: number) {
+  async getFullInfoConversation(
+    id: number,
+    page: number = 1,
+    limit: number = 50,
+  ) {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id },
@@ -255,8 +259,11 @@ export class ConversationsService {
         },
       });
 
-      const message =
-        await this.messageService.get50MessagesByConversationId(id);
+      const message = await this.messageService.getRecentMessages(
+        conversation.id,
+        page,
+        limit,
+      );
 
       const messageMappingSender = await Promise.all(
         message.map(async (msg) => {
@@ -329,11 +336,14 @@ export class ConversationsService {
               userId,
             },
           }),
-          ...(channelId && {
-            channel: {
-              id: channelId,
-            },
-          }),
+          ...(channelId || channelType
+            ? {
+                channel: {
+                  ...(channelId && { id: channelId }),
+                  ...(channelType && { type: channelType }),
+                },
+              }
+            : {}),
           ...(participantUserIds.length > 0 && {
             members: {
               userId: participantUserIds,
@@ -347,11 +357,6 @@ export class ConversationsService {
                 },
               },
             }),
-          ...(channelType && {
-            channel: {
-              type: channelType,
-            },
-          }),
         },
         relations: {
           members: {

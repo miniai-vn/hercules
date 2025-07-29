@@ -49,18 +49,17 @@ export class MessagesService {
     };
   }
 
-  async get50MessagesByConversationId(
+  async getRecentMessages(
     conversationId: number,
     page: number = 1,
     limit: number = 50,
   ) {
-    const msgs = await this.messageRepository.find({
+    return await this.messageRepository.find({
       where: { conversation: { id: conversationId } },
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
-    return msgs.reverse();
   }
 
   async findAll(

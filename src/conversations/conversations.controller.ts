@@ -81,13 +81,16 @@ export class ConversationsController {
   }
 
   @Get(':id/messages')
-  @ApiOperation({ summary: 'Get messages for a specific conversation' })
-  @ApiResponse({
-    status: 200,
-    description: 'Returns messages for the conversation',
-  })
-  async getFullInfoConversation(@Param('id', ParseIntPipe) id: number) {
-    const data = await this.conversationsService.getFullInfoConversation(id);
+  async getFullInfoConversation(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    const data = await this.conversationsService.getFullInfoConversation(
+      id,
+      page,
+      limit,
+    );
     return {
       message: 'Conversation messages retrieved successfully',
       data,

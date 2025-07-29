@@ -3,7 +3,7 @@ import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { HttpMethod } from 'src/common/enums/http-method.enum';
 import { AGENT_SERVICE_CONFIG } from './config/agent-service.config';
 import { Message } from 'src/messages/messages.entity';
-import { SenderType } from 'src/messages/messages.dto';
+import { SenderType } from 'src/messages/dto/messages.dto';
 
 interface ChunkQueryParams {
   page?: number;

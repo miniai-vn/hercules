@@ -10,7 +10,7 @@ import { AgentServiceService } from 'src/integration/agent-service/agent-service
 import { FacebookEventDTO } from 'src/integration/facebook/dto/facebook-webhook.dto';
 import { FacebookService } from 'src/integration/facebook/facebook.service';
 import { ZaloService } from 'src/integration/zalo/zalo.service';
-import { SenderType } from 'src/messages/messages.dto';
+import { SenderType } from 'src/messages/dto/messages.dto';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';

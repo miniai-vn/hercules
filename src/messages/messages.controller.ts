@@ -2,21 +2,25 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
+  InternalServerErrorException,
   Param,
   ParseIntPipe,
   Patch,
   Post,
   Put,
-  UseGuards
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard'; // Adjust path
 import {
   CreateMessageDto,
   MessageBulkDeleteDto,
-  UpdateMessageDto
-} from './messages.dto';
+  MessageQueryParamsDto,
+  UpdateMessageDto,
+} from './dto/messages.dto';
 import { MessagesService } from './messages.service';
 
 interface ApiResponse<T> {
@@ -28,6 +32,35 @@ interface ApiResponse<T> {
 @UseGuards(JwtAuthGuard)
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
+  @Get('/context')
+  @HttpCode(HttpStatus.OK)
+  async getContext(
+    @Query('conversationId', ParseIntPipe) conversationId: number,
+    @Query('messageId', ParseIntPipe) messageId: number,
+  ) {
+    try {
+      const context = await this.messagesService.getContextMessages(
+        conversationId,
+        messageId,
+      );
+      return {
+        message: 'Context retrieved successfully',
+        data: context,
+      };
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to retrieve context');
+    }
+  }
+
+  @Get('/query')
+  @HttpCode(HttpStatus.OK)
+  async query(@Query() queryParams: MessageQueryParamsDto) {
+    try {
+      return await this.messagesService.query(queryParams);
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to retrieve messages');
+    }
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)

@@ -16,7 +16,7 @@ import {
   ChannelMessageDto,
   SenderType,
   UserMessageDto,
-} from 'src/messages/messages.dto';
+} from 'src/messages/dto/messages.dto';
 import { Message } from 'src/messages/messages.entity';
 import { MessagesService } from 'src/messages/messages.service';
 import { TagsService } from 'src/tags/tags.service';
@@ -246,6 +246,8 @@ export class ConversationsService {
     id: number,
     page: number = 1,
     limit: number = 50,
+    nextBeforeMessageId?: number,
+    nextAfterMessageId?: number,
   ) {
     try {
       const conversation = await this.conversationRepository.findOne({
@@ -263,6 +265,8 @@ export class ConversationsService {
         conversation.id,
         page,
         limit,
+        nextBeforeMessageId,
+        nextAfterMessageId,
       );
 
       const messageMappingSender = await Promise.all(
@@ -294,6 +298,11 @@ export class ConversationsService {
       return {
         ...conversation,
         messages: messageMappingSender,
+        hasNext: message.length >= limit,
+        hasPrev: page > 1,
+        nextBeforeMessageId: message.length > 0 ? message[0].id : null,
+        nextAfterMessageId:
+          message.length > 0 ? message[message.length - 1].id : null,
       };
     } catch (error) {
       throw new InternalServerErrorException(
@@ -361,9 +370,7 @@ export class ConversationsService {
         relations: {
           members: {
             user: true,
-            customer: {
-              tags: true,
-            },
+            customer: true,
           },
           channel: true,
           tags: true,

@@ -115,6 +115,16 @@ export class MessageQueryParamsDto {
   @IsString()
   @IsOptional()
   includeDeleted?: string; // 'true' or 'false' to include soft-deleted messages
+
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  limit?: number; // Number of results to return
+
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  page?: number; // Page number for pagination
 }
 
 export class MessageBulkDeleteDto {

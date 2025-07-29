@@ -1,20 +1,38 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Conversation } from 'src/conversations/conversations.entity';
-import { In, IsNull, Not, Repository } from 'typeorm';
+import {
+  FindManyOptions,
+  In,
+  IsNull,
+  LessThan,
+  Like,
+  MoreThan,
+  Not,
+  Repository,
+} from 'typeorm';
 import {
   CreateMessageDto,
   MessageBulkDeleteDto,
   MessageQueryParamsDto,
   UpdateMessageDto,
-} from './messages.dto';
+} from './dto/messages.dto';
 import { Message } from './messages.entity';
+import { PaginatedResult } from 'src/common/types/reponse.type';
+import { ConversationsService } from 'src/conversations/conversations.service';
 
 @Injectable()
 export class MessagesService {
   constructor(
     @InjectRepository(Message)
     private readonly messageRepository: Repository<Message>,
+    @Inject(forwardRef(() => ConversationsService))
+    private readonly conversationService: ConversationsService,
   ) {}
 
   async create(createMessageDto: CreateMessageDto, conversation: Conversation) {
@@ -53,13 +71,76 @@ export class MessagesService {
     conversationId: number,
     page: number = 1,
     limit: number = 50,
+    nextBeforeMessageId?: number,
+    nextAfterMessageId?: number,
   ) {
+    if (nextBeforeMessageId) {
+      const msg = await this.messageRepository.findOne({
+        where: { id: nextBeforeMessageId },
+      });
+      return await this.messageRepository.find({
+        where: {
+          conversation: { id: conversationId },
+          createdAt: LessThan(msg.createdAt),
+        },
+        order: { createdAt: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+    }
+
+    if (nextAfterMessageId) {
+      const msg = await this.messageRepository.findOne({
+        where: { id: nextAfterMessageId },
+      });
+      return await this.messageRepository.find({
+        where: {
+          conversation: { id: conversationId },
+          createdAt: MoreThan(msg.createdAt),
+        },
+        order: { createdAt: 'ASC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+    }
     return await this.messageRepository.find({
       where: { conversation: { id: conversationId } },
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
+  }
+  async getContextMessages(
+    conversationId: number,
+    messageId: number,
+    page: number = 1,
+    limit: number = 5,
+  ) {
+    const msg = await this.messageRepository.findOne({
+      where: { id: messageId },
+    });
+
+    const afterMessage = await this.messageRepository.find({
+      where: {
+        conversation: { id: conversationId },
+        createdAt: MoreThan(msg.createdAt),
+      },
+      order: { createdAt: 'ASC' },
+      take: limit,
+    });
+
+    const beforeMessage = await this.messageRepository.find({
+      where: {
+        conversation: { id: conversationId },
+        createdAt: LessThan(msg.createdAt),
+      },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+
+    const contextMessages = [...beforeMessage, msg, ...afterMessage];
+
+    return contextMessages;
   }
 
   async findAll(
@@ -96,64 +177,62 @@ export class MessagesService {
       totalPages: Math.ceil(total / limit),
     };
   }
+  async query(
+    queryParams: MessageQueryParamsDto,
+  ): Promise<PaginatedResult<Message>> {
+    const {
+      senderType,
+      contentType,
+      search,
+      conversationId,
+      intent,
+      createdAfter,
+      createdBefore,
+      limit = 50,
+      page = 1,
+    } = queryParams;
+    const findOperations: FindManyOptions<Message> = {
+      where: {
+        ...(senderType && { senderType }),
+        ...(contentType && { contentType }),
+        ...(search && {
+          content: Like(`%${search}%`),
+        }),
+        ...(conversationId && { conversation: { id: conversationId } }),
+        ...(intent && { intent }),
+        ...(createdAfter && {
+          createdAt: MoreThan(new Date(createdAfter)),
+        }),
+        ...(createdBefore && {
+          createdAt: LessThan(new Date(createdBefore)),
+        }),
+      },
 
-  async query(queryParams: MessageQueryParamsDto) {
-    const queryBuilder = this.messageRepository.createQueryBuilder('message');
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    };
+    const [messages, total] =
+      await this.messageRepository.findAndCount(findOperations);
 
-    // Handle soft deletes
-    const includeDeleted = queryParams.includeDeleted === 'true';
-    if (!includeDeleted) {
-      queryBuilder.where('message.deletedAt IS NULL');
-    }
+    const responseMessages = await Promise.all(
+      messages.map(async (message) => {
+        return {
+          ...message,
+          sentBy: await this.conversationService.getInfoSenderMessages(message),
+        };
+      }),
+    );
 
-    if (queryParams.senderType) {
-      queryBuilder.andWhere('message.senderType = :senderType', {
-        senderType: queryParams.senderType,
-      });
-    }
-
-    if (queryParams.contentType) {
-      queryBuilder.andWhere('message.contentType ILIKE :contentType', {
-        contentType: `%${queryParams.contentType}%`,
-      });
-    }
-
-    if (queryParams.search) {
-      queryBuilder.andWhere(
-        '(message.content ILIKE :search OR message.intent ILIKE :search)',
-        { search: `%${queryParams.search}%` },
-      );
-    }
-
-    if (queryParams.conversationId) {
-      queryBuilder.andWhere('message.conversationId = :conversationId', {
-        conversationId: queryParams.conversationId,
-      });
-    }
-
-    if (queryParams.intent) {
-      queryBuilder.andWhere('message.intent ILIKE :intent', {
-        intent: `%${queryParams.intent}%`,
-      });
-    }
-
-    if (queryParams.createdAfter) {
-      queryBuilder.andWhere('message.createdAt >= :createdAfter', {
-        createdAfter: new Date(queryParams.createdAfter),
-      });
-    }
-
-    if (queryParams.createdBefore) {
-      queryBuilder.andWhere('message.createdAt <= :createdBefore', {
-        createdBefore: new Date(queryParams.createdBefore),
-      });
-    }
-
-    const messages = await queryBuilder
-      .orderBy('message.createdAt', 'DESC')
-      .getMany();
-
-    return messages.map((message) => this.toResponseDto(message));
+    return {
+      data: responseMessages,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      hasNext: total > page * limit,
+      hasPrev: page > 1,
+      limit,
+    };
   }
 
   async findOne(id: number, includeDeleted: boolean = false): Promise<Message> {

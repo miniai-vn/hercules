@@ -5,7 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaginatedResult } from 'src/common/types/reponse.type';
 import { Conversation } from 'src/conversations/conversations.entity';
+import { ConversationsService } from 'src/conversations/conversations.service';
 import {
   FindManyOptions,
   In,
@@ -23,8 +25,6 @@ import {
   UpdateMessageDto,
 } from './dto/messages.dto';
 import { Message } from './messages.entity';
-import { PaginatedResult } from 'src/common/types/reponse.type';
-import { ConversationsService } from 'src/conversations/conversations.service';
 
 @Injectable()
 export class MessagesService {
@@ -34,16 +34,6 @@ export class MessagesService {
     @Inject(forwardRef(() => ConversationsService))
     private readonly conversationService: ConversationsService,
   ) {}
-
-  async create(createMessageDto: CreateMessageDto, conversation: Conversation) {
-    const message = this.messageRepository.create({
-      ...createMessageDto,
-      conversation: conversation,
-      senderType: createMessageDto.senderType as any, // Cast to match DeepPartial<SenderType>
-    });
-    const savedMessage = await this.messageRepository.save(message);
-    return this.toResponseDto(savedMessage);
-  }
 
   async upsert(createMessageDto: CreateMessageDto) {
     const upsertedMessage = await this.messageRepository.upsert(
@@ -143,40 +133,6 @@ export class MessagesService {
     return contextMessages;
   }
 
-  async findAll(
-    page: number,
-    limit: number,
-    search: string,
-    includeDeleted: boolean = false,
-  ) {
-    const offset = (page - 1) * limit;
-    const queryBuilder = this.messageRepository.createQueryBuilder('message');
-
-    if (!includeDeleted) {
-      queryBuilder.where('message.deletedAt IS NULL');
-    }
-
-    if (search) {
-      queryBuilder.andWhere(
-        'message.content ILIKE :search OR message.intent ILIKE :search',
-        { search: `%${search}%` },
-      );
-    }
-
-    const [messages, total] = await queryBuilder
-      .skip(offset)
-      .take(limit)
-      .orderBy('message.createdAt', 'DESC')
-      .getManyAndCount();
-
-    return {
-      messages: messages.map((message) => this.toResponseDto(message)),
-      total,
-      page,
-      perPage: limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
   async query(
     queryParams: MessageQueryParamsDto,
   ): Promise<PaginatedResult<Message>> {
@@ -185,9 +141,9 @@ export class MessagesService {
       contentType,
       search,
       conversationId,
-      intent,
       createdAfter,
       createdBefore,
+      senderId,
       limit = 50,
       page = 1,
     } = queryParams;
@@ -199,7 +155,7 @@ export class MessagesService {
           content: Like(`%${search}%`),
         }),
         ...(conversationId && { conversation: { id: conversationId } }),
-        ...(intent && { intent }),
+        ...(senderId && { senderId }),
         ...(createdAfter && {
           createdAt: MoreThan(new Date(createdAfter)),
         }),
@@ -219,7 +175,7 @@ export class MessagesService {
       messages.map(async (message) => {
         return {
           ...message,
-          sentBy: await this.conversationService.getInfoSenderMessages(message),
+          sender: await this.conversationService.getInfoSenderMessages(message),
         };
       }),
     );
@@ -232,50 +188,6 @@ export class MessagesService {
       hasNext: total > page * limit,
       hasPrev: page > 1,
       limit,
-    };
-  }
-
-  async findOne(id: number, includeDeleted: boolean = false): Promise<Message> {
-    const queryBuilder = this.messageRepository
-      .createQueryBuilder('message')
-      .where('message.id = :id', { id });
-
-    if (!includeDeleted) {
-      queryBuilder.andWhere('message.deletedAt IS NULL');
-    }
-
-    const message = await queryBuilder.getOne();
-
-    return message;
-  }
-
-  async findByConversation(
-    conversationId: number,
-    page: number,
-    limit: number,
-    includeDeleted: boolean = false,
-  ) {
-    const offset = (page - 1) * limit;
-    const queryBuilder = this.messageRepository
-      .createQueryBuilder('message')
-      .where('message.conversationId = :conversationId', { conversationId });
-
-    if (!includeDeleted) {
-      queryBuilder.andWhere('message.deletedAt IS NULL');
-    }
-
-    const [messages, total] = await queryBuilder
-      .skip(offset)
-      .take(limit)
-      .orderBy('message.createdAt', 'ASC') // Chronological order for conversation messages
-      .getManyAndCount();
-
-    return {
-      messages: messages.map((message) => this.toResponseDto(message)),
-      total,
-      page,
-      perPage: limit,
-      totalPages: Math.ceil(total / limit),
     };
   }
 
@@ -305,103 +217,6 @@ export class MessagesService {
     await this.messageRepository.softDelete(id);
   }
 
-  async permanentDelete(id: number): Promise<void> {
-    const message = await this.messageRepository.findOne({
-      where: { id },
-    });
-
-    if (!message) {
-      throw new NotFoundException(`Message with ID ${id} not found`);
-    }
-
-    await this.messageRepository.delete(id);
-  }
-
-  async bulkDelete(bulkDeleteDto: MessageBulkDeleteDto): Promise<{
-    totalRequested: number;
-    deletedCount: number;
-    notFoundCount: number;
-  }> {
-    const { messageIds } = bulkDeleteDto;
-    const totalRequested = messageIds.length;
-
-    const existingMessages = await this.messageRepository.find({
-      where: { id: In(messageIds), deletedAt: IsNull() },
-    });
-
-    const deletedCount = existingMessages.length;
-    const notFoundCount = totalRequested - deletedCount;
-
-    if (existingMessages.length > 0) {
-      await this.messageRepository.softDelete(
-        existingMessages.map((m) => m.id),
-      );
-    }
-
-    return {
-      totalRequested,
-      deletedCount,
-      notFoundCount,
-    };
-  }
-
-  async restoreOne(id: number) {
-    const message = await this.messageRepository.findOne({
-      where: { id, deletedAt: Not(IsNull()) },
-      withDeleted: true,
-    });
-
-    if (!message) {
-      throw new NotFoundException(`Deleted message with ID ${id} not found`);
-    }
-
-    await this.messageRepository.restore(id);
-
-    const restoredMessage = await this.messageRepository.findOne({
-      where: { id },
-    });
-
-    return this.toResponseDto(restoredMessage);
-  }
-
-  async deleteAllInConversation(
-    conversationId: number,
-  ): Promise<{ deletedCount: number }> {
-    const messages = await this.messageRepository.find({
-      where: { conversation: { id: conversationId }, deletedAt: IsNull() },
-    });
-
-    if (messages.length > 0) {
-      await this.messageRepository.softDelete(messages.map((m) => m.id));
-    }
-
-    return { deletedCount: messages.length };
-  }
-
-  async markMessagesAsReadForPlatform({
-    platform,
-    conversationId,
-    userExternalId,
-    readToTime,
-  }: {
-    platform: string;
-    conversationId: number;
-    userExternalId: string;
-    readToTime: Date;
-  }): Promise<number> {
-    const result = await this.messageRepository
-      .createQueryBuilder()
-      .update()
-      .set({ readAt: readToTime })
-      .where('conversation_id = :conversationId', { conversationId })
-      .andWhere('sender_id != :userExternalId', { userExternalId }) // Đánh dấu các message người khác gửi
-      .andWhere('created_at <= :readToTime', { readToTime })
-      .andWhere('read_at IS NULL')
-      .execute();
-
-    return result.affected ?? 0;
-  }
-
   async findByExternalId(externalId: string): Promise<Message | null> {
     const message = await this.messageRepository.findOne({
       where: { externalId, deletedAt: IsNull() },
@@ -420,9 +235,6 @@ export class MessagesService {
       contentType: message.contentType,
       content: message.content,
       conversationId: message.conversation.id,
-      intent: message.intent,
-      extraData: message.extraData,
-      tokenUsage: message.tokenUsage,
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
       deletedAt: message.deletedAt,

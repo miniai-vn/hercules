@@ -11,11 +11,15 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Conversation } from '../conversations/conversations.entity'; // Adjust path as needed
+import { MessageType } from './dto/messages.dto';
 
 @Entity('messages')
 export class Message {
   @PrimaryGeneratedColumn({ name: 'id' })
   id: number;
+
+  @Column({ type: 'text', name: 'type', default: MessageType.receive })
+  type: MessageType;
 
   @Column({
     type: 'text',
@@ -50,15 +54,6 @@ export class Message {
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamp with time zone' })
   createdAt: Date;
-
-  @Column({ type: 'text', nullable: true, name: 'intent' })
-  intent?: string;
-
-  @Column({ type: 'jsonb', nullable: true, name: 'extra_data' })
-  extraData?: Record<string, any>;
-
-  @Column({ type: 'jsonb', nullable: true, name: 'token_usage' })
-  tokenUsage?: Record<string, any>;
 
   @Column({
     name: 'read_at',

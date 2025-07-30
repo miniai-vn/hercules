@@ -260,6 +260,10 @@ export class CustomerListQueryDto {
   @IsEnum(Platform)
   platform?: string;
 
+  @IsOptional()
+  @IsNumber()
+  conversationId?: number;
+
   @ApiPropertyOptional({
     description: 'Filter by shop ID',
     example: '0f2faa9a-2eda-4b32-81ee-e6bdb7d36fe3',
@@ -273,6 +277,7 @@ export class CustomerListQueryDto {
     example: 1,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   channelId?: number;
 

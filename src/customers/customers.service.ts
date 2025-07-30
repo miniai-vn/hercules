@@ -10,7 +10,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginatedResult } from 'src/common/types/reponse.type';
 import { TagsService } from 'src/tags/tags.service';
-import { FindManyOptions, In, Like, Repository } from 'typeorm';
+import { FindManyOptions, In, Like, Not, Repository } from 'typeorm';
 import { ChannelsService } from '../channels/channels.service';
 import { ShopService } from '../shops/shops.service';
 import {
@@ -117,6 +117,7 @@ export class CustomersService {
     const { page = 1, limit = 10 } = query;
 
     const whereConditions = {
+      avatar: Not(''),
       ...(query.search && {
         name: Like(`%${query.search}%`),
       }),
@@ -127,11 +128,16 @@ export class CustomersService {
       ...(query.phone && { phone: query.phone }),
       ...(query.address && { address: query.address }),
       ...(query.tagIds && { tags: { id: In(query.tagIds) } }),
+      ...(query.channelId && { channel: { id: query.channelId } }),
     };
 
     const findOptions: FindManyOptions<Customer> = {
       where: whereConditions,
-      relations: ['shop', 'channel'],
+      relations: {
+        shop: true,
+        channel: true,
+        tags: true,
+      },
       order: { id: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,

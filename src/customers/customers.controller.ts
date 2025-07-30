@@ -61,7 +61,7 @@ export class CustomersController {
     return this.customersService.create(createCustomerDto);
   }
 
-  @Get()
+  @Get('/query')
   @ApiOperation({ summary: 'Get all customers with filtering and pagination' })
   @ApiResponse({
     status: 200,
@@ -158,73 +158,6 @@ export class CustomersController {
   async remove(@Param('id', ParseIntPipe) id: string): Promise<void> {
     return this.customersService.remove(id);
   }
-
-  @Get('platform/:platform')
-  @ApiOperation({ summary: 'Get customers by platform' })
-  @ApiParam({
-    name: 'platform',
-    description: 'Platform name (zalo, facebook, tiktok)',
-  })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customers by platform retrieved successfully',
-    type: CustomerListResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - invalid or missing token',
-  })
-  async findByPlatform(
-    @Param('platform') platform: string,
-    @Query() query: CustomerListQueryDto,
-  ) {
-    return this.customersService.query({ ...query, platform });
-  }
-
-  @Get('channel/:channelId')
-  @ApiOperation({ summary: 'Get customers by channel ID' })
-  @ApiParam({ name: 'channelId', description: 'Channel ID' })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiResponse({
-    status: 200,
-    description: 'Customers by channel retrieved successfully',
-    type: CustomerListResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - invalid or missing token',
-  })
-  async findByChannel(@Query() query: CustomerListQueryDto) {
-    return this.customersService.query({ ...query });
-  }
-
-  @Get('search/:searchTerm')
-  @ApiOperation({ summary: 'Search customers by name' })
-  @ApiParam({
-    name: 'searchTerm',
-    description: 'Search term for customer name',
-  })
-  @ApiQuery({ name: 'page', required: false, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Items per page' })
-  @ApiResponse({
-    status: 200,
-    description: 'Search results retrieved successfully',
-    type: CustomerListResponseDto,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized - invalid or missing token',
-  })
-  async searchByName(
-    @Param('searchTerm') searchTerm: string,
-    @Query() query: CustomerListQueryDto,
-  ) {
-    return this.customersService.query({ ...query, name: searchTerm });
-  }
-
   @Post(':id/add-tags')
   async addTagsToCustomer(
     @Param('id') id: string,

@@ -16,6 +16,11 @@ export enum SenderType {
   channel = 'channel',
 }
 
+export enum MessageType {
+  send = 'send',
+  receive = 'receive',
+}
+
 // Base DTO with common message properties
 export class MessageDto {
   @IsString()
@@ -102,7 +107,7 @@ export class MessageQueryParamsDto {
 
   @IsString()
   @IsOptional()
-  intent?: string;
+  senderId?: string;
 
   @IsString()
   @IsOptional()

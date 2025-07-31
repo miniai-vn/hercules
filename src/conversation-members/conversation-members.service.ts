@@ -346,10 +346,14 @@ export class ConversationMembersService {
     }
   }
 
-  async incrementUnreadCount(memberIds: string[], incrementBy: number = 1) {
+  async incrementUnreadCount(
+    memberIds: string[],
+    incrementBy: number = 1,
+    conversationId: string,
+  ): Promise<void> {
     try {
       await this.memberRepository.increment(
-        { userId: In(memberIds) },
+        { userId: In(memberIds), conversationId },
         'unreadCount',
         incrementBy,
       );

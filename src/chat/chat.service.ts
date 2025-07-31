@@ -23,7 +23,7 @@ import { SendMessageData } from './dto/send-message.dto';
 
 @Injectable()
 export class ChatService {
-  private producer: Producer;
+  private producer;
   constructor(
     private readonly chatGateway: ChatGateway,
     private readonly conversationsService: ConversationsService,
@@ -139,7 +139,7 @@ export class ChatService {
 
     const roomName = `conversation:${conversation?.id}`;
 
-    this.chatGateway.server.to(roomName).emit('receiveMessage', {
+    this.chatGateway.server.to(roomName).emit('delivered_message', {
       ...messageData,
       sender: {
         avatar: customer?.avatar,
@@ -153,6 +153,13 @@ export class ChatService {
   /**
    * Sends a message from the platform to an Omni-channel conversation.
    */
+
+  // async handleProductMessage(data: SendMessageData) {
+  //   this.kafkaProducerService.sendMessage(
+  //     process.env.KAFKA_ZALO_MESSAGE_TOPIC,
+  //     data,
+  //   );
+  // }
 
   async handleSendPlatformMessage(data: SendMessageData) {
     try {
@@ -183,7 +190,7 @@ export class ChatService {
           channel.accessToken,
           data.content,
           customer.externalId,
-          quotedMessage?.externalId
+          quotedMessage?.externalId,
         );
 
         const { message } =
@@ -196,39 +203,13 @@ export class ChatService {
             userId: data.userId,
             messageType: data.messageType,
           });
-
-        this.chatGateway.server.to(roomName).emit('receiveMessage', {
+        this.chatGateway.server.to(roomName).emit('delivered_message', {
           ...message,
           senderId: data.userId,
           conversationId: data.conversationId,
           channelType: ChannelType.ZALO,
         });
       }
-      // if (channel.type === ChannelType.FACEBOOK) {
-      //   const resp = await this.facebookService.sendMessageFacebook(
-      //     channel.accessToken,
-      //     customer.externalId,
-      //     data.content,
-      //     channel.appId,
-      //   );
-
-      //   const { message } =
-      //     await this.conversationsService.handlePlatformMessage({
-      //       conversationId: data.conversationId,
-      //       message: {
-      //         content: data.content,
-      //         externalMessageId: resp.data.message_id,
-      //       },
-      //       userId: data.userId,
-      //       messageType: data.messageType,
-      //     });
-
-      //   this.chatGateway.server.to(roomName).emit('receiveMessage', {
-      //     ...message,
-      //     conversationId: data.conversationId,
-      //     channelType: ChannelType.FACEBOOK,
-      //   });
-      // }
     } catch (error) {
       throw new InternalServerErrorException(
         `Failed to send message to other platform: ${error.message}`,

@@ -33,21 +33,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   eventSet = new Set<string>();
 
-  constructor(
-    private readonly conversationsService: ConversationsService, // Replace with actual service
-  ) {}
+  constructor(private readonly conversationsService: ConversationsService) {}
   handleConnection(client: Socket) {
     const token = client.handshake.auth.token;
     let userId: string;
     if (token) {
       try {
-        // Replace 'your_jwt_secret' with your actual JWT secret
-        const decoded: any = jwt.verify(
-          token,
-          process.env.JWT_SECRET_KEY || 'your_jwt_secret',
-        );
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET_KEY);
         userId = decoded.userId;
-        this.userToClient.set(userId, client.id);
+        if (this.userToClient.has(userId)) {
+          throw new Error('User already connected');
+        }
+        this.userToClient.set(client.id, userId);
       } catch (err) {
         client.disconnect();
         return;
@@ -61,13 +58,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(client: Socket) {
     const userId = this.userToClient.get(client.id);
-
     // Remove user from all conversations they were participating in
     this.activeConversations.forEach((conversation, conversationId) => {
       conversation.participants.delete(client.id);
       if (userId) {
         conversation.userIds.delete(userId);
       }
+
       if (conversation.participants.size === 0) {
         this.activeConversations.delete(conversationId);
       }

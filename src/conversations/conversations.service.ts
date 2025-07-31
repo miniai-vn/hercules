@@ -554,10 +554,15 @@ export class ConversationsService {
    * Update last message at
    * */
 
-  async updateLastMessageAt(conversationId: string, lastMessageAt: Date) {
+  async updateLastMessage(
+    conversationId: string,
+    lastMessageAt: Date,
+    content?: string,
+  ) {
     try {
       await this.conversationRepository.update(conversationId, {
         lastMessageAt,
+        ...(content && { content }),
       });
     } catch (error) {
       throw new InternalServerErrorException(
@@ -611,19 +616,22 @@ export class ConversationsService {
         createdAt: message?.createdAt,
       });
 
-      if (
-        message?.createdAt &&
-        (!conversation.lastMessageAt ||
-          message.createdAt > conversation.lastMessageAt)
-      ) {
-        await this.updateLastMessageAt(conversation.id, messageData.createdAt);
+      if (messageData.createdAt > conversation.lastMessageAt) {
+        await this.updateLastMessage(
+          conversation.id,
+          messageData.createdAt,
+          messageData.content,
+        );
       }
 
+      const adminIds = conversation.members
+        .filter((member) => member.participantType === ParticipantType.USER)
+        .map((member) => member.userId);
       if (!isSync)
         this.conversationMembersService.incrementUnreadCount(
-          conversation.members
-            .filter((member) => member.participantType === ParticipantType.USER)
-            .map((member) => member?.userId),
+          adminIds,
+          1,
+          conversation.id,
         );
 
       return {
@@ -710,18 +718,22 @@ export class ConversationsService {
       createdAt: message.createdAt,
     });
 
-    if (
-      message.createdAt &&
-      (!conversation.lastMessageAt ||
-        message.createdAt > conversation.lastMessageAt)
-    ) {
-      await this.updateLastMessageAt(conversation.id, messageData.createdAt);
+    if (messageData.createdAt > conversation.lastMessageAt) {
+      await this.updateLastMessage(
+        conversation.id,
+        messageData.createdAt,
+        messageData.content,
+      );
     }
 
+    const adminIds = conversation.members
+      .filter((member) => member.participantType === ParticipantType.USER)
+      .map((member) => member.userId);
+
     this.conversationMembersService.incrementUnreadCount(
-      conversation.members
-        .filter((member) => member.participantType === ParticipantType.USER)
-        .map((member) => member.userId),
+      adminIds,
+      1,
+      conversation.id,
     );
 
     return {
@@ -784,20 +796,25 @@ export class ConversationsService {
         createdAt: message.createdAt,
       });
 
-      if (
-        message.createdAt &&
-        (!conversation.lastMessageAt ||
-          message.createdAt > conversation.lastMessageAt)
-      ) {
-        await this.updateLastMessageAt(conversation.id, messageData.createdAt);
+      if (messageData.createdAt > conversation.lastMessageAt) {
+        await this.updateLastMessage(
+          conversation.id,
+          messageData.createdAt,
+          messageData.content,
+        );
       }
 
-      if (!isSync)
+      if (!isSync) {
+        const adminIds = conversation.members
+          .filter((member) => member.participantType === ParticipantType.USER)
+          .map((member) => member.userId);
+
         this.conversationMembersService.incrementUnreadCount(
-          conversation.members
-            .filter((member) => member.participantType === ParticipantType.USER)
-            .map((member) => member?.userId),
+          adminIds,
+          1,
+          conversation.id,
         );
+      }
 
       return {
         conversation,

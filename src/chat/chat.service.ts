@@ -398,4 +398,77 @@ export class ChatService {
       );
     }
   }
+
+  /**
+   * Handles attechment message from platform
+   */
+
+  async handleAttachmentMessage({
+    file,
+    conversationId,
+    userId,
+  }: {
+    file: Express.Multer.File;
+    conversationId: string;
+    userId: string;
+  }) {
+    const conversation =
+      await this.conversationsService.findOne(conversationId);
+
+    if (!conversation) {
+      throw new InternalServerErrorException('Conversation not found');
+    }
+
+    const customer = conversation.members.find(
+      (member) => !!member.customerId,
+    ).customer;
+
+    const channel = conversation.channel;
+
+    if (channel.type === ChannelType.ZALO) {
+      const blob = new Blob([file.buffer], { type: file.mimetype });
+      const uploadedFile = await this.zaloService.uploadFile(
+        channel.accessToken,
+        blob,
+        file.originalname,
+      );
+
+      const attechment: { type: 'file'; payload: { token: string } } = {
+        type: 'file',
+        payload: {
+          token: uploadedFile.data.data.token,
+        },
+      };
+
+      const sendedMessage = await this.zaloService.sendMessage(
+        channel.accessToken,
+        undefined,
+        customer.externalId,
+        undefined,
+        attechment,
+      );
+
+      const { message } = await this.conversationsService.handlePlatformMessage(
+        {
+          conversationId: conversationId,
+          message: {
+            content: 'Gửi một tệp đính kèm',
+            externalMessageId: sendedMessage.data.data.message_id,
+            contentType: MessageType.FILE,
+          },
+          userId: userId,
+          messageType: MessageType.FILE,
+        },
+      );
+
+      this.chatGateway.server
+        .to(`conversation:${conversationId}`)
+        .emit('delivered_message', {
+          ...message,
+          senderId: userId,
+          conversationId: conversationId,
+          channelType: ChannelType.ZALO,
+        });
+    }
+  }
 }

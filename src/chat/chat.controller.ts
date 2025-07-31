@@ -1,9 +1,17 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Req,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { Payload } from '@nestjs/microservices';
 
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
-import { FacebookEventDTO } from 'src/integration/facebook/dto/facebook-webhook.dto';
 import { ChatService } from './chat.service';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
 import { SendMessageData } from './dto/send-message.dto';
@@ -47,11 +55,28 @@ export class ChatController {
     }
   }
 
-  async sendMessageFacebookToPlatform(@Body() data: FacebookEventDTO) {
-    await this.chatService.handleMessageFaceBook(data);
-    return {
-      status: 'success',
-      message: 'Message sent to Facebook successfully',
-    };
+  @Post('/attachment')
+  @ApiBearerAuth('bearerAuth')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async sendAttachment(
+    @Req() req,
+    @Body() data,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    try {
+      const result = await this.chatService.handleAttachmentMessage({
+        ...data,
+        userId: req.user.id,
+        file,
+      });
+      return {
+        status: 'success',
+        message: 'Attachment sent to Zalo successfully',
+        data: result,
+      };
+    } catch (error) {
+      throw new Error(`Failed to send attachment: ${error.message}`);
+    }
   }
 }

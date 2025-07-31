@@ -204,13 +204,72 @@ export class ZaloService {
   }
 
   /**
+   * Upload image to Zalo
+   */
+  async uploadImage(
+    accessToken: string,
+    file: Blob,
+    fileName: string,
+  ): Promise<AxiosResponse> {
+    const formData = new FormData();
+    formData.append('file', file, fileName);
+    return this.callZaloAuthenticatedAPI(
+      ZALO_CONFIG.ENDPOINTS.UPLOAD_IMAGE,
+      accessToken,
+      HttpMethod.POST,
+      formData,
+      {
+        headers: {
+          'Content-Type': `multipart/form-data`,
+        },
+      },
+    );
+  }
+
+  /**
+   * Upload file to Zalo
+   */
+
+  async uploadFile(
+    accessToken: string,
+    file: Blob,
+    fileName: string,
+  ): Promise<AxiosResponse> {
+    const formData = new FormData();
+    formData.append('file', file, fileName);
+
+    return this.callZaloAuthenticatedAPI(
+      ZALO_CONFIG.ENDPOINTS.UPLOAD_FILE,
+      accessToken,
+      HttpMethod.POST,
+      formData,
+      {
+        headers: {
+          'Content-Type': `multipart/form-data`,
+        },
+      },
+    );
+  }
+
+  /**
    * Send message to Zalo user
    */
   async sendMessage(
     accessToken: string,
-    message: string,
-    zaloId: string,
+    message?: string,
+    zaloId?: string,
     quoteMsgId?: string,
+    attachment?: {
+      type: 'file' | 'image';
+      payload: {
+        token?: string;
+        template_type?: string;
+        elements?: {
+          media_type: string;
+          url: string;
+        }[];
+      };
+    },
   ): Promise<AxiosResponse> {
     const data = {
       recipient: {
@@ -218,7 +277,8 @@ export class ZaloService {
       },
       message: {
         ...(quoteMsgId ? { quote_message_id: quoteMsgId } : {}),
-        text: message,
+        ...(message ? { text: message } : {}),
+        ...(attachment ? { attachment } : {}),
       },
     };
 

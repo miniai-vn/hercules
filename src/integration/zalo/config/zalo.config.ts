@@ -5,11 +5,12 @@ export const ZALO_CONFIG = {
     SEND_MESSAGE: '/v3.0/oa/message/cs',
     GET_USER_LIST: '/v3.0/oa/user/getlist',
     GET_USER_PROFILE: '/v3.0/oa/user/detail',
-    UPLOAD_FILE: '/v2.0/oa/upload',
     GET_CONVERSATIONS: '/v2.0/oa/conversation',
     GET_OA_INFO: '/v2.0/oa/getoa',
     LIST_RECENT_CHAT: '/v2.0/oa/listrecentchat',
     GET_TAGS: '/v2.0/oa/tag/gettagsofoa',
+    UPLOAD_FILE: '/v2.0/oa/upload/file',
+    UPLOAD_IMAGE: '/v2.0/oa/upload/image',
   },
   OAUTH_ENDPOINTS: {
     ACCESS_TOKEN: '/v4/oa/access_token',

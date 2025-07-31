@@ -4,12 +4,13 @@ import {
   Post,
   Req,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { Payload } from '@nestjs/microservices';
 
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard';
 import { ChatService } from './chat.service';
@@ -77,6 +78,32 @@ export class ChatController {
       };
     } catch (error) {
       throw new Error(`Failed to send attachment: ${error.message}`);
+    }
+  }
+
+  @Post('/images')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FilesInterceptor('files', 10), // 10 là số lượng file tối đa
+  )
+  async sendImages(
+    @Req() req,
+    @Body() data,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    try {
+      const result = await this.chatService.handleImageMessage({
+        ...data,
+        userId: req.user.id,
+        files,
+      });
+      return {
+        status: 'success',
+        message: 'Images sent to Zalo successfully',
+        data: result,
+      };
+    } catch (error) {
+      throw new Error(`Failed to send images: ${error.message}`);
     }
   }
 }

@@ -471,4 +471,94 @@ export class ChatService {
         });
     }
   }
+
+  async handleImageMessage({
+    files,
+    conversationId,
+    userId,
+    content,
+    quotedMsgId,
+  }: {
+    files: Express.Multer.File[];
+    conversationId: string;
+    userId: string;
+    content?: string;
+    quotedMsgId?: string;
+  }) {
+    const conversation =
+      await this.conversationsService.findOne(conversationId);
+
+    if (!conversation) {
+      throw new InternalServerErrorException('Conversation not found');
+    }
+
+    const customer = conversation.members.find(
+      (member) => !!member.customerId,
+    ).customer;
+
+    const channel = conversation.channel;
+
+    if (channel.type === ChannelType.ZALO) {
+      const uploadedFiles = await Promise.all(
+        files.map((file) =>
+          this.zaloService.uploadImage(
+            channel.accessToken,
+            new Blob([file.buffer], { type: file.mimetype }),
+            file.originalname,
+          ),
+        ),
+      );
+
+      let quotedMessageId;
+      if (quotedMsgId) {
+        const quotedMessage = await this.messageService.findOne(quotedMsgId);
+        quotedMessageId = quotedMessage.externalId;
+      }
+      const attachments: {
+        type: 'template';
+        payload: {
+          template_type: string;
+          elements: { media_type: string; attachment_id: string }[];
+        };
+      } = {
+        type: 'template',
+        payload: {
+          template_type: 'media',
+          elements: uploadedFiles.map((file) => ({
+            media_type: 'image',
+            attachment_id: file.data.data.attachment_id, // Assign attachment_id to url as required by the type
+          })),
+        },
+      };
+      const sendedMessage = await this.zaloService.sendMessage(
+        channel.accessToken,
+        content,
+        customer.externalId,
+        quotedMessageId,
+        attachments,
+      );
+
+      const { message } = await this.conversationsService.handlePlatformMessage(
+        {
+          conversationId: conversationId,
+          message: {
+            content: 'Gửi một hình ảnh',
+            externalMessageId: sendedMessage.data.data.message_id,
+            contentType: MessageType.IMAGE,
+          },
+          userId: userId,
+          messageType: MessageType.IMAGE,
+        },
+      );
+
+      this.chatGateway.server
+        .to(`conversation:${conversationId}`)
+        .emit('delivered_message', {
+          ...message,
+          senderId: userId,
+          conversationId: conversationId,
+          channelType: ChannelType.ZALO,
+        });
+    }
+  }
 }

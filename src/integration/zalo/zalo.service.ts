@@ -260,13 +260,14 @@ export class ZaloService {
     zaloId?: string,
     quoteMsgId?: string,
     attachment?: {
-      type: 'file' | 'image';
+      type: 'file' | 'template';
       payload: {
         token?: string;
         template_type?: string;
         elements?: {
           media_type: string;
-          url: string;
+          url?: string;
+          attachment_id?: string;
         }[];
       };
     },
@@ -276,8 +277,8 @@ export class ZaloService {
         user_id: zaloId,
       },
       message: {
-        ...(quoteMsgId ? { quote_message_id: quoteMsgId } : {}),
         ...(message ? { text: message } : {}),
+        ...(quoteMsgId ? { quote_message_id: quoteMsgId } : {}),
         ...(attachment ? { attachment } : {}),
       },
     };

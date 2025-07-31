@@ -188,7 +188,7 @@ describe('ChatService', () => {
         message: { content: 'hi', id: 123 },
       });
 
-      await service.handleMessageToOmniChannel(data);
+      await service.handleSendPlatformMessage(data);
 
       expect(zaloService.sendMessage).toHaveBeenCalled();
     });
@@ -199,7 +199,7 @@ describe('ChatService', () => {
         mockConversation,
       );
 
-      const result = await service.handleMessageToOmniChannel({
+      const result = await service.handleSendPlatformMessage({
         conversationId: 1,
         content: 'hi',
         userId: 'user1',

@@ -73,7 +73,7 @@ export class ConversationsController {
     status: 200,
     description: 'Conversation retrieved successfully',
   })
-  async findOne(@Param('id', ParseIntPipe) id: number) {
+  async findOne(@Param('id') id: string) {
     const conversation = await this.conversationsService.findOne(id);
     return {
       message: 'Conversation retrieved successfully',
@@ -83,7 +83,7 @@ export class ConversationsController {
 
   @Get(':id/messages')
   async getFullInfoConversation(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
@@ -105,7 +105,7 @@ export class ConversationsController {
     description: 'Conversation updated successfully',
   })
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateConversationDto: UpdateConversationDto,
   ) {
     const conversation = await this.conversationsService.update(
@@ -125,7 +125,7 @@ export class ConversationsController {
     description: 'Participants added successfully',
   })
   async addParticipants(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() addParticipantsDto: AddParticipantsDto,
   ) {
     const conversation = await this.conversationsService.addParticipants(
@@ -145,7 +145,7 @@ export class ConversationsController {
     status: 200,
     description: 'Participants retrieved successfully',
   })
-  async getParticipants(@Param('id', ParseIntPipe) id: number) {
+  async getParticipants(@Param('id') id: string) {
     const participants =
       await this.conversationsService.getUsersInConversation(id);
     return {
@@ -161,9 +161,7 @@ export class ConversationsController {
     status: 200,
     description: 'Conversation deleted successfully',
   })
-  async remove(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<ApiResponse<{ id: number }>> {
+  async remove(@Param('id') id: string): Promise<ApiResponse<{ id: string }>> {
     await this.conversationsService.remove(id);
     return {
       message: 'Conversation deleted successfully',
@@ -179,9 +177,9 @@ export class ConversationsController {
     description: 'Conversation marked as read successfully',
   })
   async markReadConversation(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Request() req,
-  ): Promise<ApiResponse<{ id: number }>> {
+  ): Promise<ApiResponse<{ id: string }>> {
     const userId = req.user.userId;
     await this.conversationsService.markReadConversation(id, userId);
     return {
@@ -203,11 +201,11 @@ export class ConversationsController {
     },
   })
   async addTags(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() addTagsDto: { tagIds: number[] },
   ): Promise<{
     message: string;
-    data: { conversationId: number };
+    data: { conversationId: string };
   }> {
     await this.conversationsService.addTagsToConversation(
       id,
@@ -244,7 +242,7 @@ export class ConversationsController {
     description: 'Conversation not found',
   })
   async removeParticipants(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() body: { participantIds: number[] },
   ) {
     const conversation = await this.conversationsService.removeParticipants(
@@ -259,7 +257,7 @@ export class ConversationsController {
 
   @Patch('status-bot')
   @ApiOperation({ summary: 'Update bot status for conversations' })
-  async updateBotStatus(@Body() body: { conversationId: number }) {
+  async updateBotStatus(@Body() body: { conversationId: string }) {
     const updatedStatus = await this.conversationsService.updateBotStatus(
       body.conversationId,
     );

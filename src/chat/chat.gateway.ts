@@ -24,8 +24,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Store active conversation rooms
   private activeConversations = new Map<
-    number,
-    { conversationId: number; participants: Set<string>; userIds: Set<string> }
+    string,
+    { conversationId: string; participants: Set<string>; userIds: Set<string> }
   >();
 
   // Store user ID to client ID mapping (ensure one client per user)
@@ -92,13 +92,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('joinConversation')
   handleJoinConversation(
-    @MessageBody() data: { conversationId: number; userId?: string },
+    @MessageBody() data: { conversationId: string; userId?: string },
     @ConnectedSocket() client: Socket,
   ) {
     this.joinConversation(client, data.conversationId, data.userId);
   }
 
-  sendEventJoinConversation(conversationId: number, userId: string) {
+  sendEventJoinConversation(conversationId: string, userId: string) {
     try {
       if (!this.activeConversations.has(conversationId)) {
         this.activeConversations.set(conversationId, {
@@ -119,7 +119,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async joinConversation(
     client: Socket,
-    conversationId: number,
+    conversationId: string,
     userId?: string,
   ) {
     const roomName = `conversation:${conversationId}`;
@@ -167,7 +167,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('markAsRead')
   async handleMarkAsRead(
     @MessageBody()
-    data: { conversationId: number; userId: string },
+    data: { conversationId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
     try {

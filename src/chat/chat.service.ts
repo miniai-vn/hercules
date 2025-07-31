@@ -1,33 +1,25 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import dayjs from 'dayjs';
+import { Producer } from 'kafkajs';
 import { AgentsService } from 'src/agents/agents.service';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
 import { MessageType } from 'src/common/enums/message.enum';
 import { Conversation } from 'src/conversations/conversations.entity';
 import { Platform } from 'src/customers/customers.dto';
+import { Customer } from 'src/customers/customers.entity';
 import { CustomersService } from 'src/customers/customers.service';
-import { AgentServiceService } from 'src/integration/agent-service/agent-service.service';
 import { FacebookEventDTO } from 'src/integration/facebook/dto/facebook-webhook.dto';
 import { FacebookService } from 'src/integration/facebook/facebook.service';
 import { ZaloService } from 'src/integration/zalo/zalo.service';
+import { KafkaProducerService } from 'src/kafka/kafka.producer';
 import { SenderType } from 'src/messages/dto/messages.dto';
+import { Message } from 'src/messages/messages.entity';
+import { MessagesService } from 'src/messages/messages.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { ChatGateway } from './chat.gateway';
 import { ZaloWebhookDto } from './dto/chat-zalo.dto';
-import dayjs from 'dayjs';
-import { KafkaProducerService } from 'src/kafka/kafka.producer';
-import { Producer } from 'kafkajs';
-import { Customer } from 'src/customers/customers.entity';
-import { Message } from 'src/messages/messages.entity';
-
-export interface SendMessageData {
-  conversationId: number;
-  content: string;
-  userId: string;
-  messageType?: string;
-  shopId: string;
-  isEcho: boolean;
-}
+import { SendMessageData } from './dto/send-message.dto';
 
 @Injectable()
 export class ChatService {
@@ -41,6 +33,7 @@ export class ChatService {
     private readonly facebookService: FacebookService,
     private readonly agentService: AgentsService,
     private readonly kafkaProducerService: KafkaProducerService,
+    private readonly messageService: MessagesService,
   ) {
     this.producer = this.kafkaProducerService.getProducer();
   }
@@ -161,7 +154,7 @@ export class ChatService {
    * Sends a message from the platform to an Omni-channel conversation.
    */
 
-  async handleMessageToOmniChannel(data: SendMessageData) {
+  async handleSendPlatformMessage(data: SendMessageData) {
     try {
       const roomName = `conversation:${data.conversationId}`;
       const conversation = await this.conversationsService.findOne(
@@ -181,11 +174,20 @@ export class ChatService {
 
       const channel = conversation.channel;
 
+      if (data.quoteMsgId) {
+        const quotedMessage = await this.messageService.findOne(
+          data.quoteMsgId,
+        );
+        if (!quotedMessage) {
+          throw new Error('Quoted message not found');
+        }
+      }
       if (channel.type === ChannelType.ZALO) {
         const res = await this.zaloService.sendMessage(
           channel.accessToken,
           data.content,
           customer.externalId,
+          data.quoteMsgId,
         );
 
         const { message } =

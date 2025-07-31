@@ -210,12 +210,14 @@ export class ZaloService {
     accessToken: string,
     message: string,
     zaloId: string,
+    quoteMsgId?: string,
   ): Promise<AxiosResponse> {
     const data = {
       recipient: {
         user_id: zaloId,
       },
       message: {
+        ...(quoteMsgId ? { quote_message_id: quoteMsgId } : {}),
         text: message,
       },
     };

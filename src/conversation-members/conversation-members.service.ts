@@ -25,7 +25,7 @@ export class ConversationMembersService {
   ) {}
 
   async addParticipant(
-    conversationId: number,
+    conversationId: string,
     addParticipantDto: AddParticipantDto,
   ): Promise<ConversationMember> {
     try {
@@ -103,7 +103,7 @@ export class ConversationMembersService {
   }
 
   async addMultipleParticipants(
-    conversationId: number,
+    conversationId: string,
     addMultipleDto: AddMultipleParticipantsDto,
   ): Promise<ConversationMember[]> {
     const addedMembers: ConversationMember[] = [];
@@ -142,7 +142,7 @@ export class ConversationMembersService {
   }
 
   async removeParticipantByUserOrCustomerId(
-    conversationId: number,
+    conversationId: string,
     participantType: ParticipantType,
     participantId: string,
   ): Promise<void> {
@@ -176,7 +176,7 @@ export class ConversationMembersService {
   }
 
   async getConversationMembers(
-    conversationId: number,
+    conversationId: string,
     includeInactive: boolean = false,
   ): Promise<ConversationMember[]> {
     try {
@@ -279,7 +279,7 @@ export class ConversationMembersService {
   }
 
   async isMemberOfConversation(
-    conversationId: number,
+    conversationId: string,
     participantType: ParticipantType,
     participantId: string,
   ): Promise<boolean> {
@@ -302,7 +302,7 @@ export class ConversationMembersService {
     }
   }
 
-  async isAdmin(conversationId: number, userId: string): Promise<boolean> {
+  async isAdmin(conversationId: string, userId: string): Promise<boolean> {
     try {
       const member = await this.memberRepository.findOne({
         where: {
@@ -325,7 +325,7 @@ export class ConversationMembersService {
   async getConversationsForParticipant(
     participantType: ParticipantType,
     participantId: string,
-  ): Promise<number[]> {
+  ): Promise<string[]> {
     try {
       const members = await this.memberRepository.find({
         where: {

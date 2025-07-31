@@ -22,8 +22,8 @@ export class ConversationMember {
   @PrimaryGeneratedColumn({ name: 'id' })
   id: number;
 
-  @Column({ type: 'number', name: 'conversation_id' })
-  conversationId: number;
+  @Column({ type: 'string', name: 'conversation_id' })
+  conversationId: string;
 
   @ManyToOne(() => Conversation, (conversation) => conversation.members, {
     onDelete: 'CASCADE',

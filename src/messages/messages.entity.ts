@@ -15,8 +15,8 @@ import { MessageType } from './dto/messages.dto';
 
 @Entity('messages')
 export class Message {
-  @PrimaryGeneratedColumn({ name: 'id' })
-  id: number;
+  @PrimaryGeneratedColumn('uuid', { name: 'id' })
+  id: string;
 
   @Column({ type: 'text', name: 'type', default: MessageType.receive })
   type: MessageType;

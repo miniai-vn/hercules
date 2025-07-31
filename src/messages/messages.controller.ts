@@ -35,8 +35,8 @@ export class MessagesController {
   @Get('/context')
   @HttpCode(HttpStatus.OK)
   async getContext(
-    @Query('conversationId', ParseIntPipe) conversationId: number,
-    @Query('messageId', ParseIntPipe) messageId: number,
+    @Query('conversationId') conversationId: string,
+    @Query('messageId') messageId: string,
   ) {
     try {
       const context = await this.messagesService.getContextMessages(
@@ -73,7 +73,7 @@ export class MessagesController {
 
   @Put(':id')
   async update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateMessageDto: UpdateMessageDto,
   ) {
     const message = await this.messagesService.update(id, updateMessageDto);
@@ -85,9 +85,7 @@ export class MessagesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  async remove(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<ApiResponse<{ id: number }>> {
+  async remove(@Param('id') id: string) {
     await this.messagesService.remove(id);
     return {
       message: 'Message deleted successfully',

@@ -24,8 +24,8 @@ export enum ConversationType {
 @Entity('conversations')
 @Unique(['channel', 'externalId'])
 export class Conversation {
-  @PrimaryGeneratedColumn({ name: 'id' })
-  id: number;
+  @PrimaryGeneratedColumn('uuid', { name: 'id' })
+  id: string;
 
   @Column({ type: 'text', name: 'name' })
   name: string;

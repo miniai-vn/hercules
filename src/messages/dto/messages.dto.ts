@@ -76,9 +76,9 @@ export class CreateMessageDto extends MessageDto {
   @IsNotEmpty()
   contentType: string;
 
-  @IsNumber()
+  @IsString()
   @IsNotEmpty()
-  conversationId: number;
+  conversationId: string;
 }
 
 // Update DTO extends MessageDto (all fields optional for updates)
@@ -100,10 +100,10 @@ export class MessageQueryParamsDto {
   @IsOptional()
   search?: string; // For searching in content
 
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  @Type(() => Number)
-  conversationId?: number;
+  @Type(() => String)
+  conversationId?: string;
 
   @IsString()
   @IsOptional()

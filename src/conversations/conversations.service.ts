@@ -112,7 +112,7 @@ export class ConversationsService {
     };
   }
 
-  async findOne(id: number): Promise<Conversation> {
+  async findOne(id: string): Promise<Conversation> {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id },
@@ -133,7 +133,7 @@ export class ConversationsService {
     }
   }
 
-  async update(id: number, updateConversationDto: UpdateConversationDto) {
+  async update(id: string, updateConversationDto: UpdateConversationDto) {
     try {
       await this.conversationRepository.update(id, updateConversationDto);
       const updatedConversation = await this.conversationRepository.findOne({
@@ -149,7 +149,7 @@ export class ConversationsService {
     }
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: string): Promise<void> {
     try {
       const members =
         await this.conversationMembersService.getConversationMembers(id);
@@ -167,7 +167,7 @@ export class ConversationsService {
     }
   }
 
-  async addParticipants(id: number, addParticipantsDto: AddParticipantsDto) {
+  async addParticipants(id: string, addParticipantsDto: AddParticipantsDto) {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id },
@@ -212,7 +212,7 @@ export class ConversationsService {
     }
   }
 
-  async getUsersInConversation(conversationId: number) {
+  async getUsersInConversation(conversationId: string) {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
@@ -243,11 +243,11 @@ export class ConversationsService {
   }
 
   async getFullInfoConversation(
-    id: number,
+    id: string,
     page: number = 1,
     limit: number = 50,
-    nextBeforeMessageId?: number,
-    nextAfterMessageId?: number,
+    nextBeforeMessageId?: string,
+    nextAfterMessageId?: string,
   ) {
     try {
       const conversation = await this.conversationRepository.findOne({
@@ -407,7 +407,7 @@ export class ConversationsService {
   }
 
   async getUnReadMessagesCount(
-    conversationId: number,
+    conversationId: string,
     userId: string,
   ): Promise<number> {
     try {
@@ -442,7 +442,7 @@ export class ConversationsService {
     }
   }
 
-  async markReadConversation(conversationId: number, userId: string) {
+  async markReadConversation(conversationId: string, userId: string) {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
@@ -483,7 +483,7 @@ export class ConversationsService {
   }
 
   async addTagsToConversation(
-    conversationId: number,
+    conversationId: string,
     tagIds: number[],
   ): Promise<void> {
     try {
@@ -505,7 +505,7 @@ export class ConversationsService {
     }
   }
 
-  async removeParticipants(conversationId: number, participantIds: number[]) {
+  async removeParticipants(conversationId: string, participantIds: number[]) {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },
@@ -554,7 +554,7 @@ export class ConversationsService {
    * Update last message at
    * */
 
-  async updateLastMessageAt(conversationId: number, lastMessageAt: Date) {
+  async updateLastMessageAt(conversationId: string, lastMessageAt: Date) {
     try {
       await this.conversationRepository.update(conversationId, {
         lastMessageAt,
@@ -693,7 +693,7 @@ export class ConversationsService {
     userId,
     messageType,
   }: {
-    conversationId: number;
+    conversationId: string;
     message: any;
     userId: string;
     messageType: string;
@@ -817,7 +817,7 @@ export class ConversationsService {
     message,
     customer,
   }: {
-    agentId: number;
+    agentId: string;
     channel: Channel;
     message: {
       content: string;
@@ -856,7 +856,7 @@ export class ConversationsService {
       );
     }
   }
-  async updateBotStatus(conversationId: number): Promise<boolean> {
+  async updateBotStatus(conversationId: string): Promise<boolean> {
     try {
       const conversation = await this.conversationRepository.findOne({
         where: { id: conversationId },

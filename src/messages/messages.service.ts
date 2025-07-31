@@ -58,11 +58,11 @@ export class MessagesService {
   }
 
   async getRecentMessages(
-    conversationId: number,
+    conversationId: string,
     page: number = 1,
     limit: number = 50,
-    nextBeforeMessageId?: number,
-    nextAfterMessageId?: number,
+    nextBeforeMessageId?: string,
+    nextAfterMessageId?: string,
   ) {
     if (nextBeforeMessageId) {
       const msg = await this.messageRepository.findOne({
@@ -101,8 +101,8 @@ export class MessagesService {
     });
   }
   async getContextMessages(
-    conversationId: number,
-    messageId: number,
+    conversationId: string,
+    messageId: string,
     page: number = 1,
     limit: number = 5,
   ) {
@@ -191,7 +191,17 @@ export class MessagesService {
     };
   }
 
-  async update(id: number, updateMessageDto: UpdateMessageDto) {
+  async findOne(id: string): Promise<Message | null> {
+    const message = await this.messageRepository.findOne({
+      where: { id, deletedAt: IsNull() },
+    });
+    if (!message) {
+      return null;
+    }
+    return message;
+  }
+
+  async update(id: string, updateMessageDto: UpdateMessageDto) {
     const message = await this.messageRepository.findOne({
       where: { id, deletedAt: IsNull() },
     });
@@ -201,11 +211,10 @@ export class MessagesService {
     }
 
     Object.assign(message, updateMessageDto);
-    const savedMessage = await this.messageRepository.save(message);
-    return this.toResponseDto(savedMessage);
+    return await this.messageRepository.save(message);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: string): Promise<void> {
     const message = await this.messageRepository.findOne({
       where: { id, deletedAt: IsNull() },
     });
@@ -227,17 +236,5 @@ export class MessagesService {
     }
 
     return message;
-  }
-  private toResponseDto(message: Message) {
-    return {
-      id: message.id,
-      senderType: message.senderType?.toString(),
-      contentType: message.contentType,
-      content: message.content,
-      conversationId: message.conversation.id,
-      createdAt: message.createdAt,
-      updatedAt: message.updatedAt,
-      deletedAt: message.deletedAt,
-    };
   }
 }

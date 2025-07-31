@@ -5,9 +5,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
-  IsNotEmpty,
   IsNumber,
-  IsObject,
   IsOptional,
   IsString,
 } from 'class-validator';
@@ -19,8 +17,8 @@ export class ConversationDto {
     description: 'Unique identifier for the conversation',
     example: 1,
   })
-  @IsNumber()
-  id: number;
+  @IsString()
+  id: string;
 
   @ApiProperty({
     description: 'Name of the conversation',

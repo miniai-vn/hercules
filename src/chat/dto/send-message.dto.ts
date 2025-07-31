@@ -12,7 +12,7 @@ export class SendMessageData {
   content: string;
 
   @Type(() => String)
-  @IsNotEmpty()
+  @IsOptional()
   userId: string;
 
   @Type(() => String)
@@ -20,10 +20,10 @@ export class SendMessageData {
   messageType?: string;
 
   @Type(() => String)
-  @IsNotEmpty()
+  @IsOptional()
   shopId: string;
 
   @IsString()
   @IsOptional()
-  quoteMsgId?: string;
+  quotedMsgId?: string;
 }

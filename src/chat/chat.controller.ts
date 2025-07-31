@@ -39,6 +39,7 @@ export class ChatController {
         data: await this.chatService.handleSendPlatformMessage({
           ...data,
           userId: req.user.userId,
+          shopId: req.shop.id,
         }),
       };
     } catch (error) {

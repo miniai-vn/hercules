@@ -6,21 +6,17 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginatedResult } from 'src/common/types/reponse.type';
-import { Conversation } from 'src/conversations/conversations.entity';
 import { ConversationsService } from 'src/conversations/conversations.service';
 import {
   FindManyOptions,
-  In,
   IsNull,
   LessThan,
-  Like,
   MoreThan,
-  Not,
-  Repository,
+  Raw,
+  Repository
 } from 'typeorm';
 import {
   CreateMessageDto,
-  MessageBulkDeleteDto,
   MessageQueryParamsDto,
   UpdateMessageDto,
 } from './dto/messages.dto';
@@ -93,6 +89,7 @@ export class MessagesService {
         take: limit,
       });
     }
+
     return await this.messageRepository.find({
       where: { conversation: { id: conversationId } },
       order: { createdAt: 'DESC' },
@@ -117,6 +114,7 @@ export class MessagesService {
       },
       order: { createdAt: 'ASC' },
       take: limit,
+      skip: (page - 1) * limit,
     });
 
     const beforeMessage = await this.messageRepository.find({
@@ -126,6 +124,7 @@ export class MessagesService {
       },
       order: { createdAt: 'DESC' },
       take: limit,
+      skip: (page - 1) * limit,
     });
 
     const contextMessages = [...beforeMessage, msg, ...afterMessage];
@@ -144,7 +143,7 @@ export class MessagesService {
       createdAfter,
       createdBefore,
       senderId,
-      limit = 50,
+      limit = 4,
       page = 1,
     } = queryParams;
     const findOperations: FindManyOptions<Message> = {
@@ -152,7 +151,7 @@ export class MessagesService {
         ...(senderType && { senderType }),
         ...(contentType && { contentType }),
         ...(search && {
-          content: Like(`%${search}%`),
+          content: Raw((alias) => `${alias} ~* '${search}'`),
         }),
         ...(conversationId && { conversation: { id: conversationId } }),
         ...(senderId && { senderId }),
@@ -163,7 +162,6 @@ export class MessagesService {
           createdAt: LessThan(new Date(createdBefore)),
         }),
       },
-
       order: { createdAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,

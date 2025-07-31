@@ -132,12 +132,6 @@ export class MessageQueryParamsDto {
   page?: number; // Page number for pagination
 }
 
-export class MessageBulkDeleteDto {
-  @IsNumber({}, { each: true })
-  @IsNotEmpty()
-  messageIds: number[];
-}
-
 // Additional specialized DTOs extending MessageDto
 export class UserMessageDto extends MessageDto {
   @IsString()

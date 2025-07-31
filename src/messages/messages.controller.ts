@@ -7,26 +7,13 @@ import {
   HttpStatus,
   InternalServerErrorException,
   Param,
-  ParseIntPipe,
-  Patch,
-  Post,
   Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/gaurds/jwt-auth.guard'; // Adjust path
-import {
-  CreateMessageDto,
-  MessageBulkDeleteDto,
-  MessageQueryParamsDto,
-  UpdateMessageDto,
-} from './dto/messages.dto';
+import { MessageQueryParamsDto, UpdateMessageDto } from './dto/messages.dto';
 import { MessagesService } from './messages.service';
-
-interface ApiResponse<T> {
-  message: string;
-  data?: T;
-}
 
 @Controller('messages')
 @UseGuards(JwtAuthGuard)
@@ -60,15 +47,6 @@ export class MessagesController {
     } catch (error) {
       throw new InternalServerErrorException('Failed to retrieve messages');
     }
-  }
-
-  @Post()
-  @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createMessageDto: CreateMessageDto) {
-    // const message = await this.messagesService.create(createMessageDto);
-    return {
-      message: 'Message created successfully',
-    };
   }
 
   @Put(':id')

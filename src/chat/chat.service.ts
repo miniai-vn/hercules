@@ -174,20 +174,16 @@ export class ChatService {
 
       const channel = conversation.channel;
 
-      if (data.quoteMsgId) {
-        const quotedMessage = await this.messageService.findOne(
-          data.quoteMsgId,
-        );
-        if (!quotedMessage) {
-          throw new Error('Quoted message not found');
-        }
+      let quotedMessage: Message;
+      if (data.quotedMsgId) {
+        quotedMessage = await this.messageService.findOne(data.quotedMsgId);
       }
       if (channel.type === ChannelType.ZALO) {
         const res = await this.zaloService.sendMessage(
           channel.accessToken,
           data.content,
           customer.externalId,
-          data.quoteMsgId,
+          quotedMessage?.externalId
         );
 
         const { message } =

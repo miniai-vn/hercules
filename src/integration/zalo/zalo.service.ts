@@ -423,7 +423,13 @@ export class ZaloService {
     }
   }
 
-  private transferMessage(message) {
+  private transferMessage(message): {
+    content: string;
+    contentType: MessageType;
+    id: string;
+    links?: string[];
+    createdAt: dayjs.Dayjs;
+  } {
     switch (message.type) {
       case MessageType.TEXT:
         return {
@@ -435,7 +441,7 @@ export class ZaloService {
       case 'photo':
         return {
           content: '',
-          link: [message.thumb],
+          links: [message.thumb],
           contentType: MessageType.IMAGE,
           id: message.message_id,
           createdAt: dayjs(message.time),
@@ -446,7 +452,7 @@ export class ZaloService {
           contentType: MessageType.STICKER,
           links: [message.url],
           id: message.message_id,
-          createdAt: new Date(message.time),
+          createdAt: dayjs(message.time),
         };
 
       default:

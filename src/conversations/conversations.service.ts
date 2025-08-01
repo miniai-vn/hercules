@@ -793,7 +793,6 @@ export class ConversationsService {
         links: message.links,
         conversationId: conversation.id,
         externalId: message.id,
-        createdAt: message.createdAt,
       });
 
       if (messageData.createdAt > conversation.lastMessageAt) {

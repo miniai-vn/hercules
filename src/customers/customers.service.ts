@@ -10,7 +10,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaginatedResult } from 'src/common/types/reponse.type';
 import { TagsService } from 'src/tags/tags.service';
-import { FindManyOptions, In, Like, Not, Repository } from 'typeorm';
+import { FindManyOptions, In, Not, Raw, Repository } from 'typeorm';
 import { ChannelsService } from '../channels/channels.service';
 import { ShopService } from '../shops/shops.service';
 import {
@@ -119,7 +119,7 @@ export class CustomersService {
     const whereConditions = {
       avatar: Not(''),
       ...(query.search && {
-        name: Like(`%${query.search}%`),
+        name: Raw((alias) => `${alias} ~* '${query.search}'`),
       }),
       ...(query.shopId && { shop: { id: query.shopId } }),
       ...(query.channelId && { channel: { id: query.channelId } }),

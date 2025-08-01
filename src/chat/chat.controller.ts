@@ -106,4 +106,30 @@ export class ChatController {
       throw new Error(`Failed to send images: ${error.message}`);
     }
   }
+
+  @Post('/forward')
+  @UseGuards(JwtAuthGuard)
+  async forwardMessage(
+    @Req() req,
+    @Body()
+    data: {
+      conversationId: string;
+      messageId: string;
+      customerIds: string[];
+    },
+  ) {
+    try {
+      const result = await this.chatService.handleForwardMessage({
+        ...data,
+        userId: req.user.id,
+      });
+      return {
+        status: 'success',
+        message: 'Message forwarded successfully',
+        data: result,
+      };
+    } catch (error) {
+      throw new Error(`Failed to forward message: ${error.message}`);
+    }
+  }
 }

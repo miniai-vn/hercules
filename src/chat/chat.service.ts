@@ -1,6 +1,4 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import dayjs from 'dayjs';
-import { Producer } from 'kafkajs';
 import { AgentsService } from 'src/agents/agents.service';
 import { ChannelsService } from 'src/channels/channels.service';
 import { ChannelType } from 'src/channels/dto/channel.dto';
@@ -348,6 +346,14 @@ export class ChatService {
         ChannelType.ZALO,
         recipient.id,
       );
+      const transferMessage = {
+        content: message.text,
+        links: message.links,
+        id: message.msg_id,
+        createdAt: new Date(),
+        contentType: message.contentType ?? MessageType.TEXT,
+        senderType: SenderType.user,
+      };
 
       if (!customer) {
         const metadataCustomerZalo = await this.zaloService.getUserProfile(
@@ -375,13 +381,7 @@ export class ChatService {
           id: customer.externalId,
           timestamp: new Date(timestamp),
         },
-        message: {
-          content: message.text,
-          contentType: MessageType.TEXT,
-          senderType: SenderType.channel,
-          id: message.msg_id,
-          createdAt: dayjs(timestamp).toDate(),
-        },
+        message: transferMessage,
       });
 
       if (!messageData) return;
@@ -555,6 +555,67 @@ export class ChatService {
         .to(`conversation:${conversationId}`)
         .emit('delivered_message', {
           ...message,
+          senderId: userId,
+          conversationId: conversationId,
+          channelType: ChannelType.ZALO,
+        });
+    }
+  }
+
+  /**
+   * Handles forwarding a message to multiple customers in a conversation.
+   * */
+  async handleForwardMessage({
+    conversationId,
+    messageId,
+    customerIds,
+    userId,
+  }: {
+    conversationId: string;
+    messageId: string;
+    customerIds: string[];
+    userId: string;
+  }) {
+    const conversation =
+      await this.conversationsService.findOne(conversationId);
+
+    if (!conversation) {
+      throw new InternalServerErrorException('Conversation not found');
+    }
+
+    const channel = conversation.channel;
+    const message = await this.messageService.findOne(messageId);
+    let attechment;
+    if (message.senderType === MessageType.FILE) {
+      attechment = {};
+    }
+    for (const customerId of customerIds) {
+      const customer = await this.customerService.findOne(customerId);
+
+      const sendedMessage = await this.zaloService.sendMessage(
+        channel.accessToken,
+        message.content,
+        customer.externalId,
+        undefined,
+        attechment,
+      );
+
+      const { message: forwardedMessage } =
+        await this.conversationsService.handlePlatformMessage({
+          conversationId: conversationId,
+          message: {
+            content: message.content,
+            externalMessageId: sendedMessage.data.data.message_id,
+            contentType: message.contentType,
+          },
+          userId: userId,
+          messageType: message.contentType,
+        });
+
+      this.chatGateway.server
+        .to(`conversation:${conversationId}`)
+        .emit('delivered_message', {
+          ...forwardedMessage,
           senderId: userId,
           conversationId: conversationId,
           channelType: ChannelType.ZALO,

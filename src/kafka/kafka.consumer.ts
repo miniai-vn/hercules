@@ -136,9 +136,9 @@ export class KafkaConsumerService implements OnModuleDestroy {
         await this.chatService.handleZaloMessage(payload);
         break;
 
-      // case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
-      //   await this.chatService.handleOAMessage(payload);
-      //   break;
+      case ZALO_CONFIG.WEBHOOK_EVENTS.OA_SEND_TEXT:
+        await this.chatService.handleOAMessage(payload);
+        break;
 
       default:
         this.logger.warn(`[Kafka] Unknown Zalo event: ${payload.event_name}`);

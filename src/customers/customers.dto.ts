@@ -337,6 +337,7 @@ export class CustomerListQueryDto {
   })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   page?: number = 1;
 
   @ApiPropertyOptional({
@@ -346,6 +347,7 @@ export class CustomerListQueryDto {
   })
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   limit?: number = 10;
 }
 
